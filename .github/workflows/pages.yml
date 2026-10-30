@@ -8,8 +8,9 @@
 # The build needs nothing but Python's standard library: data/gen.py generates
 # the sample data deterministically and build.py assembles dist/.
 #
-# Turn Pages on once at Settings > Pages > Source > "GitHub Actions", then
-# every push to main republishes.
+# Set Settings > Pages > Source to "GitHub Actions" once. The first run then
+# creates the site itself (see enablement below), and every push to main
+# republishes.
 
 name: Pages
 
@@ -48,7 +49,15 @@ jobs:
           echo "files: $(find dist -type f | wc -l)"
           du -sh dist
 
+      # enablement: true creates the Pages site if it does not exist yet.
+      # Choosing "GitHub Actions" as the Source in Settings does NOT create the
+      # site record: that happens on first deployment, and without this the
+      # action refuses to deploy because no site exists, which is circular.
+      # Measured 2026-10-30: has_pages stayed false and every run failed on
+      # "Get Pages site failed ... Not Found" until this was set.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
