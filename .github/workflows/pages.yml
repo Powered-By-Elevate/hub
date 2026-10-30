@@ -1,0 +1,65 @@
+# GitHub Pages for the Hub demo.
+#
+# The repository carries the SOURCE, not the built site, and this workflow
+# builds it. That keeps the demo reproducible in public, keeps the 2 MB of
+# generated sample data out of the repository's history, and means an update
+# is a push of the handful of files that actually changed.
+#
+# The build needs nothing but Python's standard library: data/gen.py generates
+# the sample data deterministically and build.py assembles dist/.
+#
+# Turn Pages on once at Settings > Pages > Source > "GitHub Actions", then
+# every push to main republishes.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the site
+        run: python3 build.py
+
+      - name: Check what was built
+        run: |
+          test -f dist/index.html
+          test -f dist/data/summary.json
+          test -f dist/.nojekyll
+          echo "files: $(find dist -type f | wc -l)"
+          du -sh dist
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

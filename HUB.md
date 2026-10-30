@@ -1,0 +1,141 @@
+# Hub
+
+A configurable financial and operational dashboard. One build, any industry,
+any software stack, any brand.
+
+Core BI is what this is for True North: a dashboard wired to that company's
+ledger, that company's jobs, that company's people. Hub is the same product
+with every True North decision pulled out into configuration, so the next
+company gets it in days instead of a rebuild. The financial dashboard is the
+thing that sells; everything else is there when a company wants it.
+
+---
+
+## What it does
+
+- **Six industries ship as working demos**, each with its own sample company,
+  brand and connected software: construction, schools, retail, manufacturing,
+  freight, and software. The financial engine is identical in all six. What
+  changes is the **unit of work** the money is divided by — a contract, a
+  campus, a store, a production line, a truck, a product — and that single
+  decision is what makes a dashboard read as *theirs*.
+- **Branding is configuration.** Logo, colour, typefaces, company name. Change
+  them in the settings console and the whole page follows, live.
+- **Software is pick and plug.** Nine categories, 72 connectors, each with its
+  real auth route and API. Switch one on and the pages that use it go live;
+  switch it off and those pages say so rather than showing a figure from
+  nowhere. Where a company runs nothing in a category, the product puts
+  forward the one we would recommend.
+- **View levels by job title.** Eight levels out of the box, renameable to a
+  company's own titles. A level carries a rank (which pages), a scope (how much
+  of the company) and a money setting (whether currency is shown at all), and
+  the three are independent: a supervisor can see every operational page for
+  their own crew with no money on any of them.
+- **It exports its own configuration.** The settings console produces the JSON
+  file a real deployment is built from. No per-client code, no branch, no fork.
+
+## The three honest states
+
+The connector catalogue marks every entry as one of:
+
+| State | Means |
+| --- | --- |
+| **Live** | Run against a real company's data in production. Sage Intacct, QuickBooks Online, Procore, SharePoint, Teams, Outlook, Planner, monday.com, monday CRM. |
+| **Adapter built** | Code written and tested against fixtures, not yet pointed at a live tenant. ADP. |
+| **Available** | The vendor's API and auth route are confirmed, the adapter is not written. Everything else. |
+
+A demo that blurs those three is a demo that gets caught in the first meeting.
+Never promote an entry's state without a measurement.
+
+## Running it
+
+```
+cd tools/hub
+python3 data/gen.py          # regenerate the sample data (deterministic)
+python3 build.py             # assemble dist/
+python3 build.py --serve 8000
+```
+
+Then open `http://127.0.0.1:8000/`. It must be served over http, not opened as
+a file: the configuration and the data are fetched, and ES modules will not
+load from `file://`.
+
+## The gate
+
+```
+node tests/probe.js          # the full walk: six industries, eight levels, every page
+node tests/probe.js --quick  # one industry
+node tests/probe.js --shots  # also write screenshots to tests/shots
+```
+
+4,022 checks. Every page of every level of every industry is opened, and the
+probe asserts that it drew without throwing, that the console is clean, that
+nothing reads `NaN` or `undefined`, that there is no sideways scroll at 1440 or
+390, that the statements tie, that every KPI resolves to a real number, and
+that a level with no money permission leaks no currency anywhere. It runs one
+Chromium at a time on purpose: two in a small container gets the second killed,
+and a killed browser reads exactly like a broken page.
+
+It has already earned its keep twice. It caught a `$2.10` threshold written
+into prose on the freight page, which a no-money level could read, and it
+caught a `$comment` key being walked as though it were a page.
+
+## How it is put together
+
+```
+config/
+  product.json      the page catalogue, the module list, the statement model
+  connectors.json   72 softwares, nine categories, auth route and API each
+  industries.json   six profiles: company, unit of work, measures, KPIs, software
+  brands.json       six brand kits, plus the validated chart palette
+  roles.json        eight view levels
+data/gen.py         the sample data engine
+src/
+  index.html        the shell
+  hub.css           the look. No brand colour is hard-coded anywhere in it.
+  js/
+    settings.js     the client's configuration, and the one apply() that lands it
+    query.js        the fact layer. Role scope is applied here and nowhere else.
+    chart.js        hand-drawn SVG charts. No chart library.
+    fmt.js          formatting, and the one place a money permission is enforced
+    ui.js           verdict, strip, panel, table
+    cms.js          the settings console
+    pages/          finance (8 pages), ops (4), start and the lighter modules
+    app.js          rail, top bar, router, exports, the __hub probe surface
+build.py            assembles dist/ for GitHub Pages
+tests/probe.js      the gate
+```
+
+Two rules the code holds to, both bought the expensive way on Core BI:
+
+- **One place per rule.** Role scope is applied in `query.js` only. The money
+  permission is enforced in `fmt.js` only. Thirty pages cannot each get it
+  right; one function can.
+- **The pickers are drawn in the page**, never a native `<select>`. A native
+  popup is painted outside the document, so a screenshot cannot capture it and
+  a headless screenshot call hangs while one is open.
+
+## What is deliberately not built
+
+- **No live API calls.** Every connector in the demo reads the sample extract.
+  The adapters that are marked live exist in the Core BI build and come across
+  when a real client is wired, which is configuration plus credentials, not
+  development.
+- **No write path.** Nothing in this product writes to a source system. That
+  is a product decision, not an omission.
+- **No single-file build.** ES modules will not load from `file://`, so the
+  demo is served, not emailed. If emailing one file ever matters, it means
+  inlining the modules, which is a small bundler and a day of work.
+
+## Deploying
+
+`dist/` is static files and nothing else. Any static host serves it. For
+GitHub Pages, `deploy/pages.yml` is the workflow: drop it in the target repo
+at `.github/workflows/pages.yml`, push `dist/` to the repo root, and Pages
+serves it from the Actions build.
+
+The permanent home is a repository of its own. A cloud session cannot create
+one (`POST /orgs/{org}/repos` returns 403 for an integration token, and
+Powered-By-Elevate is a user account rather than an organisation, so the user
+route is closed too), so the repository is created by hand once and the session
+pushes to it from then on.
