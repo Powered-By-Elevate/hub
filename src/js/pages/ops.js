@@ -682,6 +682,106 @@ function unitVerdict(q, u, f, ind) {
   }
 }
 
+
+
+/* ------------------------------------------------------------ the grid page
+
+   Twelve months by unit, as a heatmap and as small multiples. This is the
+   view that answers "which one, and since when", which a line chart with
+   twenty series cannot. */
+
+const GRID = {
+  construction: { key: 'pct', name: 'Percent complete', fmt: v => F.pct(v, 0), good: 'high',
+    says: 'how far through each contract is' },
+  education: { key: 'enrolled', name: 'Students enrolled', fmt: v => F.num(v), good: 'high',
+    says: 'how full each campus has been' },
+  retail: { key: 'sales', name: 'Net sales', fmt: v => F.money(v), good: 'high',
+    says: 'how each store has traded' },
+  industrial: { key: 'oee', name: 'OEE', fmt: v => F.pct(v, 0), good: 'high',
+    says: 'how effectively each line has run' },
+  logistics: { key: 'onTime', name: 'On time', fmt: v => F.pct(v, 0), good: 'high',
+    says: 'how each truck has served' },
+  tech: { key: 'arr', name: 'ARR', fmt: v => F.money(v), good: 'high',
+    says: 'how each product has grown' },
+};
+
+export function grid(ctx) {
+  const { q, s } = ctx;
+  const ind = s.industry;
+  const g = GRID[ind.id] || GRID.construction;
+  const months = q.months.slice(-12);
+  const units = q.units;
+  const name = (ind.pages && ind.pages['ops-grid'] && ind.pages['ops-grid'].name) || 'Performance grid';
+
+  const rows = units.map(u => ({
+    name: u.short || u.name,
+    click: `unit:${u.id}`,
+    values: months.map(m => q.fact(u.id, g.key, m)),
+  })).filter(r => r.values.some(Number.isFinite));
+
+  if (!rows.length) {
+    return U.pageHead({ eyebrow: 'Operations', title: name, motif: motif(ind.id, s.data.brand.palette) }) +
+      `<section class="panel"><div class="empty">No ${esc(ind.unit.many)} in scope carry
+       ${esc(g.name.toLowerCase())} over these months.</div></section>`;
+  }
+
+  /* who moved, and by how much, over the window */
+  const movers = rows.map(r => {
+    const vals = r.values.filter(Number.isFinite);
+    const from = vals[0], to = vals[vals.length - 1];
+    return { name: r.name, from, to, change: to - from,
+      pct: from ? (to - from) / Math.abs(from) * 100 : NaN };
+  }).sort((a, b) => a.change - b.change);
+
+  const worst = movers[0], best = movers[movers.length - 1];
+  const lastCol = rows.map(r => r.values[r.values.length - 1]).filter(Number.isFinite);
+  const spread = Math.max(...lastCol) - Math.min(...lastCol);
+
+  return U.pageHead({
+    eyebrow: 'Operations',
+    title: name,
+    motif: motif(ind.id, s.data.brand.palette),
+    answer: `Twelve months of <b>${esc(g.name.toLowerCase())}</b>, ${esc(g.says)}.
+      <b>${esc(best.name)}</b> improved most (${esc(g.fmt(best.from))} to <b>${esc(g.fmt(best.to))}</b>)
+      and <b>${esc(worst.name)}</b> moved the other way
+      (${esc(g.fmt(worst.from))} to <b>${esc(g.fmt(worst.to))}</b>).
+      The spread across ${esc(ind.unit.many)} this month is <b>${esc(g.fmt(spread))}</b>.`,
+  }) + U.fresh(q, s) + `<div class="grid">` +
+    U.panel({
+      col: 12, title: `${esc(g.name)} by ${esc(ind.unit.one)}, month by month`,
+      note: 'One cell per reading, darker for higher. Click a row to open it.',
+      body: C.heatmap({
+        rows, cols: months.map(m => F.monthName(m).split(' ')[0]),
+        fmt: g.fmt, label: g.name.toLowerCase(), good: g.good,
+      }),
+      foot: `${rows.length} ${esc(ind.unit.many)} over ${months.length} months to
+        ${esc(F.monthName(months[months.length - 1], true))},
+        ${F.num(rows.length * months.length)} readings. Colour says more or less, not better
+        or worse: these measures carry no target.`,
+    }) +
+    U.panel({
+      col: 7, title: `Each ${esc(ind.unit.one)} on one scale`,
+      note: 'Every chart shares an axis, so the shapes can be compared rather than only read.',
+      body: C.multiples({
+        rows: rows.map(r => ({ ...r, note: '' })),
+        fmt: g.fmt, labels: months.map(mN),
+      }),
+    }) +
+    U.panel({
+      col: 5, title: 'What moved', pad: false,
+      note: `From ${esc(F.monthName(months[0], true))} to ${esc(F.monthName(months[months.length - 1], true))}.`,
+      body: U.table({
+        cols: [{ name: ind.unit.key }, { name: 'Then', n: true }, { name: 'Now', n: true },
+        { name: 'Change', n: true }],
+        rows: movers.slice().reverse().map(m => ({
+          cells: [esc(m.name), g.fmt(m.from), g.fmt(m.to),
+          F.deltaTag(m.pct, { invert: g.good !== 'high' })],
+        })),
+      }),
+    }) + `</div>`;
+}
+
 export const opsPages = {
-  'ops-home': home, 'ops-units': units, 'ops-second': second, 'ops-detail': detail,
+  'ops-home': home, 'ops-units': units, 'ops-grid': grid,
+  'ops-second': second, 'ops-detail': detail,
 };

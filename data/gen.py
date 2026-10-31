@@ -138,13 +138,20 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
             year = 24 + (i * 3) // n
             num = f"{year}-{101 + i * 7 % 380:03d}"
             name = f"{rnd.pick(PLACES)} {rnd.pick(JOB_KINDS)}"
-            stage = rnd.next()
+            # Start and duration are the job's, not the month's, so percent
+            # complete can only rise and the status agrees with it. Rolling
+            # status separately let a job read "In progress" at 100%.
+            start = (seed_of(num) % 34) - 6          # months, relative to the window
+            dur = 14 + seed_of(num + "dur") % 20     # 14 to 33 months on site
+            pct_now = min(1.0, max(0.01, (MONTHS_BACK - 1 - start) / dur))
             units.append({
                 "id": num, "name": f"{num} {name}", "short": name,
                 "entity": ents[i % len(ents)],
-                "status": "Complete" if stage > 0.86 else ("Starting" if stage < 0.12 else "In progress"),
+                "status": ("Complete" if pct_now >= 1.0
+                           else "Starting" if pct_now < 0.12 else "In progress"),
                 "owner": f"PM {chr(65 + i % 6)}",
                 "started": f"20{year}-{rnd.int_between(1, 11):02d}",
+                "start": start, "dur": dur,
             })
     elif kind == "education":
         grades = ["K-5", "K-5", "6-8", "6-8", "9-12", "K-8"]
@@ -386,9 +393,11 @@ def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out):
         if kind == "construction":
             mult = 7.5 if u["status"] != "Complete" else 4.0
             contract = round2(rev * mult * uw[uid] + 250000)
-            pct = min(0.99, max(0.02, 0.5 + math.sin((mi + seed_of(uid) % 12) / 7.0) * 0.46))
-            if u["status"] == "Complete":
-                pct = 1.0
+            # A job only ever gets further through itself. The first cut used a
+            # sine wave, which made percent complete FALL month on month across
+            # the whole portfolio: obvious nonsense the moment it was put on a
+            # grid, and invisible until it was.
+            pct = min(1.0, max(0.01, (mi - u["start"]) / u["dur"]))
             earned = round2(contract * pct)
             est = round2(contract * (1 - ind["model"]["gm"]) * (1.14 if bad else rnd.around(0.99, 0.04)))
             facts = {"contract": contract, "earned": earned,

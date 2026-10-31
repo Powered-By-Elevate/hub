@@ -43,6 +43,9 @@
         },
         "ops-detail": {
           "name": "Job"
+        },
+        "ops-grid": {
+          "name": "Job progress grid"
         }
       },
       "headline": {
@@ -184,6 +187,9 @@
         },
         "pipeline-home": {
           "name": "Enrolment pipeline"
+        },
+        "ops-grid": {
+          "name": "Enrolment grid"
         }
       },
       "headline": {
@@ -319,6 +325,9 @@
         },
         "ops-detail": {
           "name": "Store"
+        },
+        "ops-grid": {
+          "name": "Store grid"
         }
       },
       "headline": {
@@ -456,6 +465,9 @@
         },
         "ops-detail": {
           "name": "Line"
+        },
+        "ops-grid": {
+          "name": "Line effectiveness"
         }
       },
       "headline": {
@@ -595,6 +607,9 @@
         },
         "ops-detail": {
           "name": "Truck"
+        },
+        "ops-grid": {
+          "name": "Service grid"
         }
       },
       "headline": {
@@ -736,6 +751,9 @@
         },
         "fin-margin": {
           "name": "Unit economics"
+        },
+        "ops-grid": {
+          "name": "Product grid"
         }
       },
       "headline": {

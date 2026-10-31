@@ -405,3 +405,109 @@ export function wire(root) {
     svg.addEventListener('pointerleave', () => { cursor.style.display = 'none'; });
   });
 }
+
+/* ---------------------------------------------------------------- heatmap */
+
+/* rows x months, one cell per reading. The shape a person scans for "which
+   one, and since when", which no line chart with twenty series can answer. */
+export function heatmap(opts) {
+  const {
+    rows = [], cols = [], fmt = v => v, height = null,
+    label = '', good = 'high', rowWidth = 150,
+  } = opts;
+  if (!rows.length || !cols.length) return `<div class="empty">Nothing to draw yet.</div>`;
+
+  const all = rows.flatMap(r => r.values.filter(Number.isFinite));
+  if (!all.length) return `<div class="empty">Nothing to draw yet.</div>`;
+  const lo = Math.min(...all), hi = Math.max(...all);
+  const span = hi - lo || 1;
+
+  const cell = 28, gap = 3;
+  const w = rowWidth + cols.length * (cell + gap) + 10;
+  const h = (height || (rows.length * (cell + gap) + 34));
+  const step = Math.max(1, Math.ceil(cols.length / 12));
+
+  let svg = `<svg class="chart" viewBox="0 0 ${w} ${h}" style="width:100%;height:auto" role="img">`;
+  cols.forEach((c, i) => {
+    if (i % step && i !== cols.length - 1) return;
+    svg += `<text x="${rowWidth + i * (cell + gap) + cell / 2}" y="20" text-anchor="middle"
+      style="font-size:10px">${esc(c)}</text>`;
+  });
+  rows.forEach((r, ri) => {
+    const y = 30 + ri * (cell + gap);
+    svg += `<text x="${rowWidth - 10}" y="${y + cell * 0.68}" text-anchor="end"
+      style="font-size:11.5px">${esc(trim(r.name, 22))}</text>`;
+    r.values.forEach((v, ci) => {
+      const x = rowWidth + ci * (cell + gap);
+      if (!Number.isFinite(v)) {
+        svg += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3"
+          fill="var(--rule-soft)" opacity=".5"/>`;
+        return;
+      }
+      const t = (v - lo) / span;                      /* 0 worst .. 1 best */
+      const score = good === 'high' ? t : 1 - t;
+      svg += `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3"
+        fill="var(--accent)" opacity="${band(score)}"><title>${esc(r.name)} · ${esc(cols[ci])}: ${esc(fmt(v))}</title></rect>`;
+    });
+  });
+  svg += `</svg>`;
+  return svg + `<div class="chart-legend" style="margin-top:12px">
+    <span>${esc(fmt(lo))}</span>
+    ${[0.04, 0.3, 0.5, 0.75, 0.96].map(t =>
+      `<i style="background:var(--accent);opacity:${band(t)};width:22px;height:11px;
+        border-radius:2px;display:inline-block"></i>`).join('')}
+    <span>${esc(fmt(hi))}</span>
+    <span class="muted">${esc(label || 'lower')} to the left, higher to the right</span>
+  </div>`;
+}
+
+/* A five-step ramp in the brand's own colour, not a red-to-green one.
+
+   A heatmap of a LEVEL says more or less, not good or bad: a contract that is
+   20% complete is not failing, and colouring it red says it is. Red and green
+   are for a measure with a target, which these grids do not carry. Five steps
+   rather than a smooth gradient, so a reader can name the step a cell is in. */
+function band(score) {
+  const steps = [0.16, 0.34, 0.54, 0.76, 1];
+  const i = Math.min(steps.length - 1, Math.max(0, Math.floor(score * steps.length)));
+  return steps[i];
+}
+
+function trim(s, n) {
+  s = String(s);
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+}
+
+/* --------------------------------------------------------- small multiples */
+
+/* One tiny chart per unit, all on the same scale, so the shapes are
+   comparable at a glance. Twenty of these beat one chart with twenty lines. */
+export function multiples(opts) {
+  const { rows = [], fmt = v => v, labels = [], shared = true } = opts;
+  if (!rows.length) return `<div class="empty">Nothing to draw yet.</div>`;
+  const all = rows.flatMap(r => r.values.filter(Number.isFinite));
+  const gLo = Math.min(...all, 0), gHi = Math.max(...all, 1);
+
+  return `<div class="multiples">` + rows.map((r, i) => {
+    const vals = r.values.filter(Number.isFinite);
+    const lo = shared ? gLo : Math.min(...vals, 0);
+    const hi = shared ? gHi : Math.max(...vals, 1);
+    const span = (hi - lo) || 1;
+    const W = 150, H = 44;
+    const pts = r.values.map((v, j) => Number.isFinite(v)
+      ? `${(j / Math.max(1, r.values.length - 1) * W).toFixed(1)},${(H - (v - lo) / span * H).toFixed(1)}`
+      : null).filter(Boolean);
+    const last = vals[vals.length - 1];
+    const first = vals[0];
+    const up = last >= first;
+    return `<div class="mult" ${r.click ? `data-click="${esc(r.click)}" tabindex="0"` : ''}>
+      <div class="mult-head"><b>${esc(trim(r.name, 20))}</b>
+        <span class="${up ? 'delta up' : 'delta down'}">${esc(fmt(last))}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:44px">
+        <polyline points="${pts.join(' ')}" fill="none" stroke="${seriesColour(i % 6)}"
+          stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      </svg>
+      ${r.note ? `<div class="mult-note">${r.note}</div>` : ''}
+    </div>`;
+  }).join('') + `</div>`;
+}

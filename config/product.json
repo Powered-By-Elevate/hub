@@ -74,6 +74,12 @@
       "rank": 30,
       "icon": "list"
     },
+    "ops-grid": {
+      "module": "ops",
+      "name": "Performance grid",
+      "rank": 30,
+      "icon": "pulse"
+    },
     "ops-detail": {
       "module": "ops",
       "name": "Unit detail",
