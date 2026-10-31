@@ -68,6 +68,12 @@
       "rank": 30,
       "icon": "grid"
     },
+    "ops-watch": {
+      "module": "ops",
+      "name": "What needs you",
+      "rank": 30,
+      "icon": "flag"
+    },
     "ops-units": {
       "module": "ops",
       "name": "Units",
@@ -79,6 +85,18 @@
       "name": "Performance grid",
       "rank": 30,
       "icon": "pulse"
+    },
+    "ops-season": {
+      "module": "ops",
+      "name": "Pattern by month",
+      "rank": 30,
+      "icon": "clock"
+    },
+    "ops-people": {
+      "module": "ops",
+      "name": "Who carries what",
+      "rank": 45,
+      "icon": "people"
     },
     "ops-detail": {
       "module": "ops",

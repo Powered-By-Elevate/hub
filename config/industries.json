@@ -46,6 +46,9 @@
         },
         "ops-grid": {
           "name": "Job progress grid"
+        },
+        "ops-people": {
+          "name": "Project managers"
         }
       },
       "headline": {
@@ -190,6 +193,9 @@
         },
         "ops-grid": {
           "name": "Enrolment grid"
+        },
+        "ops-people": {
+          "name": "Principals"
         }
       },
       "headline": {
@@ -328,6 +334,9 @@
         },
         "ops-grid": {
           "name": "Store grid"
+        },
+        "ops-people": {
+          "name": "Store managers"
         }
       },
       "headline": {
@@ -468,6 +477,9 @@
         },
         "ops-grid": {
           "name": "Line effectiveness"
+        },
+        "ops-people": {
+          "name": "Supervisors"
         }
       },
       "headline": {
@@ -610,6 +622,9 @@
         },
         "ops-grid": {
           "name": "Service grid"
+        },
+        "ops-people": {
+          "name": "Drivers"
         }
       },
       "headline": {
@@ -754,6 +769,9 @@
         },
         "ops-grid": {
           "name": "Product grid"
+        },
+        "ops-people": {
+          "name": "Product managers"
         }
       },
       "headline": {

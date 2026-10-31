@@ -5,7 +5,7 @@
 import * as F from '../fmt.js';
 import * as C from '../chart.js';
 import * as U from '../ui.js';
-import { esc } from '../icons.js';
+import { esc, icon } from '../icons.js';
 import { motif } from '../scenes.js';
 
 const mN = m => F.monthName(m);
@@ -190,9 +190,12 @@ function flags(q, rows, ind) {
         add('Under-billed', 'warn', `<b>${F.money(f.earned - f.billed)}</b> of work is done and not invoiced`);
       }
     } else if (ind.id === 'education') {
-      if (f.capacity && f.enrolled / f.capacity < 0.85) {
-        add('Seats empty', 'warn', `<b>${F.num(f.capacity - f.enrolled)}</b> seats open, worth
-          <b>${F.money((f.capacity - f.enrolled) * (f.funding || 0))}</b> of funding`);
+      const fill = f.capacity ? f.enrolled / f.capacity : 1;
+      if (fill < 0.7 || fill < 0.85) {
+        add('Seats empty', fill < 0.7 ? 'bad' : 'warn',
+          `<b>${F.num(f.capacity - f.enrolled)}</b> seats open at
+           <b>${F.pct(fill * 100, 0)}</b> full, worth
+           <b>${F.money((f.capacity - f.enrolled) * (f.funding || 0))}</b> of funding`);
       }
     } else if (ind.id === 'retail') {
       if (f.margin && f.margin < ind.model.gm * 100 - 6) {
@@ -898,7 +901,223 @@ export function grid(ctx) {
     }) + `</div>`;
 }
 
+
+
+/* =========================================================================
+   Three more places in Operations. Each has a job: what needs attention,
+   who is carrying it, and what the calendar does to it.
+   ========================================================================= */
+
+/* The rules each industry runs, said in words. A dashboard that flags things
+   without saying what it flags on is asking to be trusted rather than read. */
+const RULES = {
+  construction: [
+    'Projected cost at completion more than 5% over the estimate',
+    'More than 4% of the contract earned and not yet invoiced',
+  ],
+  education: ['A campus under 70% of its seats, which is serious',
+    'A campus under 85% of its seats'],
+  retail: ['Margin more than 6 points under the company'],
+  industrial: ['OEE under 62%', 'Scrap over 4% of what was produced'],
+  logistics: [
+    'Fuel and maintenance over 42% of what the truck earns',
+    'On time under 90%',
+  ],
+  tech: ['Monthly churn over 1.4% of the product’s ARR'],
+};
+
+export function watch(ctx) {
+  const { q, s } = ctx;
+  const ind = s.industry;
+  const rows = q.unitRows();
+  const found = flags(q, rows, ind);
+  const bad = found.filter(f => f.kind === 'bad');
+  const warn = found.filter(f => f.kind === 'warn');
+  const byTag = {};
+  for (const f of found) (byTag[f.tag] ||= []).push(f);
+
+  return U.verdict({
+    title: found.length
+      ? `<b>${found.length}</b> of <b>${rows.length}</b> ${esc(ind.unit.many)} are outside their
+         band, <b>${bad.length}</b> of them badly.`
+      : `Every one of <b>${rows.length}</b> ${esc(ind.unit.many)} is inside its band this month.`,
+    body: found.length
+      ? `Each line is a rule, not an opinion, and the rules are listed below. Click any
+         ${esc(ind.unit.one)} to see the arithmetic that tripped it.`
+      : `The rules are listed below, so an empty list can be read rather than taken on trust.`,
+    figs: [
+      { label: 'Flagged', value: String(found.length) },
+      { label: 'Serious', value: String(bad.length) },
+      { label: 'Worth a look', value: String(warn.length) },
+      { label: `Clear`, value: String(rows.length - found.length) },
+    ],
+  }) + `<div class="grid">` +
+    U.panel({
+      col: 8, title: 'What tripped',
+      note: found.length ? 'Grouped by rule, worst first.' : '',
+      body: found.length
+        ? Object.entries(byTag).sort((a, b) =>
+            (b[1][0].kind === 'bad' ? 1 : 0) - (a[1][0].kind === 'bad' ? 1 : 0))
+          .map(([tag, list]) => `
+            <h4 style="margin:14px 0 8px;font-size:13.5px">${U.statusTag(tag, list[0].kind)}
+              <span class="muted" style="font-weight:400">${list.length}
+              ${list.length === 1 ? esc(ind.unit.one) : esc(ind.unit.many)}</span></h4>
+            <div class="rows">${list.map(f => `
+              <div class="row-item" data-click="unit:${esc(f.id)}" style="cursor:pointer">
+                <span class="grow"><b>${esc(f.name)}</b><div class="sub">${f.why}</div></span>
+                ${icon('arrow', 15)}
+              </div>`).join('')}</div>`).join('')
+        : `<div class="empty">Nothing is outside its band. The month is clean.</div>`,
+    }) +
+    U.panel({
+      col: 4, title: 'The rules',
+      note: `What this ${esc(ind.unit.one)} list is tested against.`,
+      body: `<ol class="steps">${(RULES[ind.id] || []).map(r =>
+        `<li>${esc(r)}</li>`).join('')}</ol>`,
+      foot: `A company sets its own thresholds at deployment. These are the build’s, and
+        the page says so rather than implying they are yours.`,
+    }) + `</div>`;
+}
+
+/* ------------------------------------------------------------ who carries */
+
+export function people(ctx) {
+  const { q, s } = ctx;
+  const ind = s.industry;
+  const w = q.window();
+  const rows = q.unitRows();
+  const found = flags(q, rows, ind);
+  const flagged = new Set(found.map(f => f.id));
+
+  const byOwner = {};
+  for (const r of rows) {
+    const o = (byOwner[r.owner] ||= { name: r.owner, units: 0, rev: 0, flags: 0, names: [] });
+    o.units += 1;
+    o.names.push(r.short || r.name);
+    o.flags += flagged.has(r.id) ? 1 : 0;
+    for (const m of w) o.rev += q.fact(r.id, 'rev', m) || 0;
+  }
+  const owners = Object.values(byOwner).sort((a, b) => b.rev - a.rev);
+  if (!owners.length) {
+    return U.pageHead({ eyebrow: 'Operations', title: 'Who carries what' }) +
+      `<section class="panel"><div class="empty">Nothing is assigned in this scope.</div></section>`;
+  }
+  const most = owners[0], least = owners[owners.length - 1];
+  const name = (ind.pages && ind.pages['ops-people'] && ind.pages['ops-people'].name) || 'Who carries what';
+  const avg = owners.reduce((a, o) => a + o.rev, 0) / owners.length;
+
+  return U.pageHead({
+    eyebrow: 'Operations',
+    title: name,
+    motif: motif(ind.id, s.data.brand.palette),
+    answer: `<b>${owners.length}</b> people carry <b>${rows.length}</b> ${esc(ind.unit.many)}
+      between them. <b>${esc(most.name)}</b> carries the most at <b>${F.money(most.rev)}</b>
+      over the window, <b>${esc(least.name)}</b> the least at <b>${F.money(least.rev)}</b>,
+      and the spread between them is <b>${F.ratio(least.rev ? most.rev / least.rev : 0)}</b>.
+      ${found.length ? `<b>${found.length}</b> flagged ${found.length === 1
+        ? esc(ind.unit.one) : esc(ind.unit.many)} sit across
+        <b>${owners.filter(o => o.flags).length}</b> of them.` : ''}`,
+  }) + U.fresh(q, s) + `<div class="grid">` +
+    U.panel({
+      col: 7, title: 'Load',
+      note: 'Revenue over the window. The mark is the average, so a bar short of it is carrying less than its share.',
+      body: C.hbars({
+        rows: owners.map(o => ({
+          name: o.name, value: o.rev, mark: avg,
+          note: `${o.units} ${o.units === 1 ? ind.unit.one : ind.unit.many}`,
+          colour: o.flags ? 'var(--warn)' : 'var(--accent)',
+        })),
+        fmt: v => F.money(v),
+      }),
+      foot: 'Amber marks someone with at least one flagged ' + esc(ind.unit.one) + '.',
+    }) +
+    U.panel({
+      col: 5, title: 'By person', pad: false,
+      body: U.table({
+        cols: [{ name: (ind.unit.owner || 'Owner') }, { name: ind.unit.collection, n: true },
+        { name: 'Revenue', n: true }, { name: 'Flagged', n: true }],
+        rows: owners.map(o => ({
+          cells: [
+            `<b>${esc(o.name)}</b><div class="sub">${esc(o.names.slice(0, 3).join(', '))}${o.names.length > 3 ? ` and ${o.names.length - 3} more` : ''}</div>`,
+            String(o.units), F.money(o.rev),
+            o.flags ? U.statusTag(String(o.flags), 'warn') : '<span class="muted">none</span>',
+          ],
+        })),
+      }),
+    }) + `</div>`;
+}
+
+/* --------------------------------------------------------------- the year */
+
+export function season(ctx) {
+  const { q, s } = ctx;
+  const ind = s.industry;
+  const months = q.months;
+  const key = { construction: 'rev', education: 'enrolled', retail: 'sales',
+    industrial: 'produced', logistics: 'miles', tech: 'arr' }[ind.id] || 'rev';
+  const label = { construction: 'Earned revenue', education: 'Students enrolled',
+    retail: 'Net sales', industrial: 'Units produced', logistics: 'Miles',
+    tech: 'ARR' }[ind.id] || 'Revenue';
+  const money = ['rev', 'sales', 'arr'].includes(key);
+  const fmt = v => money ? F.money(v) : F.num(v, 0);
+
+  const years = [...new Set(months.map(m => m.slice(0, 4)))].sort();
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const rows = years.map(y => ({
+    name: y,
+    values: MON.map((_, i) => {
+      const m = `${y}-${String(i + 1).padStart(2, '0')}`;
+      return months.includes(m) ? q.factSum(key, [m]) : null;
+    }),
+  }));
+
+  /* the calendar's own shape: each month against the average month */
+  const index = MON.map((_, i) => {
+    const vals = rows.map(r => r.values[i]).filter(Number.isFinite);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  });
+  const mean = index.filter(Number.isFinite).reduce((a, b) => a + b, 0)
+    / index.filter(Number.isFinite).length;
+  const shape = index.map(v => Number.isFinite(v) ? (v / mean - 1) * 100 : null);
+  const peak = MON[shape.indexOf(Math.max(...shape.filter(Number.isFinite)))];
+  const trough = MON[shape.indexOf(Math.min(...shape.filter(Number.isFinite)))];
+  const swing = Math.max(...shape.filter(Number.isFinite)) - Math.min(...shape.filter(Number.isFinite));
+
+  return U.pageHead({
+    eyebrow: 'Operations',
+    title: 'Pattern by month',
+    motif: motif(ind.id, s.data.brand.palette),
+    answer: `<b>${esc(label)}</b> peaks in <b>${esc(peak)}</b> and bottoms in
+      <b>${esc(trough)}</b>, a swing of <b>${F.pct(swing, 0)}</b> between them.
+      ${swing > 30
+        ? 'A business this seasonal cannot be read month on month: the calendar moves it more than the work does.'
+        : 'The calendar moves this business less than the work does, so a month-on-month read is fair.'}`,
+  }) + U.fresh(q, s) + `<div class="grid">` +
+    U.panel({
+      col: 12, title: `${esc(label)} by calendar month`,
+      note: 'One row per year. Reading down a column shows the same month in different years.',
+      body: C.heatmap({
+        rows, cols: MON, fmt, label: label.toLowerCase(), rowWidth: 70,
+      }),
+      foot: `A gap is a month the extract does not reach, not a month of nothing.`,
+    }) +
+    U.panel({
+      col: 12, title: 'The shape of the year',
+      note: 'Each calendar month against the average month, averaged over every year in the extract.',
+      body: C.bars({
+        values: shape.map(v => Number.isFinite(v) ? v : 0), labels: MON,
+        fmt: v => F.pct(v, 0), height: 230,
+        /* A quiet month is the calendar, not a failure. Red here would say
+           February went wrong, and February goes like this every year. */
+        colour: 'var(--accent)', negColour: 'var(--accent-lift)',
+      }),
+      foot: `This is why a pace read as a share of the year gone can mislead: by
+        ${esc(peak)} a seasonal business is further through its year than the calendar says.`,
+    }) + `</div>`;
+}
+
 export const opsPages = {
-  'ops-home': home, 'ops-units': units, 'ops-grid': grid,
-  'ops-second': second, 'ops-detail': detail,
+  'ops-home': home, 'ops-watch': watch, 'ops-units': units, 'ops-grid': grid,
+  'ops-season': season, 'ops-people': people, 'ops-second': second, 'ops-detail': detail,
 };

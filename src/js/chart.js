@@ -114,7 +114,7 @@ export function bars(opts) {
   const {
     values = [], labels = [], height = 220, fmt = v => v, colour = null,
     target = null, overlay = null, overlayName = 'Budget', name = 'Actual',
-    negativeOk = true,
+    negativeOk = true, negColour = 'var(--bad)',
   } = opts;
   if (!values.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const padL = 56, padR = 14, padT = 14, padB = 26;
@@ -143,7 +143,7 @@ export function bars(opts) {
     const w = bw * 0.64;
     const top = Math.min(y(v), y(0)), h = Math.max(1.5, Math.abs(y(v) - y(0)));
     svg += `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
-      fill="${v < 0 ? 'var(--bad)' : c}" rx="2"><title>${esc(name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
+      fill="${v < 0 ? negColour : c}" rx="2"><title>${esc(name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
     if (overlay && Number.isFinite(overlay[i])) {
       svg += `<line x1="${(bx - w * 0.1).toFixed(1)}" x2="${(bx + w * 1.1).toFixed(1)}"
         y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"

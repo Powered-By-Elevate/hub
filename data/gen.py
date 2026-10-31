@@ -237,7 +237,10 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
 
     unit_weight = {u["id"]: rnd.around(1.0, 0.55) for u in units}
     # a couple of units are deliberately in trouble: a demo needs something to find
-    trouble = [units[2]["id"], units[min(len(units) - 1, 5)]["id"]]
+    # A demo where nothing is ever seriously wrong does not sell, and a
+    # dashboard nobody watches catch something is a dashboard nobody trusts.
+    # Three or four across a portfolio, spread out, never the first row.
+    trouble = [units[i]["id"] for i in (2, 5, 9, 14) if i < len(units)]
 
     re_open = model["revM0"] * 12 * 0.21 + lift   # retained earnings opening
     cap = model["revM0"] * 12 * 0.08
@@ -402,11 +405,17 @@ def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out):
             est = round2(contract * (1 - ind["model"]["gm"]) * (1.14 if bad else rnd.around(0.99, 0.04)))
             facts = {"contract": contract, "earned": earned,
                      "billed": round2(earned * rnd.around(1.04 if not bad else 0.88, 0.04)),
-                     "cost": round2(est * pct * (1.05 if bad else 1.0)),
+                     # 1.05 sat exactly on the "more than 5% over" rule and so
+                     # never tripped it. A job in trouble is in trouble.
+                     "cost": round2(est * pct * (1.12 if bad else 1.0)),
                      "estCost": est, "pct": round2(pct * 100), "rev": rev}
         elif kind == "education":
             cap = {"K-5": 480, "6-8": 420, "9-12": 620, "K-8": 560}[u["grades"]]
-            fill = 0.72 if bad else rnd.around(0.93, 0.05)
+            # One campus is genuinely struggling and one is merely soft, so the
+            # two bands both have something in them. Moving the threshold to
+            # fit the data would have been fitting the rule to the answer.
+            fill = (0.66 if trouble.index(uid) == 0 else 0.78) if bad \
+                else rnd.around(0.93, 0.05)
             enrolled = int(cap * min(1.0, fill))
             facts = {"enrolled": enrolled, "capacity": cap,
                      "adm": round2(enrolled * rnd.around(0.955, 0.012)),
@@ -438,7 +447,7 @@ def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out):
             miles = int(rev / rnd.around(2.42 if not bad else 2.02, 0.07))
             facts = {"loads": int(miles / rnd.around(640, 0.1)), "miles": miles,
                      "linehaul": rev, "fuel": round2(miles * rnd.around(0.512, 0.08)),
-                     "maint": round2(miles * (0.31 if bad else rnd.around(0.168, 0.2))),
+                     "maint": round2(miles * (0.36 if bad else rnd.around(0.168, 0.2))),
                      "deadhead": round2(rnd.around(16.5 if not bad else 24.0, 0.12)),
                      "onTime": round2(rnd.around(95.4 if not bad else 86.0, 0.03)),
                      "rev": rev}
