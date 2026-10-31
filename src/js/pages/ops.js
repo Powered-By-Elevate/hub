@@ -572,44 +572,67 @@ export function detail(ctx) {
   if (!u) {
     return U.pageHead({ eyebrow: 'Operations', title: 'Not in scope' }) +
       `<section class="panel"><div class="empty">That ${esc(ind.unit.one)} is not in this
-      view level’s scope. A unit-scoped role sees only its own.</div></section>`;
+      view level\u2019s scope. A unit-scoped role sees only its own.</div></section>`;
   }
-  const f = (q.uf[q.view.month] || {})[u.id] || {};
+  const month = q.view.month;
+  const prevMonth = q.months[Math.max(0, q.months.indexOf(month) - 1)];
+  const f = (q.uf[month] || {})[u.id] || {};
+  const prev = (q.uf[prevMonth] || {})[u.id] || {};
   const months = q.months.slice(-18);
   const measures = ind.measures;
   const verdictText = unitVerdict(q, u, f, ind);
+  const entity = (q.entities.find(e => e.id === u.entity) || {}).name || u.entity;
+
+  const fmtOf = m => v => m.unit === 'usd' ? F.money(v)
+    : m.unit === 'pct' ? F.pct(v, 1) : F.num(v);
 
   return U.verdict({
     title: verdictText.title,
     body: verdictText.body,
     figs: measures.slice(0, 4).map(m => ({
-      label: m.name,
-      value: m.unit === 'usd' ? F.money(f[m.id]) : m.unit === 'pct' ? F.pct(f[m.id], 1) : F.num(f[m.id]),
+      label: m.name, value: fmtOf(m)(f[m.id]),
     })),
   }) + `<div class="grid">` +
+
+    /* the chain that produces this unit's result, as a bridge */
     U.panel({
-      col: 5, title: 'The arithmetic', pad: false,
-      note: 'Every measure this month, as the source system reports it.',
+      col: 7, title: 'How it arrives',
+      note: 'The arithmetic behind the headline, in the order it happens.',
+      body: C.waterfall({ items: chain(u, f, ind), fmt: v => F.money(v), height: 260 }),
+      foot: chainNote(u, f, ind),
+    }) +
+
+    U.panel({
+      col: 5, title: 'This month against last', pad: false,
+      note: `${esc(F.monthName(month, true))} beside ${esc(F.monthName(prevMonth, true))}.`,
       body: U.table({
-        cols: [{ name: 'Measure' }, { name: F.monthName(q.view.month, true), n: true }],
-        rows: measures.map(m => ({
-          cells: [esc(m.name),
-          m.unit === 'usd' ? F.exact(f[m.id], f[m.id] < 100 ? 2 : 0)
-            : m.unit === 'pct' ? F.pct(f[m.id], 1) : F.num(f[m.id], 0)],
-        })),
+        cols: [{ name: 'Measure' }, { name: 'Now', n: true }, { name: 'Last', n: true },
+        { name: 'Change', n: true }],
+        rows: measures.map(m => {
+          const now = f[m.id], was = prev[m.id];
+          const pc = Number.isFinite(now) && Number.isFinite(was) && was !== 0
+            ? (now - was) / Math.abs(was) * 100 : NaN;
+          return {
+            cells: [esc(m.name), fmtOf(m)(now), fmtOf(m)(was), F.deltaTag(pc)],
+          };
+        }),
       }),
-      foot: `${esc(u.status)} · ${esc(u.owner)} · booked to
-        ${esc((q.entities.find(e => e.id === u.entity) || {}).name || u.entity)}`,
+      foot: `${esc(u.status)} \u00b7 ${esc(u.owner)} \u00b7 booked to ${esc(entity)}`,
     }) +
+
     U.panel({
-      col: 7, title: 'Eighteen months',
-      body: C.line({
-        series: measures.filter(m => m.unit === 'usd').slice(0, 2).map(m => ({
-          name: m.name, values: months.map(mm => q.fact(u.id, m.id, mm) ?? null),
+      col: 12, title: 'Eighteen months',
+      note: 'Every measure this ' + esc(ind.unit.one) + ' carries, on its own scale.',
+      body: C.multiples({
+        rows: measures.map(m => ({
+          name: m.name,
+          fmt: fmtOf(m),                 /* each measure keeps its own units */
+          values: months.map(mm => q.fact(u.id, m.id, mm) ?? null),
         })),
-        labels: months.map(mN), fmt: v => F.money(v), height: 260,
+        fmt: v => F.num(v, 0), labels: months.map(mN), shared: false,
       }),
     }) +
+
     U.panel({
       col: 12, title: `Against the other ${esc(ind.unit.many)}`,
       note: 'This one is marked. A single figure means little without the spread it sits in.',
@@ -618,10 +641,104 @@ export function detail(ctx) {
           name: r.short || r.name,
           value: r.f.rev || 0,
           colour: r.id === u.id ? 'var(--accent)' : 'var(--rule)',
+          note: r.id === u.id ? 'this one' : '',
         })).sort((a, b) => b.value - a.value),
         fmt: v => F.money(v),
       }),
+      foot: (() => {
+        const rows = q.unitRows().map(r => r.f.rev || 0).sort((a, b) => b - a);
+        const mine = f.rev || 0;
+        const rank = rows.indexOf(mine) + 1;
+        return rank > 0
+          ? `Ranked ${rank} of ${rows.length} by revenue this month.`
+          : 'Not carrying revenue this month.';
+      })(),
     }) + `</div>`;
+}
+
+/* The chain from the top line to what is left, per industry. Every step is a
+   figure the page already shows elsewhere, so a reader can check it. */
+function chain(u, f, ind) {
+  switch (ind.id) {
+    case 'construction': {
+      const pct = (f.pct || 0) / 100;
+      const cost = f.cost || 0;
+      return [
+        { name: 'Contract', value: f.contract || 0, total: true },
+        { name: 'Not yet earned', value: -((f.contract || 0) - (f.earned || 0)) },
+        { name: 'Earned', value: f.earned || 0, total: true },
+        { name: 'Cost to date', value: -cost },
+        { name: 'Margin so far', value: (f.earned || 0) - cost, total: true },
+      ];
+    }
+    case 'education': {
+      const rev = (f.enrolled || 0) * (f.funding || 0);
+      const cost = (f.enrolled || 0) * (f.costPer || 0);
+      return [
+        { name: 'Seats', value: (f.capacity || 0) * (f.funding || 0), total: true },
+        { name: 'Empty seats', value: -(((f.capacity || 0) - (f.enrolled || 0)) * (f.funding || 0)) },
+        { name: 'Funding', value: rev, total: true },
+        { name: 'Cost to run', value: -cost },
+        { name: 'Left over', value: rev - cost, total: true },
+      ];
+    }
+    case 'retail': {
+      const sales = f.sales || 0;
+      const cogs = sales * (1 - (f.margin || 0) / 100);
+      return [
+        { name: 'Net sales', value: sales, total: true },
+        { name: 'Cost of goods', value: -cogs },
+        { name: 'Gross profit', value: sales - cogs, total: true },
+      ];
+    }
+    case 'industrial': {
+      const made = (f.produced || 0) - (f.scrap || 0);
+      const cpu = f.cpu || 0;
+      return [
+        { name: 'Produced', value: (f.produced || 0) * cpu, total: true },
+        { name: 'Scrapped', value: -((f.scrap || 0) * cpu) },
+        { name: 'Good output', value: made * cpu, total: true },
+      ];
+    }
+    case 'logistics': {
+      const rev = f.linehaul || 0;
+      return [
+        { name: 'Linehaul', value: rev, total: true },
+        { name: 'Fuel', value: -(f.fuel || 0) },
+        { name: 'Maintenance', value: -(f.maint || 0) },
+        { name: 'Before overhead', value: rev - (f.fuel || 0) - (f.maint || 0), total: true },
+      ];
+    }
+    default: {
+      const arr = f.arr || 0;
+      return [
+        { name: 'ARR a year ago', value: arr - (f.newArr || 0) + (f.churn || 0), total: true },
+        { name: 'New', value: f.newArr || 0 },
+        { name: 'Churned', value: -(f.churn || 0) },
+        { name: 'ARR now', value: arr, total: true },
+      ];
+    }
+  }
+}
+
+function chainNote(u, f, ind) {
+  switch (ind.id) {
+    case 'construction':
+      return `Cost is to date, not at completion, so the margin here is what the job has
+        banked rather than what it will finish on.`;
+    case 'education':
+      return `An empty seat costs the same to keep as a full one, which is why the gap is
+        drawn as money rather than as a count.`;
+    case 'retail':
+      return `Before store payroll and occupancy, which sit in overhead rather than on the store.`;
+    case 'industrial':
+      return `Scrap is priced at the same unit cost as good output, because it consumed it.`;
+    case 'logistics':
+      return `Fuel and maintenance only. Driver pay, insurance and overhead sit above this.`;
+    default:
+      return `Expansion is counted inside new ARR, a stated sample assumption rather than a
+        reading from a billing system.`;
+  }
 }
 
 function unitVerdict(q, u, f, ind) {

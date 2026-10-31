@@ -228,6 +228,44 @@ async function main() {
       ok(errors.length === 0, `${ind}: ${theme} theme console clean`, errors[0] || '');
     }
 
+    /* the drill-down. It is a hidden page, so the page walk above never opens
+       it, and a row that invites a click has to reward one. */
+    {
+      errors.length = 0;
+      await page.evaluate("window.__hub.pick('role', 'exec')");
+      await page.evaluate("window.__hub.go('ops-units')");
+      await page.waitForTimeout(120);
+      const opened = await page.evaluate(() => {
+        const row = document.querySelector('tbody tr[data-click]');
+        if (!row) return null;
+        row.click();
+        return row.dataset.click;
+      });
+      ok(!!opened, `${ind}: a unit row opens something`);
+      await page.waitForTimeout(220);
+      const seen = await page.evaluate(() => {
+        const host = document.getElementById('page');
+        const text = host.innerText || '';
+        return {
+          page: window.__hub.page(),
+          len: text.length,
+          panels: host.querySelectorAll('.panel').length,
+          charts: host.querySelectorAll('svg.chart').length,
+          nan: /NaN|undefined|Infinity/.test(text),
+          notInScope: text.includes('not in this view level'),
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      ok(seen.page === 'ops-detail', `${ind}: the click lands on the drill-down`, seen.page);
+      ok(!seen.notInScope, `${ind}: the unit it opened is in scope`);
+      ok(seen.panels >= 4, `${ind}: the drill-down rewards the click`, `${seen.panels} panels`);
+      ok(seen.charts >= 2, `${ind}: the drill-down draws`, `${seen.charts} charts`);
+      ok(seen.len > 400, `${ind}: the drill-down has content`, `${seen.len} chars`);
+      ok(!seen.nan, `${ind}: no NaN on the drill-down`);
+      ok(seen.overflow <= 1, `${ind}: the drill-down does not scroll sideways`, String(seen.overflow));
+      ok(errors.length === 0, `${ind}: drill-down console clean`, errors[0] || '');
+    }
+
     /* presentation mode: one panel per screen, arrows advance, Escape leaves */
     for (const p of ['fin-dash', 'ops-home']) {
       errors.length = 0;

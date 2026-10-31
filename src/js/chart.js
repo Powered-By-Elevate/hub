@@ -497,13 +497,15 @@ export function multiples(opts) {
     const pts = r.values.map((v, j) => Number.isFinite(v)
       ? `${(j / Math.max(1, r.values.length - 1) * W).toFixed(1)},${(H - (v - lo) / span * H).toFixed(1)}`
       : null).filter(Boolean);
+    const show = r.fmt || fmt;
     const last = vals[vals.length - 1];
     const first = vals[0];
     const up = last >= first;
     return `<div class="mult" ${r.click ? `data-click="${esc(r.click)}" tabindex="0"` : ''}>
       <div class="mult-head"><b>${esc(trim(r.name, 20))}</b>
-        <span class="${up ? 'delta up' : 'delta down'}">${esc(fmt(last))}</span></div>
-      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:44px">
+        <span class="${up ? 'delta up' : 'delta down'}">${esc(show(last))}</span></div>
+      <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
+        style="width:100%;height:44px">
         <polyline points="${pts.join(' ')}" fill="none" stroke="${seriesColour(i % 6)}"
           stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
       </svg>
