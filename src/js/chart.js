@@ -214,7 +214,8 @@ export function donut(opts) {
   if (total <= 0) return `<div class="empty">Nothing to draw yet.</div>`;
   const r = size / 2 - 10, ir = r * 0.62, cx = size / 2, cy = size / 2;
   let a0 = -Math.PI / 2;
-  let svg = `<svg class="chart" viewBox="0 0 ${size} ${size}" style="width:100%;max-width:${size}px;height:auto" role="img">`;
+  let svg = `<svg class="chart donut" viewBox="0 0 ${size} ${size}"
+    style="width:100%;max-width:${size}px;height:auto" role="img">`;
   parts.forEach((p, i) => {
     const frac = Math.max(0, p.value) / total;
     const a1 = a0 + frac * Math.PI * 2;

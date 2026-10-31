@@ -18,6 +18,7 @@ import { opsPages } from './pages/ops.js';
 import { miscPages } from './pages/misc.js';
 import { settings as settingsPage, connectSheet, FONT_PAIRS } from './cms.js';
 import * as Chooser from './chooser.js';
+import * as Present from './present.js';
 
 const BASIS = [
   { id: 'month', name: 'Month' }, { id: 'ytd', name: 'YTD' },
@@ -57,6 +58,8 @@ async function boot() {
   document.addEventListener('change', onChange);
   document.addEventListener('input', onInput);
   document.addEventListener('keydown', ev => {
+    if (ev.target.matches('input, textarea, select')) return;
+    if (Present.key(ev)) { ev.preventDefault(); return; }
     if (ev.key === 'Escape') { closeMenu(); closeSheet(); }
   });
 
@@ -83,6 +86,19 @@ function readHash() {
   if (!h) return;
   const [page, arg] = h.split('/');
   if (PAGES[page]) { app.page = page; app.arg = arg ? decodeURIComponent(arg) : null; }
+}
+
+function startPresenting() {
+  closeMenu();
+  closeSheet();
+  const ok = Present.enter({ s: app.s, pageId: () => app.page });
+  if (!ok) {
+    /* a page with nothing to present says so rather than blanking */
+    const host = document.getElementById('page');
+    host.insertAdjacentHTML('afterbegin',
+      `<div id="demo-note">${icon('flag', 15)}<span>There is nothing on this page to present.</span>
+       <button data-act="hide-note">\u00d7</button></div>`);
+  }
 }
 
 function openChooser(firstTime = false) {
@@ -130,6 +146,7 @@ function render() {
   }
   host.innerHTML = (s.data.showDemoNote ? demoNote() : '') + html;
   C.wire(host);
+  if (Present.isOn()) Present.collect();
   host.scrollIntoView({ block: 'start' });
   window.scrollTo({ top: 0 });
 }
@@ -220,6 +237,8 @@ function bar() {
     <span class="bar-tools">
       <button class="btn ghost sm" data-act="theme-toggle" title="Light or dark">
         ${icon(s.data.theme === 'dark' ? 'sun' : 'moon', 17)}</button>
+      <button class="btn ghost sm" data-act="present" title="Present this page, one panel at a time">
+        ${icon('grid', 17)}</button>
       <button class="btn ghost sm" data-act="print" title="Print this page">${icon('print', 17)}</button>
       <button class="btn ghost sm" data-act="go" data-arg="settings" title="Settings">${icon('gear', 17)}</button>
     </span>`;
@@ -348,6 +367,10 @@ async function onClick(ev) {
       app.s.data.theme = app.s.data.theme === 'dark' ? 'light' : 'dark';
       app.s.save().apply(); render(); break;
     case 'print': window.print(); break;
+    case 'present': startPresenting(); break;
+    case 'present-next': Present.next(); break;
+    case 'present-prev': Present.prev(); break;
+    case 'present-exit': Present.exit(); break;
     case 'hide-note': app.s.data.showDemoNote = false; app.s.save(); render(); break;
     case 'industry':
       app.s.useIndustry(arg);
@@ -562,6 +585,18 @@ function api() {
       const el = document.getElementById('chooser');
       return !!el && !el.hidden;
     },
+    present: on => {
+      if (on === false) { Present.exit(); return false; }
+      return startPresenting(), Present.isOn();
+    },
+    presenting: () => Present.isOn(),
+    slide: n => {
+      if (n === undefined) return { at: Present.index(), of: Present.count() };
+      Present.go(n);
+      return { at: Present.index(), of: Present.count() };
+    },
+    slideNext: () => (Present.next(), Present.index()),
+    slidePrev: () => (Present.prev(), Present.index()),
     roles: () => app.s.data.roles.map(r => r.id),
     months: () => app.q.months,
     pick: (what, value) => {

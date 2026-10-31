@@ -60,6 +60,8 @@ export function icon(name, size = 18, extra = '') {
     class="${extra}" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
+let markSeq = 0;
+
 const SHAPES = {
   square: 'M2 2h20v20H2z',
   chevron: 'M12 1 23 7v10L12 23 1 17V7z',
@@ -75,7 +77,7 @@ export function brandMark(brand, size = 34) {
   const shape = SHAPES[brand.shape] || SHAPES.square;
   const a = brand.palette.accent;
   const b = brand.palette.accentDeep;
-  const id = 'g' + Math.abs(hash(brand.name)).toString(36);
+  const id = 'g' + Math.abs(hash(brand.name)).toString(36) + (markSeq++).toString(36);
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-label="${brand.name}">
     <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/>

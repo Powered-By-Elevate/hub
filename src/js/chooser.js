@@ -9,6 +9,7 @@
 
 import * as F from './fmt.js';
 import { esc, brandMark, INDUSTRY_ICON, icon } from './icons.js';
+import { scene } from './scenes.js';
 import { spark } from './chart.js';
 
 let cards = null;
@@ -89,13 +90,16 @@ function world(c, brand, isCurrent) {
   const p = brand.palette;
   return `<button class="world" data-world="${esc(c.id)}" aria-current="${!!isCurrent}"
     style="--w-accent:${p.accent};--w-deep:${p.navy};--w-lift:${p.accentLift};--w-tint:${p.tint}">
-    <span class="w-band">
-      <span class="w-mark">${brandMark(brand, 38)}</span>
-      <span class="w-id">
-        <b>${esc(c.company)}</b>
-        <span>${esc(c.short)}</span>
+    <span class="w-scene">
+      ${scene(c.id, p, { height: 150 })}
+      <span class="w-band">
+        <span class="w-mark">${brandMark(brand, 38)}</span>
+        <span class="w-id">
+          <b>${esc(c.company)}</b>
+          <span>${esc(c.short)}</span>
+        </span>
+        <span class="w-ico">${icon(INDUSTRY_ICON[c.id] || 'grid', 20)}</span>
       </span>
-      <span class="w-ico">${icon(INDUSTRY_ICON[c.id] || 'grid', 20)}</span>
     </span>
     <span class="w-body">
       <span class="w-label">${esc(c.label)}</span>

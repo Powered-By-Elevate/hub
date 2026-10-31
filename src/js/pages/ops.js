@@ -6,6 +6,7 @@ import * as F from '../fmt.js';
 import * as C from '../chart.js';
 import * as U from '../ui.js';
 import { esc } from '../icons.js';
+import { motif } from '../scenes.js';
 
 const mN = m => F.monthName(m);
 
@@ -235,6 +236,7 @@ export function units(ctx) {
   return U.pageHead({
     eyebrow: 'Operations',
     title: name,
+    motif: motif(ind.id, s.data.brand.palette),
     answer: `Every ${esc(ind.unit.one)} in scope as of <b>${esc(F.monthName(q.view.month, true))}</b>.
       A position is read as of the month, not summed over the window. Click any row for the arithmetic behind it.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
@@ -274,7 +276,8 @@ export function second(ctx) {
     construction: backlog, education: enrolment, retail: category,
     industrial: throughput, logistics: lanes, tech: retention,
   }[ind.id] || backlog;
-  return U.pageHead({ eyebrow: 'Operations', title: name, answer: fn.answer(ctx) })
+  return U.pageHead({ eyebrow: 'Operations', title: name, answer: fn.answer(ctx),
+    motif: motif(ind.id, s.data.brand.palette) })
     + U.fresh(q, s) + `<div class="grid">${fn(ctx)}</div>`;
 }
 

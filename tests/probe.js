@@ -228,6 +228,61 @@ async function main() {
       ok(errors.length === 0, `${ind}: ${theme} theme console clean`, errors[0] || '');
     }
 
+    /* presentation mode: one panel per screen, arrows advance, Escape leaves */
+    for (const p of ['fin-dash', 'ops-home']) {
+      errors.length = 0;
+      await page.evaluate(`window.__hub.go('${p}')`);
+      await page.waitForTimeout(110);
+      const on = await page.evaluate('window.__hub.present()');
+      await page.waitForTimeout(160);
+      const seen = await page.evaluate(() => {
+        const slides = [...document.querySelectorAll('[data-slide]')];
+        const shown = slides.filter(e => getComputedStyle(e).display !== 'none');
+        return {
+          on: window.__hub.presenting(),
+          of: window.__hub.slide().of,
+          shown: shown.length,
+          text: shown.length ? (shown[0].innerText || '').length : 0,
+          chromeBar: !!document.getElementById('present-bar'),
+          railHidden: getComputedStyle(document.getElementById('rail')).display === 'none',
+          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        };
+      });
+      ok(on && seen.on, `${ind}/${p}: presentation mode opens`);
+      ok(seen.of > 1, `${ind}/${p}: more than one slide`, String(seen.of));
+      ok(seen.shown === 1, `${ind}/${p}: exactly one slide on screen`, String(seen.shown));
+      ok(seen.text > 40, `${ind}/${p}: the slide on screen has content`, `${seen.text} chars`);
+      ok(seen.chromeBar, `${ind}/${p}: the presenter bar is drawn`);
+      ok(seen.railHidden, `${ind}/${p}: the rail is out of the way`);
+      ok(seen.overflow <= 1, `${ind}/${p}: no sideways scroll while presenting`, String(seen.overflow));
+
+      /* every slide must draw something: a blank slide in front of a board is
+         the failure this check exists for, and it has already caught one */
+      let blanks = 0;
+      for (let i = 0; i < seen.of; i++) {
+        await page.evaluate(`window.__hub.slide(${i})`);
+        await page.waitForTimeout(60);
+        const len = await page.evaluate(() => {
+          const el = document.querySelector('[data-current="true"]');
+          if (!el) return 0;
+          if (getComputedStyle(el).display === 'none') return 0;
+          const r = el.getBoundingClientRect();
+          return r.width > 100 && r.height > 100 ? (el.innerText || '').length : 0;
+        });
+        if (len < 20) blanks++;
+      }
+      ok(blanks === 0, `${ind}/${p}: no blank slides`, `${blanks} of ${seen.of} blank`);
+
+      await page.evaluate('window.__hub.slide(0)');
+      const moved = await page.evaluate('window.__hub.slideNext()');
+      ok(moved === 1, `${ind}/${p}: advancing moves the slide`, String(moved));
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(120);
+      ok(!(await page.evaluate('window.__hub.presenting()')),
+        `${ind}/${p}: Escape leaves presentation mode`);
+      ok(errors.length === 0, `${ind}/${p}: presentation console clean`, errors[0] || '');
+    }
+
     /* the phone */
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate('window.__hub.chooser(true)');

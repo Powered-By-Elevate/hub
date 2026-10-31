@@ -319,7 +319,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .panel-head { padding: 15px 18px 11px; display: flex; align-items: flex-start; gap: 12px; }
 .panel-head h3 { font-size: 15.5px; }
 .panel-head p { margin: 3px 0 0; font-size: 12.5px; color: var(--ink-faint); max-width: 62ch; }
-.panel-head .right { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+.panel-head .right { margin-left: auto; display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.panel-head .right .btn { white-space: nowrap; }
 .panel-body { padding: 4px 18px 18px; }
 .panel-foot { padding: 11px 18px; border-top: 1px solid var(--rule-soft); font-size: 12px; color: var(--ink-faint); background: var(--tint); }
 
@@ -538,8 +539,10 @@ table.t td .btn { white-space: nowrap; }
 /* the cover on Start here */
 .cover {
   background: var(--navy); color: #fff; border-radius: 20px;
-  padding: 40px 42px 34px; position: relative; overflow: hidden;
+  padding: 46px 42px 44px; position: relative; overflow: hidden;
+  min-height: 268px;
   box-shadow: var(--shadow-lg); margin-bottom: 22px;
+  display: flex; flex-direction: column; justify-content: center;
 }
 .cover::before {
   content: ""; position: absolute; inset: 0;
@@ -823,3 +826,181 @@ body.choosing { overflow: hidden; }
 .ind-chip .m { width: 22px; height: 22px; flex: 0 0 22px; display: grid; place-items: center; }
 .ind-chip b { display: block; font-size: 13px; line-height: 1.2; }
 .ind-chip span span { display: block; font-size: 11px; color: var(--ink-faint); }
+
+/* ===========================================================================
+   Presentation mode: one panel per screen.
+
+   Nothing is re-rendered to present. The sections already on the page are
+   marked, and these rules show one at a time and set it large. That is why
+   advancing a slide costs nothing and a chart keeps its state.
+   =========================================================================== */
+
+body.presenting { overflow: hidden; background: var(--ground-deep); }
+body.presenting #rail,
+body.presenting #tabs,
+body.presenting #bar,
+body.presenting #demo-note { display: none !important; }
+body.presenting #main { height: 100vh; }
+body.presenting #page { padding: 0; max-width: none; height: 100vh; }
+
+/* Everything the collector did not mark is not part of the talk. The .grid is
+   excluded by name: it holds the panels, so hiding it hides them too, whatever
+   their own display says. Measured, and it blanked every panel slide. */
+body.presenting #page > *:not([data-slide]):not(.grid),
+body.presenting #page > .grid > *:not([data-slide]) { display: none !important; }
+
+/* a container that only exists to hold panels gets out of the way */
+body.presenting #page > .grid { display: contents !important; }
+
+body.presenting [data-slide] { display: none !important; }
+body.presenting [data-current="true"] {
+  display: flex !important;
+  flex-direction: column;
+  position: fixed;
+  inset: 0 0 76px 0;
+  margin: 0;
+  padding: clamp(28px, 4vw, 64px) clamp(24px, 5vw, 86px) clamp(18px, 2vw, 32px);
+  overflow-y: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--paper);
+  animation: presIn .32s cubic-bezier(.2, .7, .3, 1) both;
+}
+body.presenting .verdict[data-current="true"] { background: var(--navy); justify-content: center; }
+body.presenting .strip[data-current="true"],
+body.presenting .panel[data-current="true"] .panel-body:only-child { justify-content: center; }
+
+@keyframes presIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.presenting [data-current="true"] { animation: none; }
+}
+
+/* set it large: a board reads this from the far end of a table */
+body.presenting [data-current="true"] .panel-head { padding: 0 0 18px; }
+body.presenting [data-current="true"] .panel-head h3 { font-size: clamp(24px, 2.6vw, 38px); }
+body.presenting [data-current="true"] .panel-head p { font-size: clamp(14px, 1.2vw, 18px); max-width: 80ch; }
+body.presenting [data-current="true"] .panel-body { padding: 0; flex: 1; min-height: 0; }
+body.presenting [data-current="true"] .panel-foot {
+  margin: 18px -1000px -1000px; padding: 16px 1000px 1000px;
+  font-size: clamp(13px, 1.1vw, 16px);
+}
+body.presenting [data-current="true"] table.t { font-size: clamp(13px, 1.15vw, 18px); }
+body.presenting [data-current="true"] table.t th { font-size: clamp(10px, .8vw, 13px); }
+body.presenting [data-current="true"] table.t td { padding: 10px 11px; }
+body.presenting [data-current="true"] .scroll { max-height: none; }
+body.presenting [data-current="true"] .strip-value { font-size: clamp(30px, 3.4vw, 52px); }
+body.presenting [data-current="true"] .strip-label { font-size: clamp(11px, .9vw, 14px); }
+body.presenting [data-current="true"] .strip-item { padding: 18px 22px 16px; min-width: 200px; }
+body.presenting [data-current="true"] .row-item { font-size: clamp(13px, 1.15vw, 17px); padding: 12px 15px; }
+body.presenting [data-current="true"] .chart { max-height: 62vh; }
+/* a donut is capped inline so it does not balloon in a wide panel: in a talk
+   it has a whole screen, so let it grow */
+body.presenting [data-current="true"] svg.donut { max-width: min(100%, 38vh) !important; }
+body.presenting [data-current="true"] .chart-legend { font-size: clamp(12px, 1vw, 16px); }
+
+body.presenting .verdict[data-current="true"] h2 { font-size: clamp(26px, 3.2vw, 48px); max-width: 26ch; }
+body.presenting .verdict[data-current="true"] p { font-size: clamp(15px, 1.4vw, 21px); }
+body.presenting .verdict[data-current="true"] .vstrip { margin-top: clamp(22px, 3vw, 46px); gap: clamp(26px, 4vw, 64px); }
+body.presenting .verdict[data-current="true"] .vvalue { font-size: clamp(26px, 3vw, 46px); }
+body.presenting .verdict[data-current="true"] .vlabel { font-size: clamp(10px, .85vw, 13px); }
+
+body.presenting .page-head[data-current="true"] { justify-content: center; }
+body.presenting .page-head[data-current="true"] .page-title { font-size: clamp(32px, 4.4vw, 68px); }
+body.presenting .page-head[data-current="true"] .page-answer { font-size: clamp(16px, 1.7vw, 26px); max-width: 44ch; }
+body.presenting .page-head[data-current="true"] .page-eyebrow { font-size: clamp(11px, 1vw, 15px); }
+
+body.presenting .strip[data-current="true"] {
+  justify-content: center; align-content: center; flex-direction: row; flex-wrap: wrap;
+  gap: clamp(12px, 1.6vw, 24px);
+}
+
+/* the presenter's own bar */
+#present-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 76px; z-index: 420;
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 clamp(16px, 3vw, 40px);
+  background: var(--navy); color: #fff;
+}
+#present-bar::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, .08) 1px, transparent 1px);
+  background-size: 18px 18px; pointer-events: none;
+}
+.pb-mark {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 8px; overflow: hidden;
+  background: #fff; display: grid; place-items: center; position: relative;
+}
+.pb-mark img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+.pb-who { position: relative; line-height: 1.25; }
+.pb-who b { display: block; font-family: var(--font-display); font-size: 15px; }
+.pb-who span { font-size: 11px; letter-spacing: .09em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.pb-gap { flex: 1; }
+.pb-count {
+  position: relative; font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 600;
+  min-width: 68px; text-align: center;
+}
+.pb-count i { font-style: normal; opacity: .45; margin: 0 2px; }
+.pb-btn {
+  position: relative;
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 38px; padding: 0 13px;
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px; color: #fff; font-size: 13px;
+}
+.pb-btn:hover:not([disabled]) { background: rgba(255, 255, 255, .2); }
+.pb-btn[disabled] { opacity: .32; cursor: not-allowed; }
+.pb-btn .flip { transform: rotate(180deg); }
+.pb-exit { margin-left: 8px; }
+
+@media (max-width: 640px) {
+  #present-bar { height: 64px; gap: 8px; }
+  .pb-who { display: none; }
+  body.presenting [data-current="true"] { inset: 0 0 64px 0; padding: 20px 16px; }
+}
+
+@media print {
+  body.presenting [data-slide] { display: block !important; position: static; }
+  #present-bar { display: none; }
+}
+
+/* ===========================================================================
+   The drawn worlds. Decoration only: nothing here carries a figure.
+   =========================================================================== */
+
+.scene { display: block; width: 100%; }
+
+.cover-scene {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  /* the world fades in from the left so the sentence over it stays readable */
+  -webkit-mask-image: linear-gradient(90deg, transparent 2%, rgba(0,0,0,.5) 26%, #000 52%);
+  mask-image: linear-gradient(90deg, transparent 2%, rgba(0,0,0,.5) 26%, #000 52%);
+}
+.cover > *:not(.cover-scene) { position: relative; z-index: 1; }
+
+.w-scene {
+  display: block; position: relative; overflow: hidden;
+  height: 150px;
+}
+.w-scene .scene { position: absolute; inset: 0; height: 100% !important; width: 100%; }
+.world .w-band {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(180deg, transparent, rgba(8, 13, 20, .72) 46%, rgba(8, 13, 20, .9));
+  padding: 24px 16px 13px;
+}
+.world .w-band::after { display: none; }
+
+/* a small industry motif beside a page title */
+.head-motif {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; flex: 0 0 46px;
+  background: var(--tint); border-radius: 12px;
+  margin-right: 14px;
+}
+.page-head.with-motif { display: flex; align-items: flex-start; gap: 0; }
+.page-head.with-motif > div { min-width: 0; }

@@ -6,6 +6,7 @@ import * as F from '../fmt.js';
 import * as C from '../chart.js';
 import * as U from '../ui.js';
 import { esc, icon, brandMark, connTile, INDUSTRY_ICON } from '../icons.js';
+import { scene, motif } from '../scenes.js';
 
 export function start(ctx) {
   const { q, s, cfg } = ctx;
@@ -38,8 +39,10 @@ export function start(ctx) {
   const live = connected.filter(c => c.status === 'live');
 
   return `<section class="cover">
+    <div class="cover-scene">${scene(ind.id, s.data.brand.palette, { height: 340 })}</div>
     <div class="cover-greet">${esc(greeting())} · ${esc(role.name)} view</div>
-    <h1>${esc(ind.headline.label)} is ${esc(U.display(q.kpi(ind.headline.metric)))}</h1>
+    <h1>${esc((ind.headline.says || '{v}')
+      .replace('{v}', U.display(q.kpi(ind.headline.metric))))}</h1>
     <p>${esc(s.data.company)} at ${esc(F.monthName(q.view.month, true))}.
       ${q.view.month > q.closed
         ? 'This month is still tentative: the ledger is closed through ' + esc(F.monthName(q.closed, true)) + '.'

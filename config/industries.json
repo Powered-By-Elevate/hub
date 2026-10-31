@@ -47,7 +47,8 @@
       },
       "headline": {
         "metric": "backlog",
-        "label": "Backlog remaining"
+        "label": "Backlog remaining",
+        "says": "Backlog stands at {v}"
       },
       "kpis": [
         "revenue",
@@ -187,7 +188,8 @@
       },
       "headline": {
         "metric": "enrolled",
-        "label": "Students enrolled"
+        "label": "Students enrolled",
+        "says": "{v} students are enrolled"
       },
       "kpis": [
         "revenue",
@@ -321,7 +323,8 @@
       },
       "headline": {
         "metric": "salesPerSqft",
-        "label": "Sales per sq ft"
+        "label": "Sales per sq ft",
+        "says": "The estate trades at {v} a square foot"
       },
       "kpis": [
         "revenue",
@@ -457,7 +460,8 @@
       },
       "headline": {
         "metric": "oee",
-        "label": "Overall equipment effectiveness"
+        "label": "Overall equipment effectiveness",
+        "says": "The lines are running at {v} effectiveness"
       },
       "kpis": [
         "revenue",
@@ -595,7 +599,8 @@
       },
       "headline": {
         "metric": "revPerMile",
-        "label": "Revenue per mile"
+        "label": "Revenue per mile",
+        "says": "Every mile earns {v}"
       },
       "kpis": [
         "revenue",
@@ -735,7 +740,8 @@
       },
       "headline": {
         "metric": "arr",
-        "label": "Annual recurring revenue"
+        "label": "Annual recurring revenue",
+        "says": "{v} of recurring revenue"
       },
       "kpis": [
         "arr",

@@ -48,12 +48,15 @@ export function table({ cols, rows, foot = '', maxHeight = null }) {
   return maxHeight ? `<div class="scroll" style="max-height:${maxHeight}">${t}</div>` : `<div class="scroll">${t}</div>`;
 }
 
-export function pageHead({ eyebrow, title, answer }) {
-  return `<header class="page-head">
+export function pageHead({ eyebrow, title, answer, motif = '' }) {
+  const body = `<div>
     ${eyebrow ? `<div class="page-eyebrow">${esc(eyebrow)}</div>` : ''}
     <h1 class="page-title">${esc(title)}</h1>
     ${answer ? `<p class="page-answer">${answer}</p>` : ''}
-  </header>`;
+  </div>`;
+  return motif
+    ? `<header class="page-head with-motif"><span class="head-motif">${motif}</span>${body}</header>`
+    : `<header class="page-head">${body}</header>`;
 }
 
 export function fresh(q, s) {
