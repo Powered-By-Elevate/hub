@@ -109,6 +109,14 @@ function openChooser(firstTime = false) {
       app.s.useIndustry(id);
       await useIndustry(id);
       go('home');
+    } else {
+      /* Picking the demo that is already loaded still has to be remembered.
+         Construction is the default, so a first-time viewer who picks the
+         first card used to leave no record of having chosen at all, and every
+         reload put the front door back over whatever page they were on
+         (measured on the live site 2026-10-31). Choosing is the event worth
+         saving, not changing. */
+      app.s.save();
     }
     render();
   }, firstTime ? null : app.s.data.industry);

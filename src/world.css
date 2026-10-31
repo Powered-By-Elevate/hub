@@ -71,6 +71,11 @@ body {
   background-attachment: fixed;
 }
 #main { position: relative; z-index: 1; }
+/* Air at the top of every page, so the ground has somewhere to be seen. Claude
+   in Chrome, 2026-10-31: "most of the curve sits behind the toolbar and the big
+   green banner". A world nothing ever shows is a world that was not built. */
+#page { padding-top: 10px; }
+#demo-note { margin-top: 2px; }
 #bar { background: none; }
 /* Once the page scrolls, the scope bar frosts rather than hiding the world
    behind an opaque band. */
@@ -100,13 +105,13 @@ body.scrolled #bar::before { opacity: 1; }
 }
 .dots-lit {
   opacity: 0;
-  background-image: radial-gradient(circle, var(--lit) 1.7px, transparent 2.3px);
+  background-image: radial-gradient(circle, var(--lit) 2.2px, transparent 3px);
   transition: opacity .6s var(--hov);
-  -webkit-mask-image: radial-gradient(circle 220px at var(--mx, 70%) var(--my, 40%), #000 0%, rgba(0, 0, 0, .45) 45%, transparent 72%),
-    linear-gradient(180deg, #000 0, #000 200px, transparent 500px);
+  -webkit-mask-image: radial-gradient(circle 260px at var(--mx, 70%) var(--my, 40%), #000 0%, rgba(0, 0, 0, .62) 48%, transparent 76%),
+    linear-gradient(180deg, #000 0, #000 260px, transparent 540px);
   -webkit-mask-composite: source-in;
-  mask-image: radial-gradient(circle 220px at var(--mx, 70%) var(--my, 40%), #000 0%, rgba(0, 0, 0, .45) 45%, transparent 72%),
-    linear-gradient(180deg, #000 0, #000 200px, transparent 500px);
+  mask-image: radial-gradient(circle 260px at var(--mx, 70%) var(--my, 40%), #000 0%, rgba(0, 0, 0, .62) 48%, transparent 76%),
+    linear-gradient(180deg, #000 0, #000 260px, transparent 540px);
   mask-composite: intersect;
 }
 #deco.is-lit .dots-lit { opacity: 1; transition-duration: .2s; }
@@ -115,8 +120,8 @@ body.scrolled #bar::before { opacity: 1; }
 }
 
 .trail { position: absolute; top: 0; right: 0; width: min(64%, 980px); height: 430px; overflow: visible; }
-.tr-glow { fill: none; stroke: var(--lit); stroke-width: 14; stroke-linecap: round; opacity: .38; }
-.tr-core { fill: none; stroke: var(--lit); stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.tr-glow { fill: none; stroke: var(--lit); stroke-width: 14; stroke-linecap: round; opacity: .5; }
+.tr-core { fill: none; stroke: var(--lit); stroke-width: 2.4; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .tr-spark, .tr-spark-g {
   fill: none; stroke-linecap: round; stroke-dasharray: 64 936; stroke-dashoffset: 1000;
   animation: travel 17s linear infinite;
@@ -199,7 +204,8 @@ body.scrolled #bar::before { opacity: 1; }
 .w { display: inline-block; }
 @media (prefers-reduced-motion: no-preference) {
   .enter .page-eyebrow { animation: fade .6s var(--out) both; }
-  .enter .page-title .w { animation: word .9s var(--out) both; animation-delay: calc(60ms + var(--w, 0) * 70ms); }
+  .enter :is(.page-title, .verdict h2) .w { animation: word .9s var(--out) both;
+    animation-delay: calc(60ms + var(--w, 0) * 70ms); }
   .enter .page-answer { animation: rise .7s var(--out) both; animation-delay: 280ms; }
   .enter .head-motif { animation: rise .8s var(--out) both; animation-delay: 160ms; }
   .enter .verdict { animation: rise .7s var(--out) both; animation-delay: 120ms; }

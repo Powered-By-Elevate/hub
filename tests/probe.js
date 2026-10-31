@@ -95,6 +95,24 @@ async function main() {
   ok(!entered.choosing, 'picking a world closes the chooser');
   ok(entered.industry === 'retail', 'picking a world switches the demo', entered.industry);
 
+  /* ⛔ Picking the demo that is ALREADY loaded must still be remembered.
+     Construction is the default, so a first-time viewer who picked the first
+     card left no record of having chosen, and every reload put the front door
+     back over whatever page they were on. Found on the live site by Claude in
+     Chrome 2026-10-31 ("the address still ended in #/ops-watch, but the page
+     came back on the front door"), and it survived every gate before this one
+     because the probe only ever picked a DIFFERENT industry. */
+  await page.evaluate("window.__hub.chooser(true)");
+  await page.waitForTimeout(200);
+  await page.evaluate("localStorage.removeItem('hub.settings.v2')");
+  const cur = await page.evaluate('window.__hub.settings().industry');
+  await page.evaluate(`document.querySelector('[data-world="${cur}"]').click()`);
+  await page.waitForTimeout(500);
+  const remembered = await page.evaluate(() => {
+    try { return !!localStorage.getItem('hub.settings.v2'); } catch (e) { return 'blocked'; }
+  });
+  ok(remembered === true, 'picking the demo already loaded is still remembered', String(remembered));
+
   /* and it can be reopened from the rail */
   await page.evaluate(() => document.querySelector('[data-act="chooser"]').click());
   await page.waitForTimeout(260);
@@ -164,6 +182,26 @@ async function main() {
     return bad;
   });
   ok(settled.length === 0, 'the entrance settles every section it moved', settled.join('; '));
+
+  /* The question arrives word by word, and a figure inside it stays whole: the
+     splitter walks text nodes so <b>$47.4M</b> is one word, not five.
+     ⚠️ Start here opens on a cover, which carries neither a verdict nor a
+     .page-title, so this has to stand on a page that has one. */
+  await page.evaluate("location.hash = '#/ops-watch'");
+  await page.waitForTimeout(700);
+  const split = await page.evaluate(() => {
+    const h = document.querySelector('#page .verdict h2, #page .page-title');
+    if (!h) return { none: true };
+    return {
+      words: h.querySelectorAll('.w').length,
+      boldsWhole: [...h.querySelectorAll('b')].every(b => b.classList.contains('w')),
+      bolds: h.querySelectorAll('b').length,
+    };
+  });
+  ok(!split.none && split.words > 0, 'the question is split into words for the entrance',
+    JSON.stringify(split));
+  ok(!split.none && split.boldsWhole, 'a figure inside the question stays one word',
+    JSON.stringify(split));
 
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');

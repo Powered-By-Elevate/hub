@@ -43,24 +43,43 @@ function light() {
 /* ----------------------------------------------------------------- entrance */
 
 /* Each word of the question in its own inline-block, carrying its position so
-   the stagger reads left to right. The title is escaped text, never markup, so
-   splitting textContent cannot break anything in it. */
+   the stagger reads left to right.
+
+   ⛔ It walks TEXT NODES and leaves element children alone. The first cut read
+   textContent and rebuilt the heading from it, which would have thrown away
+   the <b> around every figure a verdict names. An element is kept whole and
+   staggered as one unit, so "<b>$47.4M</b>" arrives as a single word rather
+   than being taken apart.
+
+   ⛔ And it reaches the VERDICT's heading, not only .page-title. Most pages in
+   this build open on a verdict, so a splitter that knew only about .page-title
+   did nothing on the pages people actually look at: Claude in Chrome saw no
+   word-by-word entrance anywhere on the live site and was right. */
 function splitTitle(host) {
-  const h = host.querySelector('.page-title');
-  if (!h || h.dataset.split) return;
-  const parts = h.textContent.split(/(\s+)/);
-  let n = 0;
-  h.textContent = '';
-  for (const part of parts) {
-    if (!part) continue;
-    if (/^\s+$/.test(part)) { h.append(part); continue; }
-    const span = document.createElement('span');
-    span.className = 'w';
-    span.style.setProperty('--w', String(n++));
-    span.textContent = part;
-    h.append(span);
+  for (const h of host.querySelectorAll('.page-title, .verdict h2')) {
+    if (h.dataset.split) continue;
+    let n = 0;
+    for (const node of [...h.childNodes]) {
+      if (node.nodeType === 1) {
+        node.classList.add('w');
+        node.style.setProperty('--w', String(n++));
+        continue;
+      }
+      if (node.nodeType !== 3) continue;
+      const frag = document.createDocumentFragment();
+      for (const part of node.nodeValue.split(/(\s+)/)) {
+        if (!part) continue;
+        if (/^\s+$/.test(part)) { frag.append(part); continue; }
+        const span = document.createElement('span');
+        span.className = 'w';
+        span.style.setProperty('--w', String(n++));
+        span.textContent = part;
+        frag.append(span);
+      }
+      node.replaceWith(frag);
+    }
+    h.dataset.split = '1';
   }
-  h.dataset.split = '1';
 }
 
 function index(host) {
@@ -117,8 +136,11 @@ export function start() {
 /* Called by render() with the page's host element, after its markup is in. */
 export function arm(host) {
   index(host);
-  if (reduced() || robot()) return;
+  /* Splitting the question into words is STRUCTURE, not motion: it changes no
+     geometry, and doing it for a robot too means the gate measures the same
+     DOM a person gets. Only the animation is withheld. */
   splitTitle(host);
+  if (reduced() || robot()) return;
   host.classList.remove('enter');
   /* Reading a layout property between the two is what makes the browser start
      the animations again on a host that was already drawn once. */
