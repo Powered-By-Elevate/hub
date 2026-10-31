@@ -19,6 +19,7 @@ import { miscPages } from './pages/misc.js';
 import { settings as settingsPage, connectSheet, FONT_PAIRS } from './cms.js';
 import * as Chooser from './chooser.js';
 import * as Present from './present.js';
+import * as World from './world.js';
 
 const BASIS = [
   { id: 'month', name: 'Month' }, { id: 'ytd', name: 'YTD' },
@@ -53,6 +54,7 @@ async function boot() {
   app.s.apply();
   await useIndustry(app.s.data.industry, true);
 
+  World.start();
   window.addEventListener('hashchange', () => { readHash(); render(); });
   document.addEventListener('click', onClick);
   document.addEventListener('change', onChange);
@@ -146,6 +148,7 @@ function render() {
   }
   host.innerHTML = (s.data.showDemoNote ? demoNote() : '') + html;
   C.wire(host);
+  World.arm(host);
   if (Present.isOn()) Present.collect();
   host.scrollIntoView({ block: 'start' });
   window.scrollTo({ top: 0 });

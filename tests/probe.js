@@ -102,6 +102,69 @@ async function main() {
   await page.evaluate('window.__hub.chooser(false)');
   await page.waitForTimeout(140);
 
+  /* --- the world (world.css, world.js) ---------------------------------------
+     Matt, 2026-10-31: *"why dsoesnt it have the moving background and texture
+     and the visuals that the core bi and launchpad have? yours is so flat"*.
+     It was never ported, so these checks exist to stop it being lost again.
+     The entrance is skipped for a robot by design, so the checks that matter
+     force it on and then assert the page SETTLES: a reader must never be left
+     looking at a half-faded panel. */
+  const world = await page.evaluate(() => {
+    const deco = document.getElementById('deco');
+    const cs = n => getComputedStyle(n);
+    const panel = document.querySelector('#page .panel');
+    return {
+      deco: !!deco,
+      dots: !!deco && !!deco.querySelector('.dots') && !!deco.querySelector('.dots-lit'),
+      trail: !!deco && deco.querySelectorAll('.tr-spark, .tr-spark-g').length === 2,
+      travels: !!deco && cs(deco.querySelector('.tr-spark')).animationName === 'travel',
+      ground: cs(document.body).backgroundImage.includes('gradient'),
+      lifted: !!panel && cs(panel).boxShadow !== 'none' && cs(panel).borderTopWidth === '0px',
+      litOff: !!deco && !deco.classList.contains('is-lit'),
+    };
+  });
+  ok(world.deco, 'the world is drawn once in the shell');
+  ok(world.dots, 'the dot grid and its lit layer are both there');
+  ok(world.trail, 'the light trail carries its two spark paths');
+  ok(world.travels, 'the spark travels the trail');
+  ok(world.ground, 'the ground is a lit gradient, not a flat fill');
+  ok(world.lifted, 'a panel is paper lifted off the sky, with no border under its ring');
+  ok(world.litOff, 'the dots are unlit until a pointer is over them');
+
+  /* the pointer lights the dots, and only inside the deco */
+  await page.mouse.move(900, 150);
+  await page.waitForTimeout(120);
+  const lit = await page.evaluate(() => {
+    const d = document.getElementById('deco');
+    return { on: d.classList.contains('is-lit'), mx: d.style.getPropertyValue('--mx') };
+  });
+  await page.mouse.move(900, 940);
+  await page.waitForTimeout(120);
+  const unlit = await page.evaluate(() =>
+    document.getElementById('deco').classList.contains('is-lit'));
+  ok(lit.on && lit.mx !== '', 'the pointer lights the dots around it', lit.mx);
+  ok(!unlit, 'the light does not follow the pointer down the page');
+
+  /* the entrance settles: force it, let it run, assert nothing is left faded
+     or displaced. A page that ends at opacity .14 is worse than no entrance. */
+  await page.evaluate(() => {
+    const host = document.getElementById('page');
+    host.classList.remove('enter'); void host.offsetWidth; host.classList.add('enter');
+  });
+  await page.waitForTimeout(2400);
+  const settled = await page.evaluate(() => {
+    const bad = [];
+    for (const el of document.querySelectorAll('#page .grid > *, #page .strip > .strip-item')) {
+      const c = getComputedStyle(el);
+      if (Number(c.opacity) < 0.99) bad.push(`opacity ${c.opacity}`);
+      if (c.transform !== 'none' && !/matrix\(1, 0, 0, 1, 0, 0\)/.test(c.transform)) {
+        bad.push(`transform ${c.transform}`);
+      }
+    }
+    return bad;
+  });
+  ok(settled.length === 0, 'the entrance settles every section it moved', settled.join('; '));
+
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');
   ok(industries.length === 6, 'six industries ship', industries.join(','));

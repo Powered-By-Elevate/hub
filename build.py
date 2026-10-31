@@ -46,6 +46,7 @@ def build(no_data: bool = False) -> dict:
     # the app
     shutil.copy2(HERE / "src" / "index.html", DIST / "index.html")
     shutil.copy2(HERE / "src" / "hub.css", DIST / "hub.css")
+    shutil.copy2(HERE / "src" / "world.css", DIST / "world.css")
     shutil.copytree(HERE / "src" / "js", DIST / "js")
 
     # Configuration, with every $-prefixed key stripped. These files are fetched
