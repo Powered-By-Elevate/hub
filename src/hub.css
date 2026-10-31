@@ -1018,3 +1018,17 @@ body.presenting .strip[data-current="true"] {
 .mult-head b { font-size: 12.5px; font-weight: 600; }
 .mult-head .delta { font-size: 12px; }
 .mult-note { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
+
+/* three dials side by side, or stacked when there is no room */
+.dials { display: grid; gap: 4px; justify-items: center; }
+.dials > svg.dial { margin: 0 auto; max-width: 168px; }
+.dials > p { margin-bottom: 10px; max-width: 34ch; }
+
+/* the close coverage strip: one cell per month */
+.cover-strip { display: flex; flex-wrap: wrap; gap: 4px; }
+.cs { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 38px; }
+.cs i { display: block; width: 100%; height: 26px; border-radius: 4px; background: var(--rule-soft); }
+.cs em { font-style: normal; font-size: 9.5px; color: var(--ink-faint); }
+.cs.signed i { background: var(--accent); opacity: .72; }
+.cs.close i { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-lift); }
+.cs.open i { background: var(--warn-tint); border: 1px dashed var(--warn); }

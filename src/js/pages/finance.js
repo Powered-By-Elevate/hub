@@ -5,7 +5,7 @@
 import * as F from '../fmt.js';
 import * as C from '../chart.js';
 import * as U from '../ui.js';
-import { esc } from '../icons.js';
+import { esc, icon } from '../icons.js';
 
 const PL_NAMES = {};
 
@@ -293,6 +293,20 @@ export function pl(ctx) {
       })(),
     }) +
     U.panel({
+      col: 12, title: 'This period against a year earlier',
+      note: 'One line per statement line. Following a line is a different act from comparing two bars that sit apart.',
+      body: C.slope({
+        rows: ['rev', 'cor', 'gp', 'oh', 'ebitda', 'ni'].map(id => ({
+          name: names[id], from: q.sum(id, ya), to: q.sum(id, w),
+        })).filter(r => Number.isFinite(r.from) && Number.isFinite(r.to) && (r.from || r.to)),
+        fmt: v => F.money(v),
+        from: ya.length ? F.monthName(ya[ya.length - 1], true) : 'A year earlier',
+        to: F.monthName(w[w.length - 1], true),
+        height: 320,
+      }),
+      foot: 'A cost line rising is not the same as revenue rising, so read the names, not only the slopes.',
+    }) +
+    U.panel({
       col: 12, title: 'Revenue and net income, month by month',
       body: C.line({
         series: [
@@ -516,13 +530,14 @@ export function balance(ctx) {
   const total = side => by(side).reduce((a, l) => a + q.bal(l.id, month), 0);
   const assets = total('asset'), liab = total('liab'), eq = total('equity');
   const prior = q.months[q.months.indexOf(month) - 12] || q.months[0];
+  const tie = Math.abs(assets - (liab + eq));
 
   const block = (side, label) => U.table({
     cols: [{ name: label }, { name: F.monthName(month), n: true },
     { name: F.monthName(prior), n: true }, { name: 'Change', n: true }],
     rows: by(side).map(l => {
-      const v = q.bal(l.id, month), p = q.bal(l.id, prior);
-      return { cells: [esc(l.name), F.money(v), F.money(p), F.deltaTag(p ? (v - p) / Math.abs(p) * 100 : NaN)] };
+      const v = q.bal(l.id, month), pv = q.bal(l.id, prior);
+      return { cells: [esc(l.name), F.money(v), F.money(pv), F.deltaTag(pv ? (v - pv) / Math.abs(pv) * 100 : NaN)] };
     }).concat([{
       cls: 'total',
       cells: [`Total ${label.toLowerCase()}`, F.money(total(side)),
@@ -530,7 +545,7 @@ export function balance(ctx) {
     }]),
   });
 
-  const tie = Math.abs(assets - (liab + eq));
+  const cur = current(q), qk = quick(q), de = (q.bal('ltd') + q.bal('cd')) / (eq || 1);
 
   return U.pageHead({
     eyebrow: 'Finance',
@@ -540,8 +555,57 @@ export function balance(ctx) {
       ${tie < 1 ? 'Assets equal liabilities plus equity to the cent.' :
       `<b>The sheet is out by ${F.money(tie)}</b>, which is a finding, not a rounding.`}`,
   }) + U.fresh(q, s) + `<div class="grid">` +
-    U.panel({ col: 6, title: 'Assets', pad: false, body: block('asset', 'Assets') }) +
-    U.panel({ col: 6, title: 'Liabilities & equity', pad: false, body: block('liab', 'Liabilities') + block('equity', 'Equity') }) +
+    U.panel({
+      col: 8, title: 'What the money is in, and who it belongs to',
+      note: 'Both columns on one scale. A balance sheet balances, and this is what that looks like.',
+      body: (() => {
+        /* Grouped, not line by line. Fourteen segments across two columns
+           repeat the six-colour palette, so cash and payables came out the
+           same blue, and most bars were too thin to label. Five groups are
+           readable and the detail is in the tables below. */
+        const group = (side, g) => by(side).filter(l => l.group === g)
+          .reduce((a, l) => a + q.bal(l.id, month), 0);
+        return C.twoSided({
+          left: {
+            name: 'Assets',
+            parts: [
+              { name: 'Current assets', value: group('asset', 'current') },
+              { name: 'Long-term assets', value: group('asset', 'long') },
+            ],
+          },
+          right: {
+            name: 'Liabilities & equity',
+            parts: [
+              { name: 'Current liabilities', value: group('liab', 'current') },
+              { name: 'Long-term liabilities', value: group('liab', 'long') },
+              { name: 'Equity', value: by('equity').reduce((a, l) => a + q.bal(l.id, month), 0) },
+            ],
+          },
+          fmt: v => F.money(v), height: 360,
+        });
+      })(),
+    }) +
+    U.panel({
+      col: 4, title: 'Three ratios',
+      note: 'The bands are conventional comfort, not this company\u2019s covenants.',
+      body: `<div class="dials">
+        ${C.dial({
+          value: cur, min: 0, max: 4, label: 'Current ratio',
+          bands: [{ from: 0, to: 1, colour: 'var(--bad)' }, { from: 1, to: 1.5, colour: 'var(--warn)' }],
+          note: 'Current assets over current liabilities. Under 1 is a squeeze.',
+        })}
+        ${C.dial({
+          value: qk, min: 0, max: 3, label: 'Quick ratio',
+          bands: [{ from: 0, to: 0.8, colour: 'var(--bad)' }, { from: 0.8, to: 1, colour: 'var(--warn)' }],
+          note: 'Without inventory or work in hand.',
+        })}
+        ${C.dial({
+          value: de, min: 0, max: 4, label: 'Debt to equity',
+          bands: [{ from: 2, to: 3, colour: 'var(--warn)' }, { from: 3, to: 4, colour: 'var(--bad)' }],
+          note: 'Borrowed against owned. Higher is more leveraged.',
+        })}
+      </div>`,
+    }) +
     U.panel({
       col: 12, title: 'Equity and debt over time',
       body: C.line({
@@ -551,7 +615,11 @@ export function balance(ctx) {
         ],
         labels: q.months.map(mN), fmt: v => F.money(v), height: 240,
       }),
-      foot: `Debt to equity ${F.ratio((q.bal('ltd') + q.bal('cd')) / (eq || 1))}.`,
+    }) +
+    U.panel({ col: 6, title: 'Assets', pad: false, body: block('asset', 'Assets') }) +
+    U.panel({
+      col: 6, title: 'Liabilities & equity', pad: false,
+      body: block('liab', 'Liabilities') + block('equity', 'Equity'),
     }) + `</div>`;
 }
 
@@ -559,29 +627,63 @@ export function balance(ctx) {
 
 export function statements(ctx) {
   const { q, s, cfg } = ctx;
+  const closed = q.closed;
+  const months = q.months;
+
   const packs = [
-    { id: 'monthly', name: 'Monthly reporting pack', what: 'P&L, balance sheet, cash and a one-page summary for each company, as the finance team issues it.' },
-    { id: 'owner', name: 'Owner report', what: 'The quarterly pack: performance, position, the units that moved, and the plan against actual.' },
-    { id: 'lender', name: 'Lender package', what: 'Statements plus the covenant deliveries a facility asks for, limited to signed-off months.' },
-    { id: 'board', name: 'Board summary', what: 'Eight quarters, the bridge, and whatever the board asked for last time.' },
+    { id: 'monthly', name: 'Monthly reporting pack', icon: 'doc',
+      what: 'What the finance team issues after a close.',
+      holds: ['Profit & loss, by company and consolidated', 'Balance sheet with the prior year beside it',
+        'Cash and working capital', 'A one-page summary with the month\u2019s answer'] },
+    { id: 'owner', name: 'Owner report', icon: 'people',
+      what: 'The quarterly pack an owner reads end to end.',
+      holds: ['Performance against the plan', 'Position as of the quarter',
+        `The ${s.industry.unit.many} that moved`, 'What changed since last quarter'] },
+    { id: 'lender', name: 'Lender package', icon: 'lock',
+      what: 'Signed-off months only, with the deliveries a facility asks for.',
+      holds: ['Statements for the covered period', 'Covenant deliveries and their dates',
+        'A certificate page', 'Nothing tentative, by construction'] },
+    { id: 'board', name: 'Board summary', icon: 'bars',
+      what: 'Eight quarters and the bridge, on as few pages as it takes.',
+      holds: ['Eight quarters of revenue, margin and net income', 'The bridge from revenue to net income',
+        'Cash and the ratios', 'Whatever the board asked for last time'] },
   ];
+
+  const signedCount = months.filter(m => m <= closed).length;
+
   return U.pageHead({
     eyebrow: 'Finance',
     title: 'Statements & packs',
-    answer: `Each pack is generated from the same facts the pages read, so a pack and a
-      page can never disagree. A pack covers signed-off months only unless it is marked tentative.`,
+    answer: `Every pack is generated from the same facts the pages read, so a pack and a page
+      cannot disagree. <b>${signedCount}</b> of <b>${months.length}</b> months are signed off, and a
+      pack covers signed-off months only unless it is marked tentative.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
+    U.panel({
+      col: 12, title: 'What is signed off',
+      note: 'One cell per month. A pack can only carry what is closed.',
+      body: `<div class="cover-strip">${months.map(m => {
+        const state = m < closed ? 'signed' : m === closed ? 'close' : 'open';
+        const title = `${F.monthName(m, true)}: ${state === 'open' ? 'not signed off'
+          : state === 'close' ? 'the close month' : 'signed off'}`;
+        return `<span class="cs ${state}" title="${esc(title)}">
+          <i></i><em>${esc(F.monthName(m).split(' ')[0])}</em></span>`;
+      }).join('')}</div>`,
+      foot: (() => {
+        const n = months.filter(m => m > closed).length;
+        return `Signed off through <b>${esc(F.monthName(closed, true))}</b>. ` + (n === 1
+          ? '1 later month is tentative and carries that label everywhere it appears.'
+          : `${n} later months are tentative and carry that label everywhere they appear.`);
+      })(),
+    }) +
     packs.map(p => U.panel({
       col: 6, title: p.name, note: p.what,
       right: U.btn('Generate', { act: 'export-pack', arg: p.id, kind: 'primary', ico: 'download', sm: true }),
-      body: U.table({
-        cols: [{ name: 'Covers' }, { name: 'Last issued', n: true }],
-        rows: [
-          { cells: [`${esc(F.monthName(q.closed, true))} and earlier`, esc(F.monthName(q.closed, true))] },
-          { cells: [`Companies in scope`, String(q.scopeEntities.length)] },
-          { cells: [`${esc(s.industry.unit.collection)} included`, String(q.units.length)] },
-        ],
-      }),
+      body: `<div class="rows">${p.holds.map(h =>
+        `<div class="row-item" style="padding:8px 12px">${icon('check', 15)}
+          <span class="grow">${esc(h)}</span></div>`).join('')}</div>`,
+      foot: `Covers ${esc(F.monthName(closed, true))} and earlier \u00b7
+        ${q.scopeEntities.length} ${q.scopeEntities.length === 1 ? 'company' : 'companies'} \u00b7
+        ${q.units.length} ${esc(s.industry.unit.many)}`,
     })).join('') + `</div>`;
 }
 

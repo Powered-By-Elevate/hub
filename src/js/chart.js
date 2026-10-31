@@ -513,3 +513,146 @@ export function multiples(opts) {
     </div>`;
   }).join('') + `</div>`;
 }
+
+/* --------------------------------------------------------------- two sided */
+
+/* Two stacked columns on one scale. For a balance sheet this says in a glance
+   what a table of thirty rows says slowly: what the money is in, what it is
+   owed to, and that the two sides are the same height. */
+export function twoSided(opts) {
+  const { left = {}, right = {}, fmt = v => v, height = 340 } = opts;
+  const lTotal = left.parts.reduce((a, p) => a + Math.max(0, p.value), 0);
+  const rTotal = right.parts.reduce((a, p) => a + Math.max(0, p.value), 0);
+  const hi = Math.max(lTotal, rTotal) || 1;
+  if (!hi) return `<div class="empty">Nothing to draw yet.</div>`;
+
+  /* Labels sit OUTSIDE the bars. Inside, white on a mid-tone fill measures
+     about 3:1, and a value a reader has to squint at is worse than no value. */
+  const W = 860, padT = 36, padB = 34;
+  const ih = height - padT - padB;
+  const colW = 170, lx = 215, rx = W - 215 - colW;
+
+  const column = (side, x, total, offset, labelsOn) => {
+    let acc = 0, out = '';
+    side.parts.forEach((p, idx) => {
+      const i = idx + offset;
+      const v = Math.max(0, p.value);
+      if (v <= 0) return;
+      const h = v / hi * ih;
+      const y = padT + ih - (acc + v) / hi * ih;
+      out += `<rect x="${x}" y="${y.toFixed(1)}" width="${colW}" height="${Math.max(1, h).toFixed(1)}"
+        fill="${seriesColour(i)}" rx="2"
+        ><title>${esc(p.name)}: ${esc(fmt(v))} (${(v / total * 100).toFixed(1)}%)</title></rect>`;
+      if (h > 26) {
+        const tx = labelsOn === 'left' ? x - 14 : x + colW + 14;
+        const anchor = labelsOn === 'left' ? 'end' : 'start';
+        const cy = y + h / 2;
+        out += `<text x="${tx}" y="${(cy - 3).toFixed(1)}" text-anchor="${anchor}"
+          style="font-size:11.5px;fill:var(--ink-faint)">${esc(p.name)}</text>`;
+        out += `<text x="${tx}" y="${(cy + 13).toFixed(1)}" text-anchor="${anchor}"
+          style="font-size:14px;font-weight:700;fill:var(--ink)"
+          >${esc(fmt(v))}</text>`;
+        out += `<line x1="${labelsOn === 'left' ? x - 9 : x + colW + 9}" x2="${labelsOn === 'left' ? x : x + colW}"
+          y1="${cy.toFixed(1)}" y2="${cy.toFixed(1)}" stroke="var(--rule)"/>`;
+      }
+      acc += v;
+    });
+    out += `<text x="${x + colW / 2}" y="${padT - 16}" text-anchor="middle"
+      style="font-size:12.5px;font-weight:600;fill:var(--ink)">${esc(side.name)}</text>`;
+    out += `<text x="${x + colW / 2}" y="${height - 12}" text-anchor="middle"
+      style="font-size:14px;font-weight:700;fill:var(--ink)">${esc(fmt(total))}</text>`;
+    return out;
+  };
+
+  const tie = Math.abs(lTotal - rTotal);
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
+  svg += `<line x1="24" x2="${W - 24}" y1="${padT + ih}" y2="${padT + ih}" stroke="var(--rule)"/>`;
+  svg += column(left, lx, lTotal, 0, 'left');
+  svg += column(right, rx, rTotal, left.parts.length, 'right');
+  svg += `<path d="M${lx + colW + 10} ${padT + ih / 2}h${rx - lx - colW - 20}"
+    stroke="var(--rule)" stroke-dasharray="4 4"/>`;
+  svg += `<text x="${(lx + colW + rx) / 2}" y="${padT + ih / 2 - 9}" text-anchor="middle"
+    style="font-size:11.5px;fill:var(--ink-faint)">${tie < 1 ? 'balances' : 'out by ' + esc(fmt(tie))}</text>`;
+  svg += `</svg>`;
+  return svg;
+}
+
+/* -------------------------------------------------------------------- dial */
+
+/* One ratio, its band, and where it sits. A number in a box says 1.84; this
+   says 1.84 and whether that is comfortable. */
+export function dial(opts) {
+  const {
+    value, min = 0, max = 3, bands = [], fmt = v => v.toFixed(2),
+    label = '', note = '', size = 190,
+  } = opts;
+  if (!Number.isFinite(value)) return `<div class="empty">Not available.</div>`;
+  const r = size / 2 - 16, cx = size / 2, cy = size / 2 + 6;
+  const a0 = Math.PI * 0.86, a1 = Math.PI * 2.14;          /* open at the bottom */
+  const at = v => a0 + (Math.max(min, Math.min(max, v)) - min) / (max - min) * (a1 - a0);
+  const pt = (a, rad) => `${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`;
+  const arc = (from, to, rad, w, colour, op = 1) => {
+    const big = (to - from) > Math.PI ? 1 : 0;
+    return `<path d="M${pt(from, rad)} A${rad},${rad} 0 ${big} 1 ${pt(to, rad)}"
+      fill="none" stroke="${colour}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+  };
+
+  let svg = `<svg class="chart dial" viewBox="0 0 ${size} ${size}"
+    style="width:100%;max-width:${size}px;height:auto" role="img">`;
+  svg += arc(a0, a1, r, 13, 'var(--rule-soft)');
+  for (const b of bands) {
+    svg += arc(at(b.from), at(b.to), r, 13, b.colour || 'var(--rule)', .9);
+  }
+  svg += arc(a0, at(value), r, 13, 'var(--accent)');
+  const tip = at(value);
+  svg += `<circle cx="${cx + r * Math.cos(tip)}" cy="${cy + r * Math.sin(tip)}" r="7"
+    fill="var(--paper)" stroke="var(--accent)" stroke-width="3"/>`;
+  svg += `<text x="${cx}" y="${cy + 2}" text-anchor="middle"
+    style="font-size:24px;font-weight:700;fill:var(--ink)"
+    font-family="var(--font-display)">${esc(fmt(value))}</text>`;
+  svg += `<text x="${cx}" y="${cy + 22}" text-anchor="middle"
+    style="font-size:10.5px;fill:var(--ink-faint)">${esc(label)}</text>`;
+  svg += `</svg>`;
+  return svg + (note ? `<p class="small muted" style="text-align:center;margin:8px 0 0">${note}</p>` : '');
+}
+
+/* ------------------------------------------------------------------- slope */
+
+/* Two periods, one line per item. A reader follows the line rather than
+   comparing two bars that sit apart, which is what a year-on-year read is. */
+export function slope(opts) {
+  const { rows = [], fmt = v => v, from = 'Then', to = 'Now', height = 320 } = opts;
+  if (!rows.length) return `<div class="empty">Nothing to draw yet.</div>`;
+  const all = rows.flatMap(r => [r.from, r.to]).filter(Number.isFinite);
+  const lo = Math.min(...all, 0), hi = Math.max(...all);
+  const span = (hi - lo) || 1;
+  const W = 720, padT = 34, padB = 26, padL = 150, padR = 150;
+  const ih = height - padT - padB;
+  const y = v => padT + ih - (v - lo) / span * ih;
+  const x0 = padL, x1 = W - padR;
+
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
+  svg += `<line x1="${x0}" x2="${x0}" y1="${padT}" y2="${padT + ih}" stroke="var(--rule)"/>`;
+  svg += `<line x1="${x1}" x2="${x1}" y1="${padT}" y2="${padT + ih}" stroke="var(--rule)"/>`;
+  svg += `<text x="${x0}" y="${padT - 14}" text-anchor="middle"
+    style="font-size:12px;font-weight:600;fill:var(--ink-faint)">${esc(from)}</text>`;
+  svg += `<text x="${x1}" y="${padT - 14}" text-anchor="middle"
+    style="font-size:12px;font-weight:600;fill:var(--ink-faint)">${esc(to)}</text>`;
+
+  rows.forEach((r, i) => {
+    if (!Number.isFinite(r.from) || !Number.isFinite(r.to)) return;
+    const up = r.to >= r.from;
+    const c = r.colour || (up ? 'var(--good)' : 'var(--bad)');
+    svg += `<line x1="${x0}" y1="${y(r.from).toFixed(1)}" x2="${x1}" y2="${y(r.to).toFixed(1)}"
+      stroke="${c}" stroke-width="2.2" opacity=".85"
+      ><title>${esc(r.name)}: ${esc(fmt(r.from))} to ${esc(fmt(r.to))}</title></line>`;
+    svg += `<circle cx="${x0}" cy="${y(r.from).toFixed(1)}" r="4" fill="${c}"/>`;
+    svg += `<circle cx="${x1}" cy="${y(r.to).toFixed(1)}" r="4" fill="${c}"/>`;
+    svg += `<text x="${x0 - 10}" y="${(y(r.from) + 4).toFixed(1)}" text-anchor="end"
+      style="font-size:11.5px">${esc(r.name)}</text>`;
+    svg += `<text x="${x1 + 10}" y="${(y(r.to) + 4).toFixed(1)}"
+      style="font-size:11.5px">${esc(fmt(r.to))}</text>`;
+  });
+  svg += `</svg>`;
+  return svg;
+}
