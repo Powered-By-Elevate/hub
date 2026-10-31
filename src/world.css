@@ -161,6 +161,36 @@ body.scrolled #bar::before { opacity: 1; }
 #rail .rail-mark { transition: transform .5s var(--hov); }
 #rail .rail-head:hover .rail-mark { transform: rotate(-12deg); }
 
+/* The tab column floats, as the Library's Folders panel and Core BI's do: a
+   glass panel in the sky under the top bar, not a grey slab bolted to the
+   rail. It keeps its flex track's width and takes its margins on top, so the
+   page beside it does not move. */
+#tabs {
+  background: none;
+  border-right: 0;
+  padding: 0;
+  height: auto;
+  max-height: calc(100vh - 24px);
+  margin: 12px 0 20px 14px;
+  top: 12px;
+}
+#tabs::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--paper) 72%, transparent);
+  backdrop-filter: saturate(1.3) blur(8px);
+  box-shadow: var(--lift);
+}
+#tabs { position: sticky; isolation: isolate; padding: 16px 10px 14px; align-self: flex-start; }
+.tabs-title { padding: 0 10px 8px; }
+.tabs-title + .tab { margin-top: 2px; }
+#tabs .r { border: 0; border-top: 1px solid color-mix(in srgb, var(--navy) 8%, transparent); margin: 14px 4px 12px; }
+.tab[aria-current="true"] {
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+  box-shadow: inset 3px 0 0 var(--accent);
+  color: var(--ink);
+}
+
 /* --- the entrance ------------------------------------------------------------
    On a page's first draw (world.js): the eyebrow, then the question word by
    word, the answer, then the figure cards and the panels, each rising 16px
