@@ -200,6 +200,17 @@ export class Q {
 
   /* --------------------------------------------------------------- KPIs */
 
+  /* Every metric this industry resolves: its own, plus the ones every company
+     has. A picker offers exactly this and nothing else, so a client cannot
+     choose a figure that would render as a dash. */
+  kpiIds() {
+    const universal = ['revenue', 'grossMargin', 'cashDays'];
+    return [...new Set([...(this.ind.kpis || []), ...universal])].filter(id => {
+      try { const k = this.kpi(id); return k && Number.isFinite(k.value); }
+      catch (err) { return false; }
+    });
+  }
+
   kpi(id, basis = this.view.basis, month = this.view.month) {
     const w = this.window(basis, month);
     const p = this.priorWindow(basis, month);

@@ -52,6 +52,11 @@ export class Settings {
       connectors: on,
       roles: JSON.parse(JSON.stringify(this.cfg.roles.roles)),
       showDemoNote: true,
+      /* Which figures the strip carries, and in what order. A client swaps any
+         slot for any metric their industry resolves, and the choice exports
+         with the rest of the configuration. Defaulted from the industry, and
+         reset when the industry changes because the metric ids differ. */
+      kpiStrip: (ind.kpis || []).slice(0, 5),
       productName: this.cfg.product.product.name,
     };
   }

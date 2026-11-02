@@ -144,7 +144,7 @@ function render() {
   document.getElementById('tabs').innerHTML = tabs(pages);
   document.getElementById('bar').innerHTML = bar();
 
-  const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go };
+  const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go, strip: stripIds() };
   const host = document.getElementById('page');
   let html = '';
   try {
@@ -288,8 +288,36 @@ function openMenu(kind, anchor) {
   document.getElementById('bar').innerHTML = bar();
 }
 
+/* The five ids the strip carries. A client's choice wins, the industry's own
+   list is the default, and an id the current industry cannot resolve is
+   dropped rather than rendered as a dash: switching industries leaves stale
+   ids behind, and a strip of dashes reads as a broken build. */
+function stripIds() {
+  const q = app.q, ok = new Set(q.kpiIds());
+  const want = (app.s.data.kpiStrip || []).filter(id => ok.has(id));
+  const fill = (app.q.ind.kpis || []).filter(id => ok.has(id) && !want.includes(id));
+  return [...want, ...fill].slice(0, 5);
+}
+
 function menuBody(kind) {
   const s = app.s, q = app.q;
+  if (kind && kind.startsWith('kpi:')) {
+    /* Which figure sits in this slot. A client swaps any of the five for any
+       metric their industry resolves, and the choice exports with the rest of
+       the configuration, so the next deployment opens on their figures and not
+       on ours. */
+    const slot = Number(kind.slice(4));
+    const chosen = stripIds();
+    return `<div class="menu-head">Show in this slot</div>` + q.kpiIds().map(id => {
+      const k = q.kpi(id);
+      const elsewhere = chosen.indexOf(id);
+      return `<button class="menu-item" data-act="pick-kpi" data-arg="${slot}:${esc(id)}"
+        aria-selected="${chosen[slot] === id}">
+        <span>${esc(k.label)}<small>${esc(U.display(k))}${
+        elsewhere > -1 && elsewhere !== slot ? ` · already in slot ${elsewhere + 1}` : ''}</small></span>
+      </button>`;
+    }).join('');
+  }
   if (kind === 'entity') {
     const rows = [{ id: '*', name: allLabel(q), kind: 'Consolidated' }, ...q.entities];
     const allowed = s.role.scope === 'all';
@@ -371,6 +399,13 @@ async function onClick(ev) {
     case 'pick-entity': app.s.data.entity = arg; app.s.save(); closeMenu(); render(); break;
     case 'pick-month': app.s.data.month = arg; app.s.save(); closeMenu(); render(); break;
     case 'pick-role': app.s.data.role = arg; app.s.save(); closeMenu(); render(); break;
+    case 'pick-kpi': {
+      const [slot, id] = arg.split(':');
+      const next = stripIds();
+      next[Number(slot)] = id;
+      app.s.data.kpiStrip = next;
+      app.s.save(); closeMenu(); render(); break;
+    }
     case 'try-role': app.s.data.role = arg; app.s.save(); go('fin-dash'); break;
     case 'basis': app.s.data.basis = arg; app.s.save(); render(); break;
     case 'theme': app.s.data.theme = arg; app.s.save().apply(); render(); break;
@@ -578,6 +613,8 @@ function exportPack(id) {
    drive the page through these, and a test can assert on what they return. */
 function api() {
   return {
+    niceMax: C.niceMax,
+    strip: () => stripIds(),
     go, render,
     page: () => app.page,
     pages: () => app.s.pages().map(p => p.id),

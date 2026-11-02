@@ -16,19 +16,59 @@ export function verdict({ title, body, figs = [] }) {
   </section>`;
 }
 
+/* A figure in the strip can be SWAPPED by the client: pass `slot` and the
+   figure wears a quiet control that opens the picker for that position. The
+   control is only drawn where a slot is given, so a strip inside a page that
+   is not the client's to configure stays plain. */
 export function strip(items) {
   return `<div class="strip">${items.map(i => `
     <div class="strip-item">
-      <div class="strip-label">${esc(i.label)}</div>
+      <div class="strip-label">${esc(i.label)}${Number.isInteger(i.slot)
+        ? `<button class="strip-swap" data-act="menu" data-arg="kpi:${i.slot}"
+            aria-label="Change what this figure shows" title="Change what this figure shows"
+            >${icon('gear', 13)}</button>` : ''}</div>
       <div class="strip-value">${F.figure(i.value)}</div>
       ${i.note ? `<div class="strip-note">${i.note}</div>` : ''}
       ${i.spark ? spark(i.spark) : ''}
     </div>`).join('')}</div>`;
 }
 
-export function panel({ title, note, right = '', body, foot = '', col = 12, pad = true }) {
+/* A panel head wears a tile with its icon, as Core BI's sys-tile does. The
+   icon is DERIVED from the title where a caller does not name one, so every
+   panel in the build gets one without eighty call sites being edited, and a
+   caller can always override with `ico`. The fallback is deliberately neutral:
+   a wrong icon is worse than a plain one, so anything unmatched gets the
+   generic mark rather than a guess. */
+const TILE_WORDS = [
+  [/budget|plan|forecast|target|go.get/i, 'target'],
+  [/cash|working capital|receivab|payab|aging|billing|billed|invoic/i, 'wallet'],
+  [/balance|position|equity|asset|liabilit/i, 'scale'],
+  [/margin|profit|gross|ebitda|cascade/i, 'wedge'],
+  [/revenue|sales|income|earned|turnover/i, 'bars'],
+  [/cost|expense|overhead|payroll|labour|labor|spend/i, 'ledger'],
+  [/month|year|quarter|season|pattern|trend|cumulative|history/i, 'clock'],
+  [/rule|threshold|flag|needs you|watch|exception|control|close|sign.off/i, 'flag'],
+  [/people|manager|principal|supervisor|driver|staff|headcount|who carries/i, 'people'],
+  [/pipeline|pursuit|opportunit|weighted/i, 'funnel'],
+  [/document|paperwork|file|pack|statement|report/i, 'doc'],
+  [/connect|integration|software|reading|source|feed/i, 'link'],
+  [/level|role|permission|access|view/i, 'lock'],
+  [/brand|logo|colour|color|typeface|look/i, 'sun'],
+  [/grid|portfolio|every |all |list|table/i, 'grid'],
+  [/map|state|region|territor|lane|route/i, 'compass'],
+];
+
+export function tileFor(title, ico) {
+  if (ico) return ico;
+  for (const [re, name] of TILE_WORDS) if (re.test(title)) return name;
+  return 'pulse';
+}
+
+export function panel({ title, note, right = '', body, foot = '', col = 12, pad = true, ico = '' }) {
   return `<section class="panel col-${col}">
-    ${title ? `<div class="panel-head"><div><h3>${esc(title)}</h3>
+    ${title ? `<div class="panel-head">
+      <span class="p-tile">${icon(tileFor(title, ico), 17)}</span>
+      <div><h3>${esc(title)}</h3>
       ${note ? `<p>${note}</p>` : ''}</div>${right ? `<div class="right">${right}</div>` : ''}</div>` : ''}
     <div class="panel-body" ${pad ? '' : 'style="padding:0"'}>${body}</div>
     ${foot ? `<div class="panel-foot">${foot}</div>` : ''}

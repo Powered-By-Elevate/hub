@@ -203,6 +203,72 @@ async function main() {
   ok(!split.none && split.boldsWhole, 'a figure inside the question stays one word',
     JSON.stringify(split));
 
+  /* --- the panel tile, the strip picker and the axis (2026-11-02) ------------ */
+
+  /* Every panel head wears its icon on a tile. Derived from the title where no
+     caller names one, so this check is what proves the derivation reaches the
+     whole build rather than the handful of panels that pass `ico`. */
+  const tiles = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('#page .panel-head')];
+    return { heads: heads.length, withTile: heads.filter(h => h.querySelector('.p-tile svg')).length };
+  });
+  ok(tiles.heads > 0 && tiles.withTile === tiles.heads,
+    'every panel head on the page wears an icon tile',
+    `${tiles.withTile} of ${tiles.heads}`);
+
+  /* ⛔ The axis must let the data fill the plot. The ladder used to jump 5 to
+     10, so a series peaking at 5.5M drew against a 10M axis and filled barely
+     half the panel, in every bar and line chart in the build. Tested as
+     arithmetic, because a picture of it cannot be asserted on. */
+  const axis = await page.evaluate(() => {
+    const peaks = [5.5e6, 3.3e6, 7.2e6, 1.9e6, 24.9e6, 890e3, 61, 4.4];
+    return peaks.map(v => ({ v, max: window.__hub.niceMax(v), fill: v / window.__hub.niceMax(v) }));
+  });
+  const thin = axis.filter(a => a.fill < 0.7);
+  ok(thin.length === 0, 'a chart axis never leaves a third of the plot empty',
+    thin.map(a => `${a.v} on ${a.max} = ${Math.round(a.fill * 100)}%`).join('; '));
+
+  /* The strip is the client's: every figure offers a picker, the picker offers
+     only metrics this industry resolves, and the choice persists.
+     ⚠️ Start here is where the strip lives, and the block above leaves the app
+     on ops-watch, so this has to go home first. */
+  await page.evaluate("location.hash = '#/home'");
+  await page.waitForTimeout(700);
+  const picker = await page.evaluate(() => {
+    const swaps = document.querySelectorAll('#page .strip-swap');
+    return { figures: document.querySelectorAll('#page .strip-item').length, swaps: swaps.length };
+  });
+  ok(picker.swaps === picker.figures && picker.figures > 0,
+    'every figure in the strip can be swapped by the client',
+    `${picker.swaps} of ${picker.figures}`);
+
+  await page.evaluate(() => document.querySelectorAll('#page .strip-swap')[1].click());
+  await page.waitForTimeout(260);
+  const offered = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('#menu .menu-item')];
+    return { count: items.length, dashes: items.filter(i => /—|–/.test(i.textContent)).length };
+  });
+  ok(offered.count > 0, 'the picker offers the metrics this industry resolves', String(offered.count));
+  ok(offered.dashes === 0, 'the picker never offers a metric that would read as a dash',
+    String(offered.dashes));
+
+  const swapped = await page.evaluate(() => {
+    const before = [...document.querySelectorAll('#page .strip-label')].map(n => n.textContent.trim());
+    const items = [...document.querySelectorAll('#menu .menu-item')];
+    items[items.length - 1].click();
+    return before;
+  });
+  await page.waitForTimeout(400);
+  const nowLabels = await page.evaluate(() =>
+    [...document.querySelectorAll('#page .strip-label')].map(n => n.textContent.trim()));
+  ok(JSON.stringify(swapped) !== JSON.stringify(nowLabels),
+    'picking a different metric changes the figure shown');
+  const kept = await page.evaluate(() => {
+    try { return (JSON.parse(localStorage.getItem('hub.settings.v2') || '{}').kpiStrip || []).length; }
+    catch (e) { return 0; }
+  });
+  ok(kept > 0, 'the strip choice is saved with the rest of the configuration', String(kept));
+
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');
   ok(industries.length === 6, 'six industries ship', industries.join(','));

@@ -14,7 +14,16 @@ export function start(ctx) {
   const role = s.role;
   const w = q.window();
   const rev = q.revenue(w);
-  const kpis = ind.kpis.slice(0, 5);
+  const kpis = ctx.strip || ind.kpis.slice(0, 5);
+  const last12 = q.months.slice(-12);
+  const revSeries = q.unitScoped
+    ? last12.map(m => q.factSum('rev', [m]))
+    : q.series('rev', last12);
+  const prior = q.months.length >= 24
+    ? q.revenue(q.months.slice(-24, -12)) : null;
+  const budRaw = q.unitScoped ? null : q.series('rev', last12, q.scopeEntities, 'bud');
+  const budSeries = budRaw && budRaw.some(v => Number.isFinite(v) && v) ? budRaw : null;
+  const bRev = budSeries ? budSeries.reduce((a, v) => a + (v || 0), 0) : null;
 
   /* one door per module first, then fill from what is left: a map of the whole
      product reads better here than the first six pages of one module */
@@ -48,42 +57,35 @@ export function start(ctx) {
         ? 'This month is still tentative: the ledger is closed through ' + esc(F.monthName(q.closed, true)) + '.'
         : 'Signed off through ' + esc(F.monthName(q.closed, true)) + '.'}</p>
   </section>` +
-    U.strip(kpis.map(id => {
+    U.strip(kpis.map((id, slot) => {
       const k = q.kpi(id);
-      return { label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '' };
+      return { label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '', slot };
     })) +
     `<div class="grid">` +
     U.panel({
-      col: 12, title: 'Where to go',
+      col: 12, title: 'Where to go', ico: 'compass',
       note: `Six places, cut to what a ${esc(role.name.toLowerCase())} may see.`,
       body: `<div class="doors">${doors}</div>`,
     }) +
+    /* ⚖️ Matt, 2026-11-02: *"the revenue section looks out of place like a
+       small puzzle piece in a big empty space"*. It was a 230px chart in a
+       seven-column panel with nothing beside it, so the panel was mostly air.
+       The year now takes the FULL width and says something: the shape of the
+       twelve months, the plan over it where one is loaded, and a sentence that
+       reads the result. A chart with a verdict fills a panel. A chart alone
+       never does, at any width. */
     U.panel({
-      col: 7, title: 'Revenue, twelve months',
-      body: C.bars({
-        values: q.months.slice(-12).map(m => q.revenue([m])),
-        labels: q.months.slice(-12).map(m => F.monthName(m)),
-        fmt: v => F.money(v), height: 230,
+      col: 12, title: `The year so far`, ico: 'clock',
+      note: `Twelve months to ${esc(F.monthName(q.view.month, true))}.${
+        budSeries ? ' The bars are what happened, the line is the plan.' : ''}`,
+      right: U.btn('Open the dashboard', { act: 'go', arg: 'fin-dash', sm: true, ico: 'arrow' }),
+      body: `<p class="lede">${yearRead(q, rev, prior, bRev)}</p>` + C.bars({
+        values: revSeries, labels: last12.map(m => F.monthName(m)),
+        overlay: budSeries, overlayName: 'Plan', fmt: v => F.money(v), height: 300,
       }),
     }) +
     U.panel({
-      col: 5, title: 'What this Hub is reading',
-      note: 'Every figure on every page comes from one of these.',
-      body: connected.length ? `<div class="rows">${connected.map(c => `
-        <div class="row-item">
-          ${connTile(c)}
-          <span class="grow"><b>${esc(c.name)}</b>
-            <div class="sub">${esc(cfg.connectors.categories.find(k => k.id === c.cat).name)}
-              · ${esc(c.api)}</div></span>
-          <span class="tag ${c.status === 'live' ? 'good' : c.status === 'built' ? 'warn' : ''}">
-            <i class="dot"></i>${esc(statusWord(c.status))}</span>
-        </div>`).join('')}</div>`
-        : `<div class="empty">Nothing is connected yet. Settings &rsaquo; Integrations.</div>`,
-      foot: `${live.length} of ${connected.length} have been run against a real company’s data in production.`,
-      right: U.btn('Connect more', { act: 'go', arg: 'settings', sm: true }),
-    }) +
-    U.panel({
-      col: 12, title: 'The same build, another industry',
+      col: 7, title: 'The same build, another industry', ico: 'grid',
       note: 'One codebase. The company, the brand, the unit of work, the measures and the connected software all move together.',
       right: U.btn('See all six', { act: 'chooser', kind: 'primary', ico: 'grid', sm: true }),
       body: `<div class="ind-strip">${cfg.industries.industries.map(i => {
@@ -95,7 +97,41 @@ export function start(ctx) {
           <span><b>${esc(i.short)}</b><span>${esc(i.unit.collection)}</span></span>
         </button>`;
       }).join('')}</div>`,
+    }) +
+    /* ⚖️ Same day: *"i appreciate the connections section but ... it looks like
+       clutter"*. It was a list of rows with a status tag each, which reads as
+       a monitoring panel and is not one: this is the catalogue of what the
+       build is wired to, and the detail belongs in Settings. Here it is a wall
+       of marks and one sentence, which says the same thing in a glance. */
+    U.panel({
+      col: 5, title: 'Live connections', ico: 'link',
+      note: 'What every figure on every page is read from.',
+      right: U.btn('Manage', { act: 'go', arg: 'settings', sm: true }),
+      body: connected.length ? `<div class="conn-wall">${connected.map(c => `
+        <span class="conn-chip ${c.status}" title="${esc(c.name)} · ${esc(statusWord(c.status))}">
+          ${connTile(c)}<b>${esc(c.name)}</b></span>`).join('')}</div>`
+        : `<div class="empty">Nothing is connected yet. Settings &rsaquo; Integrations.</div>`,
+      foot: connected.length
+        ? `<b>${live.length} of ${connected.length}</b> have been run against a real company’s
+           data in production. The rest are adapters built or catalogued, and the page says
+           which on every figure that depends on one.`
+        : '',
     }) + `</div>`;
+}
+
+/* One sentence that reads the twelve months, so the band has a verdict rather
+   than only a picture. Never invents a comparison it does not have. */
+function yearRead(q, rev, prior, bRev) {
+  const bits = [`<b>${F.money(rev)}</b> of revenue over the twelve months`];
+  if (Number.isFinite(prior) && prior > 0) {
+    const d = (rev - prior) / prior * 100;
+    bits.push(`${Math.abs(d) < 0.5 ? 'level with' : (d > 0 ? 'up' : 'down')}
+      ${Math.abs(d) < 0.5 ? '' : `<b>${F.pct(Math.abs(d), 1)}</b>`} on the twelve before`);
+  }
+  if (Number.isFinite(bRev) && bRev > 0) {
+    bits.push(`${rev >= bRev ? 'ahead of' : 'behind'} plan by <b>${F.money(Math.abs(rev - bRev))}</b>`);
+  }
+  return bits.join(', ') + '.';
 }
 
 function doorWhy(id, ind) {

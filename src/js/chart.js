@@ -18,11 +18,17 @@ export function seriesColour(i) {
   return v || ['#2B7CC4', '#B87D0C', '#0093A1', '#8B5CD6', '#C2408B', '#A2551F'][i % 6];
 }
 
-function niceMax(v) {
+export function niceMax(v) {
   if (v <= 0) return 1;
   const mag = Math.pow(10, Math.floor(Math.log10(v)));
   const n = v / mag;
-  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  /* ⛔ The ladder used to jump 5 -> 10, so a series peaking at 5.5M was drawn
+     against a 10M axis and the bars filled barely half the panel. That is the
+     "small puzzle piece in a big empty space" Matt named on Start here
+     (2026-11-02), and it was in EVERY bar and line chart in the build, not
+     just that one. The rungs between keep the axis a round number while
+     letting the data fill the plot. */
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find(x => n <= x) || 10;
   return step * mag;
 }
 
