@@ -6,6 +6,8 @@
    persists to this browser and exports as a JSON file, which is the file a
    real deployment is built from. That is the CMS: one object, one apply(). */
 
+import { brandVars } from './color.js';
+
 const KEY = 'hub.settings.v2';
 
 export const SERIES_FALLBACK = {
@@ -119,7 +121,15 @@ export class Settings {
     root.style.setProperty('--accent', p.accent);
     root.style.setProperty('--accent-deep', p.accentDeep);
     root.style.setProperty('--accent-lift', p.accentLift);
-    root.style.setProperty('--tint', d.theme === 'dark' ? mix(p.navy, '#ffffff', 0.1) : p.tint);
+    /* ⛔ Every brand-derived colour comes from `brandVars`, which the gate
+       imports too. The tint used to be mixed right here, which made it a
+       colour declared in CSS and computed in JavaScript with no single
+       source: the publishing session's sweep reached dark by setting
+       `dataset.theme` directly, skipped this function, and measured a light
+       brand tint under dark-theme ink at 1.03:1 on the P&L subtotals. A state
+       the product cannot reach, but the reason it could be reached at all is
+       that the derivation lived in one branch of one method. */
+    for (const [k, v] of Object.entries(brandVars(p, d.theme))) root.style.setProperty(k, v);
     root.style.setProperty('--navy', p.navy);
     root.style.setProperty('--font-display', d.brand.type.display);
     root.style.setProperty('--font-body', d.brand.type.body);

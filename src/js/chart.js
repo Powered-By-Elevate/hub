@@ -930,8 +930,13 @@ export function dial(opts) {
      declaration: the property fed the grid track and nothing else, while the
      comment beside it claimed it fed both. The fallback keeps a dial used
      outside a `.dials` grid drawing at its own size. */
+  /* An explicit `size` becomes `--dial-size`, which the stylesheet prefers over
+     the container's `--dial-cap`, so a caller that asks for 120 gets 120 even
+     inside a `.dials` grid. A default caller sets nothing and the container
+     governs, which is the way round a default should work. */
+  const sized = opts.size !== undefined ? `--dial-size:${size}px;` : '';
   let svg = `<svg class="chart dial" viewBox="0 0 ${size} ${size}"
-    style="width:100%;max-width:var(--dial-cap, ${size}px);height:auto" role="img">`;
+    style="${sized}width:100%;max-width:var(--dial-cap, ${size}px);height:auto" role="img">`;
   svg += arc(a0, a1, r, 13, 'var(--rule-soft)');
   for (const b of bands) {
     svg += arc(at(b.from), at(b.to), r, 13, b.color || 'var(--rule)', .9);

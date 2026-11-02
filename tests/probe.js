@@ -140,6 +140,79 @@ async function main() {
       fails.join('; '));
   }
 
+  /* ⛔ AND THE SURFACES THE STYLESHEET NEVER SEES.
+
+     The check above is exact and structurally blind: `--tint` and every
+     brand-derived ink are computed at runtime from the client's palette, so
+     they do not appear in any stylesheet for arithmetic to reach. The
+     publishing session's pixel sweep found four failures entirely inside that
+     gap, which is the gap the comment above admits to:
+
+       .page-eyebrow   dark   1.96 to 3.06:1   the brand colour used as ink
+       .pf-bar label   light  1.83 to 2.77:1   --ink inside a saturated fill
+       .panel-foot     dark   4.09 to 4.37:1   --ink-faint on --tint
+       .agepill        dark   3.67 to 4.26:1   --warn and --bad used as ink
+
+     So this imports the SAME derivation the page runs (`src/js/color.js`,
+     which `Settings.apply()` calls) and asserts it over every brand in the
+     config and both themes. One source, two callers, no copy to drift. It
+     needs no browser, which is why it can be trusted where the DOM sweep
+     could not: that one reported 1.03:1 on text screenshotting at 14:1. */
+  {
+    const { pathToFileURL } = require('url');
+    const C = await import(pathToFileURL(path.join(ROOT, 'src', 'js', 'color.js')).href);
+    const brands = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'brands.json'), 'utf8')).brands;
+    const bad = [];
+    let pairs = 0;
+    for (const theme of ['light', 'dark']) {
+      const surf = C.SURFACE[theme], ink = C.INK[theme], sem = C.SEMANTIC[theme];
+      for (const [id, b] of Object.entries(brands)) {
+        const v = C.brandVars(b.palette, theme);
+        const on = [
+          /* the faint ink carries the panel foot, which sits on the tint */
+          ['--ink-faint on --tint', ink.faint, v['--tint']],
+          /* the brand as ink, on both grounds it can land on */
+          ['--accent-ink on ground', v['--accent-ink'], surf.ground],
+          ['--accent-ink on deep', v['--accent-ink'], surf.groundDeep],
+          ['--accent-on-tint', v['--accent-on-tint'], v['--tint']],
+          /* the semantics as ink, on the tint and the deep ground */
+          ['--good-ink on tint', v['--good-ink'], v['--tint']],
+          ['--warn-ink on tint', v['--warn-ink'], v['--tint']],
+          ['--bad-ink on tint', v['--bad-ink'], v['--tint']],
+          ['--good-ink on deep', v['--good-ink'], surf.groundDeep],
+          ['--warn-ink on deep', v['--warn-ink'], surf.groundDeep],
+          ['--bad-ink on deep', v['--bad-ink'], surf.groundDeep],
+          /* text INSIDE a saturated fill, where there is no hue choice */
+          ['--on-accent in accent', v['--on-accent'], b.palette.accent],
+          ['--on-bad in bad', v['--on-bad'], sem.bad],
+          ['--on-good in good', v['--on-good'], sem.good],
+          ['--on-warn in warn', v['--on-warn'], sem.warn],
+        ];
+        for (const [what, fg, bg] of on) {
+          pairs++;
+          const r = C.contrast(fg, bg);
+          if (r + 0.005 < 4.5) bad.push(`${theme}/${id} ${what} ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    ok(pairs > 100, 'the brand derivation is exercised over every brand and theme', `${pairs} pairs`);
+    ok(bad.length === 0, 'every brand-derived ink reads 4.5:1 on every surface it lands on',
+      bad.slice(0, 3).join('; '));
+
+    /* ⛔ AND THE LADDER, NOT JUST THE BOUND.
+
+       Raising `--ink-faint` to clear AA flattened the hierarchy: soft-to-faint
+       fell from 1.88 to 1.27 while dark, the design's own standard, runs an
+       even 1.77 and 1.67. A fix that reads only the failing value will flatten
+       whatever sits above it, so the scale is checked as a scale. */
+    for (const theme of ['light', 'dark']) {
+      const k = C.INK[theme];
+      const a = C.contrast(k.ink, k.soft), b = C.contrast(k.soft, k.faint);
+      ok(a > 1.45 && b > 1.45, `${theme}: the ink scale stays a scale`,
+        `ink/soft ${a.toFixed(2)}, soft/faint ${b.toFixed(2)}`);
+    }
+  }
+
   /* the front door: a first-time viewer lands here before any extract loads */
   const firstScreen = await page.evaluate(() => ({
     showing: window.__hub.choosing(),

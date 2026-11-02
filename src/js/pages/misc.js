@@ -43,7 +43,7 @@ function filedName(raw) {
      literal separator and this had quietly dropped it. */
   return {
     line: `<span class="jf-h">${esc(m[1])}</span>`
-      + `<span class="jf-sep" aria-hidden="true"> \u00b7 </span>`
+      + `<span class="jf-sep"> \u00b7 </span>`
       + `<span class="jf-t">${esc(m[3])}</span>`,
     when: m[2],
   };

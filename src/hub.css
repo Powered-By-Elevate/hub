@@ -26,7 +26,15 @@
   --ground: #eef2f7;
   --ground-deep: #e2e9f1;
   --ink: #16202e;
-  --ink-soft: #4a5a6e;
+  /* ⛔ Lifted with --ink-faint, to keep the LADDER. Raising faint from
+     #76859a to #5b6a7a fixed its AA failure and flattened the hierarchy: the
+     publishing session measured soft-to-faint falling from 1.88 to 1.27 while
+     the dark theme, which is the design's own standard, runs an even 1.77 and
+     1.67. #3a4860 restores the spacing at 1.78 and 1.66 and costs nothing,
+     because soft goes from 7.05:1 to 9.23:1 and was never near the bound.
+     A fix that only reads the failing value will flatten whatever sits above
+     it, so the ink scale is measured as a scale. */
+  --ink-soft: #3a4860;
   /* ⛔ 4.5:1 ON EVERY SURFACE IT CAN LAND ON, NOT JUST ON WHITE.
 
      This was #76859a, which reads 3.76:1 on paper, 3.34:1 on the ground and
@@ -287,7 +295,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #page { padding: 6px 22px 64px; max-width: 1480px; }
 
 .page-head { margin: 10px 0 20px; }
-.page-eyebrow { font-size: 11px; letter-spacing: .11em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+/* ⛔ --accent-ink, never --accent. The brand colour as ink on the dark ground
+   measured 1.96:1 for logistics' teal at 11px/600, across all six industries.
+   A fill keeps the brand colour; ink gets the derived one (src/js/color.js). */
+.page-eyebrow { font-size: 11px; letter-spacing: .11em; text-transform: uppercase;
+  color: var(--accent-ink, var(--accent)); font-weight: 600; }
 .page-title { font-size: 29px; line-height: 1.15; margin: 5px 0 0; }
 .page-answer { font-size: 16.5px; line-height: 1.55; color: var(--ink-soft); max-width: 68ch; margin: 11px 0 0; }
 .page-answer b { color: var(--ink); font-weight: 600; }
@@ -697,10 +709,24 @@ table.t td .btn { white-space: nowrap; }
   position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink);
   opacity: .75; transform: translateX(-1px);
 }
+/* ⛔ THE LABEL SPANS BOTH HALVES OF THE BAR, SO NO ONE COLOUR CAN READ ON IT.
+
+   This was `--ink` across the whole bar with `mix-blend-mode: luminosity`,
+   which looked plausible and measured 1.83:1: the publishing session cropped
+   it and found "66%" in dark navy on a red status fill. The label sits over
+   the saturated fill AND over the pale tint, and the fill's length moves with
+   the data, so picking an ink for one half fails on the other and picking by
+   fill colour fails the moment the bar is half drawn.
+
+   So it stops relying on what is behind it. A plate in the panel's own paper
+   makes the contrast ink-on-paper, which is 16:1 and the same at every fill
+   length, and the bar still reads as a bar underneath. */
 .pf-bar > b {
-  position: absolute; inset: 0; display: grid; place-items: center;
+  position: absolute; inset: 50% auto auto 50%; transform: translate(-50%, -50%);
+  display: block; padding: 1px 6px; border-radius: 4px;
+  background: var(--paper); box-shadow: 0 0 0 1px var(--rule-soft);
   font-size: 11px; font-weight: 600; color: var(--ink);
-  font-variant-numeric: tabular-nums; mix-blend-mode: luminosity;
+  font-variant-numeric: tabular-nums;
 }
 .pf-chip b { display: block; font-size: 12.5px; font-variant-numeric: tabular-nums; }
 .pf-chip > span { display: block; font-size: 10.5px; color: var(--ink-faint); }
@@ -1360,7 +1386,13 @@ body.presenting .strip[data-current="true"] {
   .dials { grid-template-columns: repeat(3, minmax(var(--dial-min), 1fr)); }
 }
 .dial-cell { display: flex; flex-direction: column; align-items: center; max-width: 280px; }
-.dials svg.dial { margin: 0 auto; max-width: var(--dial-cap); }
+/* ⚠️ `--dial-cap` is set on `.dials`, so `var(--dial-cap, <size>px)` inside the
+   svg never reaches its fallback here and an explicit `size` argument loses to
+   the container. No live defect (all three callers use the default) but the
+   precedence is the surprising direction, so the component sets its own size as
+   the cap's fallback chain: the container governs only when the caller did not
+   ask, which is how a default should behave. See chart.js dial(). */
+.dials svg.dial { margin: 0 auto; max-width: var(--dial-size, var(--dial-cap)); }
 .dials p { margin-bottom: 10px; max-width: 34ch; }
 
 /* the close coverage strip: one cell per month */
@@ -1407,8 +1439,9 @@ body.presenting .strip[data-current="true"] {
   padding: 3px 9px; border-radius: 999px; background: var(--tint);
   box-shadow: inset 0 0 0 1px var(--ring); color: var(--ink-2); white-space: nowrap;
 }
-.agepill.warn { color: var(--warn); }
-.agepill.bad { color: var(--bad); }
+/* these sit on --tint, where the raw semantic colours read 3.67 to 4.26:1 */
+.agepill.warn { color: var(--warn-ink, var(--warn)); }
+.agepill.bad { color: var(--bad-ink, var(--bad)); }
 
 @media (max-width: 760px) {
   .fun-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
