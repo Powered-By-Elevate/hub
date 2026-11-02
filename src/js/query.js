@@ -13,7 +13,8 @@ export class Q {
     this.data = data;
     this.ind = industry;
     this.months = data.meta.months;
-    this.closed = data.meta.closedThrough;
+    /* '' when nothing is signed off yet, so every month reads tentative */
+    this.closed = data.meta.closedThrough || '';
     this.entities = data.entities;
     this.allUnits = data.units;
 

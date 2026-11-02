@@ -31,7 +31,7 @@ const PAGES = { ...financePages, ...opsPages, ...miscPages, settings: settingsPa
 const app = {
   cfg: null, s: null, q: null, data: {},
   page: 'home', arg: null, subtab: 'brand', menu: null, sheet: null, docsAt: '',
-  detailFrom: null,
+  detailFrom: null, docsBy: 'type',
 };
 
 /* --------------------------------------------------------------- bootstrap */
@@ -50,7 +50,7 @@ async function boot() {
      demo, a first-time one is shown the front door */
   let firstVisit = true;
   try { firstVisit = !localStorage.getItem('hub.settings.v2'); } catch (err) { /* blocked store */ }
-  await Chooser.loadCards(base);
+  if (!product.tenant) await Chooser.loadCards(base);
   app.s = new Settings(app.cfg).load();
   app.s.apply();
   await useIndustry(app.s.data.industry, true);
@@ -117,6 +117,7 @@ function startPresenting() {
 }
 
 function openChooser(firstTime = false) {
+  if (app.s.tenant) return;   /* one client's Hub has no other companies to choose */
   Chooser.show(app.cfg, async id => {
     if (id !== app.s.data.industry) {
       app.s.useIndustry(id);
@@ -166,17 +167,19 @@ function render() {
   document.getElementById('bar').innerHTML = bar();
 
   const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go,
-    strip: stripIds(), docsAt: app.docsAt, detailFrom: app.detailFrom };
+    strip: stripIds(), docsAt: app.docsAt, docsBy: app.docsBy,
+    detailFrom: app.detailFrom };
   const host = document.getElementById('page');
   let html = '';
   try {
-    html = (PAGES[app.page] || PAGES.home)(ctx);
+    const gap = unconnected(app.page);
+    html = gap ? notConnected(gap) : (PAGES[app.page] || PAGES.home)(ctx);
   } catch (err) {
     html = `<section class="panel"><div class="empty">
       <b>That page could not be drawn.</b><br>${esc(err.message)}</div></section>`;
     console.error(err);
   }
-  host.innerHTML = (s.data.showDemoNote ? demoNote() : '') + html;
+  host.innerHTML = (s.data.showDemoNote && app.q.data.meta.notice ? demoNote() : '') + html;
   C.wire(host);
   U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
   World.arm(host);
@@ -187,6 +190,42 @@ function render() {
   if (Present.isOn()) Present.collect();
   host.scrollIntoView({ block: 'start' });
   window.scrollTo({ top: 0 });
+}
+
+/* A page whose source sends nothing says so, and never draws a sample figure in
+   its place. The demo carries every section, so this only ever fires on a real
+   company's build (build.py --tenant), where budget, unit facts, people and
+   documents stay empty until a source supplies them. */
+const NEEDS = {
+  'fin-budget': ['budget', 'a budget', 'finance'],
+  'people-home': ['people', 'payroll and headcount', 'people'],
+  'pipeline-home': ['pipeline', 'the pipeline', 'crm'],
+  'docs-home': ['docs', 'documents', 'docs'],
+  'fin-close': ['closedThrough', 'a close record', 'finance'],
+};
+
+function unconnected(page) {
+  const d = app.q.data;
+  const need = NEEDS[page] || (page.startsWith('ops-') ? ['unitFacts', `the ${app.s.industry.unit.many}`, 'systems'] : null);
+  if (!need) return null;
+  const v = need[0] in d ? d[need[0]] : d.meta[need[0]];
+  const empty = !v || (typeof v === 'object' && !Object.keys(v).length)
+    || (need[0] === 'unitFacts' && !(d.units || []).length);
+  return empty ? { what: need[1], cat: need[2] } : null;
+}
+
+function notConnected({ what, cat }) {
+  const c = (app.cfg.connectors.categories || []).find(x => x.id === cat);
+  const name = (app.cfg.product.pages[app.page] || {}).name || 'This page';
+  return U.pageHead({ eyebrow: 'Not connected', title: name,
+    answer: `Nothing is connected that sends ${esc(what)}, so this page shows no figures rather than a guess.` }) +
+    `<div class="grid">` + U.panel({
+      col: 12, title: 'What fills this page', ico: 'link',
+      note: c ? esc(c.name) : '',
+      right: U.btn('Integrations', { act: 'go', arg: 'settings', sm: true }),
+      body: `<div class="empty"><b>Not connected.</b><br>${c ? esc(c.blurb) : ''}
+        Once a source sends ${esc(what)}, the next build draws it here.</div>`,
+    }) + `</div>`;
 }
 
 function demoNote() {
@@ -584,6 +623,11 @@ async function onClick(ev) {
        so it lives on the app rather than in the saved deployment: a client's
        config file should not remember which folder somebody had open. */
     case 'docs-open': app.docsAt = arg || ''; render(); break;
+    /* Which level is the root of the browser. View state, like docsAt: a
+       client's saved configuration should not remember how somebody last
+       sorted their folders. Changing the order returns to the root, because a
+       path in one order means nothing in the other. */
+    case 'docs-by': app.docsBy = arg; app.docsAt = ''; render(); break;
     case 'theme': app.s.data.theme = arg; app.s.save().apply(); render(); break;
     case 'theme-toggle':
       app.s.data.theme = app.s.data.theme === 'dark' ? 'light' : 'dark';

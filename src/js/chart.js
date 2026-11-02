@@ -68,9 +68,11 @@ export function line(opts) {
   svg += `</g>`;
   if (lo < 0) svg += `<line class="zero" x1="${padL}" x2="${W - padR}" y1="${y(0)}" y2="${y(0)}"/>`;
 
-  const step = Math.max(1, Math.ceil(labels.length / 9));
+  /* By width, not by count: see tickStep. A line chart in a narrow panel was
+     drawing "Sep 26" on top of "Oct 26" for the same reason bars was. */
+  const step = tickStep(labels, labels.length > 1 ? iw / (labels.length - 1) : iw);
   labels.forEach((l, i) => {
-    if (i % step && i !== labels.length - 1) return;
+    if (i % step) return;
     svg += `<text x="${x(i).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(l)}</text>`;
   });
 
@@ -143,7 +145,16 @@ export function bars(opts) {
   svg += `</g>`;
   if (lo < 0) svg += `<line class="zero" x1="${padL}" x2="${W - padR}" y1="${y(0)}" y2="${y(0)}"/>`;
 
-  const step = Math.max(1, Math.ceil(values.length / 12));
+  /* ⛔ THIN THE AXIS BY WIDTH, NOT BY COUNT.
+
+     `ceil(n/12)` keeps twelve labels however little room each one has, so a
+     twelve-month axis in a narrow panel printed "Sep 26" touching "Oct 26".
+     What decides whether two labels collide is the space per bar against the
+     width of the text, so that is what the step is computed from. The last
+     label is dropped rather than drawn on top of its neighbour: a label that
+     overlaps another is worse than a label that is not there, because the
+     reader cannot tell which value it belongs to. */
+  const step = tickStep(labels, bw);
   values.forEach((v, i) => {
     const bx = padL + bw * i + bw * 0.18;
     const w = bw * 0.64;
@@ -155,7 +166,7 @@ export function bars(opts) {
         y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"
         stroke="var(--ink)" stroke-width="2" opacity=".75"><title>${esc(overlayName)} · ${esc(labels[i] || '')}: ${esc(fmt(overlay[i]))}</title></line>`;
     }
-    if (i % step === 0 || i === values.length - 1) {
+    if (i % step === 0) {
       svg += `<text x="${(padL + bw * i + bw / 2).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(labels[i] || '')}</text>`;
     }
   });
@@ -190,7 +201,8 @@ export function stack(opts) {
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
   svg += `</g>`;
-  const step = Math.max(1, Math.ceil(rows.length / 12));
+  /* By width, not by count: see tickStep. */
+  const step = tickStep(labels, bw);
   rows.forEach((r, i) => {
     let acc = 0;
     const bx = padL + bw * i + bw * 0.18, w = bw * 0.64;
@@ -202,7 +214,7 @@ export function stack(opts) {
         fill="${seriesColour(ki)}" rx="1.5"><title>${esc(names[k] || k)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
       acc += v;
     });
-    if (i % step === 0 || i === rows.length - 1) {
+    if (i % step === 0) {
       svg += `<text x="${(padL + bw * i + bw / 2).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(labels[i] || '')}</text>`;
     }
   });
@@ -237,7 +249,11 @@ export function donut(opts) {
   });
   if (center !== null) {
     svg += `<text x="${cx}" y="${cy - 2}" text-anchor="middle" class="readout" style="font-size:17px">${esc(center)}</text>`;
-    svg += `<text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:10px">${esc(centerLabel)}</text>`;
+    /* 18 below the figure, not 14. A 17px figure's box measures 24px tall, not
+       the ~20 its font size suggests, so 14 left one pixel of overlap on the
+       word under it. Measured, not reasoned: "9.6%" bottom 836.7 against
+       "kept" top 835.7. */
+    svg += `<text x="${cx}" y="${cy + 18}" text-anchor="middle" style="font-size:10px">${esc(centerLabel)}</text>`;
   }
   svg += `</svg>`;
   return svg;
@@ -291,8 +307,16 @@ export function waterfall(opts) {
     }
     const words = String(it.name).split(' ');
     const mid = (padL + bw * i + bw / 2).toFixed(1);
-    svg += `<text x="${mid}" y="${height - 26}" text-anchor="middle">${esc(words.slice(0, 2).join(' '))}</text>`;
-    if (words.length > 2) svg += `<text x="${mid}" y="${height - 15}" text-anchor="middle">${esc(words.slice(2).join(' '))}</text>`;
+    /* A wrapped label's two lines were 11 units apart for text about 12 tall,
+       so "Cost of" sat on "revenue" by a pixel on every dashboard. */
+    const two = words.length > 2;
+    /* 17 viewBox units between the lines, not 11. The chart scales down in a
+       narrow panel, so a gap that clears the text at full width does not
+       clear it at three quarters: measured at 9.9px of gap for 11px of text
+       on education's dashboard, which is one pixel of overlap and still
+       reads as broken. */
+    svg += `<text x="${mid}" y="${height - (two ? 31 : 22)}" text-anchor="middle">${esc(words.slice(0, 2).join(' '))}</text>`;
+    if (two) svg += `<text x="${mid}" y="${height - 14}" text-anchor="middle">${esc(words.slice(2).join(' '))}</text>`;
     svg += `<text x="${mid}" y="${(top - 5).toFixed(1)}" text-anchor="middle" class="readout"
       style="font-size:10.5px">${esc(fmt(it.value))}</text>`;
   });
@@ -372,11 +396,22 @@ export function scatter(opts) {
   const xlo = Math.min(0, ...xs), ylo = Math.min(0, ...ys);
   const X = v => padL + (v - xlo) / (xhi - xlo || 1) * iw;
   const Y = v => padT + ih - (v - ylo) / (yhi - ylo || 1) * ih;
+  /* Every label already drawn, so a later one can avoid it. Declared with
+     the rest of the geometry because the rule's caption is placed before the
+     points and must share the list. */
+  const placedLabels = [];
+
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
   for (const t of ticks(ylo, yhi)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(Y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(yFmt(t))}</text>`;
+    /* ⛔ An axis tick is a label and a point label can land on one. The first
+       collision pass only compared point labels with each other, and a point
+       near the left edge put a name straight through "15%". */
+    const tick = String(yFmt(t));
+    placedLabels.push({ x: padL - 8 - tick.length * 2.7, y: Y(t) + 3.5,
+      half: tick.length * 2.7 + 4 });
   }
   for (const t of ticks(xlo, xhi)) {
     svg += `<text x="${X(t).toFixed(1)}" y="${height - 22}" text-anchor="middle">${esc(xFmt(t))}</text>`;
@@ -387,15 +422,58 @@ export function scatter(opts) {
       y1="${Y(rule).toFixed(1)}" y2="${Y(rule).toFixed(1)}"/>`;
     svg += `<text class="sc-rule-t" x="${W - padR - 4}" y="${(Y(rule) - 6).toFixed(1)}"
       text-anchor="end">${esc(ruleLabel || yFmt(rule))}</text>`;
+    /* the rule's caption competes for space with the point labels, so it is
+       placed first and they avoid it rather than landing on it */
+    const cap = String(ruleLabel || yFmt(rule));
+    placedLabels.push({ x: W - padR - 4 - cap.length * 2.9, y: Y(rule) - 6, half: cap.length * 2.9 + 4 });
   }
+  /* ⛔ WHICH POINTS GET A LABEL.
+
+     Labelling every point is right for six project managers and catastrophic
+     for forty-eight trucks: Matt's screenshot of logistics Margin & drivers is
+     a solid band of overlapping text with no figure readable in it. *"this is
+     bad. i literally cannot read any of it"*.
+
+     So a small set is labelled whole, and a large one is labelled only where a
+     label earns its place: the extremes, which are the points a reader is
+     looking for anyway. Everything else keeps its hover title, so nothing is
+     lost, and the band in the middle stays a band instead of becoming mush.
+
+     Colour follows the same reasoning. With six points the series colours tell
+     one from another; with forty-eight they cycle and say nothing, so a large
+     set is drawn in one colour and the chart stops implying a grouping it does
+     not have. */
+  const LABEL_ALL = 9;
+  let labelled;
+  if (points.length <= LABEL_ALL) {
+    labelled = new Set(points.map((_, i) => i));
+  } else {
+    const byY = points.map((p, i) => i).sort((a, b) => points[b].y - points[a].y);
+    const byX = points.map((p, i) => i).sort((a, b) => points[b].x - points[a].x);
+    labelled = new Set([byY[0], byY[1], byY[byY.length - 1], byY[byY.length - 2],
+      byX[0], byX[byX.length - 1]].filter(i => i !== undefined));
+  }
+  const many = points.length > LABEL_ALL;
   points.forEach((p, i) => {
     const who = p.name || p.label || '';
-    svg += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${p.r || 6}"
-      fill="${p.color || seriesColour(i % 6)}" opacity=".78" stroke="var(--paper)" stroke-width="1.4">
+    svg += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${p.r || (many ? 5 : 6)}"
+      fill="${p.color || (many ? 'var(--accent)' : seriesColour(i % 6))}"
+      opacity="${many ? '.6' : '.78'}" stroke="var(--paper)" stroke-width="1.4">
       <title>${esc(who)} · ${esc(xLabel)} ${esc(xFmt(p.x))} · ${esc(yLabel)} ${esc(yFmt(p.y))}</title></circle>`;
-    if (who) {
-      svg += `<text class="sc-pt" x="${X(p.x).toFixed(1)}" y="${(Y(p.y) - 11).toFixed(1)}"
-        text-anchor="middle">${esc(who)}</text>`;
+    if (who && labelled.has(i)) {
+      /* Even the extremes can land on each other. A label that would overlap
+         one already drawn is dropped rather than stacked: the dot and its
+         hover title still carry the point, and two names written over each
+         other carry neither. */
+      const tx = X(p.x), ty = Y(p.y) - 11;
+      const half = who.length * 2.9 + 4;
+      const clash = placedLabels.some(q =>
+        Math.abs(q.y - ty) < 12 && Math.abs(q.x - tx) < half + q.half);
+      if (!clash) {
+        placedLabels.push({ x: tx, y: ty, half });
+        svg += `<text class="sc-pt" x="${tx.toFixed(1)}" y="${ty.toFixed(1)}"
+          text-anchor="middle">${esc(who)}</text>`;
+      }
     }
   });
   svg += `<text x="${W / 2}" y="${height - 5}" text-anchor="middle">${esc(xLabel)}</text>`;
@@ -512,6 +590,19 @@ function band(score) {
    to "Stonebridge Logistics…" and the grid showed two different contracts
    under one label, which is worse than useless: a reader picks the wrong row.
    The distinguishing part of a name is usually its tail, so both ends survive. */
+/* How many labels an axis can show without them touching.
+
+   `slot` is the viewBox width each label gets. A character of the axis font is
+   about 5.4 viewBox units wide, and labels need a gap between them, so the step
+   is how many slots the widest label needs. Measured rather than assumed: a
+   twelve-month axis in a narrow panel was drawing "Sep 26" on top of "Oct 26"
+   because the old step counted labels and never looked at the room. */
+function tickStep(labels, slot) {
+  const widest = labels.reduce((m, l) => Math.max(m, String(l || '').length), 0);
+  const need = widest * 5.4 + 10;
+  return Math.max(1, Math.ceil(need / Math.max(1, slot)));
+}
+
 function trim(s, n) {
   s = String(s);
   if (s.length <= n) return s;
@@ -591,7 +682,7 @@ export function twoSided(opts) {
         const cy = y + h / 2;
         out += `<text x="${tx}" y="${(cy - 3).toFixed(1)}" text-anchor="${anchor}"
           style="font-size:11.5px;fill:var(--ink-faint)">${esc(p.name)}</text>`;
-        out += `<text x="${tx}" y="${(cy + 13).toFixed(1)}" text-anchor="${anchor}"
+        out += `<text x="${tx}" y="${(cy + 16).toFixed(1)}" text-anchor="${anchor}"
           style="font-size:14px;font-weight:700;fill:var(--ink)"
           >${esc(fmt(v))}</text>`;
         out += `<line x1="${labelsOn === 'left' ? x - 9 : x + colW + 9}" x2="${labelsOn === 'left' ? x : x + colW}"
@@ -673,6 +764,50 @@ export function slope(opts) {
   const y = v => padT + ih - (v - lo) / span * ih;
   const x0 = padL, x1 = W - padR;
 
+  /* LABELS DO NOT SIT ON TOP OF EACH OTHER.
+
+     Two statement lines a few thousand dollars apart land on the same pixel
+     row, and the chart printed "Net income" over "EBITDA" and "$1.4M" over
+     "$1.3M" on Matt's screen: *"overlapping text on the graph"*. A chart whose
+     labels collide is worse than a table, because it looks like data and reads
+     like damage.
+
+     Each side is laid out on its own: sort by the position each label wants,
+     walk down pushing any that would touch its neighbour, then walk back up if
+     the pushing ran past the bottom. The DOT stays on the real value and only
+     the text moves, with a hairline joining the two wherever they separated,
+     so nothing is misreported. */
+  const place = (wanted) => {
+    /* 17 units, not 14. A text box is about 1.2x its font size, so an 11.5
+       font needs ~14 just to touch: measured, 14 still collided. */
+    const MIN = 17;
+    const order = wanted.map((v, i) => ({ i, want: v, at: v }))
+      .sort((a, b) => a.want - b.want);
+    for (let k = 1; k < order.length; k++) {
+      if (order[k].at - order[k - 1].at < MIN) order[k].at = order[k - 1].at + MIN;
+    }
+    const over = order.length ? order[order.length - 1].at - (padT + ih) : 0;
+    if (over > 0) {
+      for (const o of order) o.at -= over;
+      for (let k = order.length - 2; k >= 0; k--) {
+        if (order[k + 1].at - order[k].at < MIN) order[k].at = order[k + 1].at - MIN;
+      }
+    }
+    /* ⛔ And not into the column heading above the plot. The first pass pushed
+       labels DOWN and then, when they ran off the bottom, lifted the whole
+       stack: the topmost one climbed into "October 2026" and collided with it
+       instead of with another value. A ceiling is as necessary as a floor. */
+    const under = order.length ? padT + 2 - order[0].at : 0;
+    if (under > 0) for (const o of order) o.at += under;
+    const out = [];
+    for (const o of order) out[o.i] = o.at;
+    return out;
+  };
+
+  const live = rows.filter(r => Number.isFinite(r.from) && Number.isFinite(r.to));
+  const leftAt = place(live.map(r => y(r.from)));
+  const rightAt = place(live.map(r => y(r.to)));
+
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<line x1="${x0}" x2="${x0}" y1="${padT}" y2="${padT + ih}" stroke="var(--rule)"/>`;
   svg += `<line x1="${x1}" x2="${x1}" y1="${padT}" y2="${padT + ih}" stroke="var(--rule)"/>`;
@@ -681,18 +816,26 @@ export function slope(opts) {
   svg += `<text x="${x1}" y="${padT - 14}" text-anchor="middle"
     style="font-size:12px;font-weight:600;fill:var(--ink-faint)">${esc(to)}</text>`;
 
-  rows.forEach((r, i) => {
-    if (!Number.isFinite(r.from) || !Number.isFinite(r.to)) return;
+  live.forEach((r, i) => {
     const up = r.to >= r.from;
     const c = r.color || (up ? 'var(--good)' : 'var(--bad)');
-    svg += `<line x1="${x0}" y1="${y(r.from).toFixed(1)}" x2="${x1}" y2="${y(r.to).toFixed(1)}"
+    const ly = y(r.from), ry = y(r.to);
+    svg += `<line x1="${x0}" y1="${ly.toFixed(1)}" x2="${x1}" y2="${ry.toFixed(1)}"
       stroke="${c}" stroke-width="2.2" opacity=".85"
       ><title>${esc(r.name)}: ${esc(fmt(r.from))} to ${esc(fmt(r.to))}</title></line>`;
-    svg += `<circle cx="${x0}" cy="${y(r.from).toFixed(1)}" r="4" fill="${c}"/>`;
-    svg += `<circle cx="${x1}" cy="${y(r.to).toFixed(1)}" r="4" fill="${c}"/>`;
-    svg += `<text x="${x0 - 10}" y="${(y(r.from) + 4).toFixed(1)}" text-anchor="end"
+    svg += `<circle cx="${x0}" cy="${ly.toFixed(1)}" r="4" fill="${c}"/>`;
+    svg += `<circle cx="${x1}" cy="${ry.toFixed(1)}" r="4" fill="${c}"/>`;
+    if (Math.abs(leftAt[i] - ly) > 1.5) {
+      svg += `<line x1="${x0 - 7}" y1="${ly.toFixed(1)}" x2="${x0 - 7}" y2="${leftAt[i].toFixed(1)}"
+        stroke="${c}" stroke-width="1" opacity=".4"/>`;
+    }
+    if (Math.abs(rightAt[i] - ry) > 1.5) {
+      svg += `<line x1="${x1 + 7}" y1="${ry.toFixed(1)}" x2="${x1 + 7}" y2="${rightAt[i].toFixed(1)}"
+        stroke="${c}" stroke-width="1" opacity=".4"/>`;
+    }
+    svg += `<text x="${x0 - 12}" y="${(leftAt[i] + 4).toFixed(1)}" text-anchor="end"
       style="font-size:11.5px">${esc(r.name)}</text>`;
-    svg += `<text x="${x1 + 10}" y="${(y(r.to) + 4).toFixed(1)}"
+    svg += `<text x="${x1 + 12}" y="${(rightAt[i] + 4).toFixed(1)}"
       style="font-size:11.5px">${esc(fmt(r.to))}</text>`;
   });
   svg += `</svg>`;

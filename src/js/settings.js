@@ -16,6 +16,10 @@ export const SERIES_FALLBACK = {
 export class Settings {
   constructor(cfg) {
     this.cfg = cfg;                 /* product, brands, industries, connectors, roles */
+    /* a tenant build (build.py --tenant) is one client's own Hub: its own store,
+       so a demo saved in the same browser can never dress it in a sample */
+    this.tenant = cfg.product.tenant || null;
+    this.key = this.tenant ? `${KEY}.${this.tenant.id}` : KEY;
     this.data = this.defaults(cfg.industries.industries[0].id);
     this.listeners = [];
   }
@@ -51,7 +55,7 @@ export class Settings {
         .filter(m => !m.startsWith('$')).map(m => [m, true])),
       connectors: on,
       roles: JSON.parse(JSON.stringify(this.cfg.roles.roles)),
-      showDemoNote: true,
+      showDemoNote: !this.tenant,
       /* Which figures the strip carries, and in what order. A client swaps any
          slot for any metric their industry resolves, and the choice exports
          with the rest of the configuration. Defaulted from the industry, and
@@ -65,7 +69,7 @@ export class Settings {
 
   load() {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(this.key);
       if (raw) {
         const saved = JSON.parse(raw);
         if (saved && saved.industry) this.data = { ...this.data, ...saved };
@@ -78,13 +82,13 @@ export class Settings {
   }
 
   save() {
-    try { localStorage.setItem(KEY, JSON.stringify(this.data)); } catch (err) { /* ignore */ }
+    try { localStorage.setItem(this.key, JSON.stringify(this.data)); } catch (err) { /* ignore */ }
     return this;
   }
 
   reset(industryId = this.data.industry) {
     this.data = this.defaults(industryId);
-    try { localStorage.removeItem(KEY); } catch (err) { /* ignore */ }
+    try { localStorage.removeItem(this.key); } catch (err) { /* ignore */ }
     this.apply();
     this.emit();
     return this;

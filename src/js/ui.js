@@ -207,7 +207,7 @@ export function fresh(q, s) {
   const tentative = month > q.closed;
   return `<div class="fresh ${tentative ? 'stale' : ''}">
     <i class="dot"></i>
-    <span>${tentative
+    <span>${!q.closed ? '<b>No month is signed off yet.</b> Every figure here is tentative.' : tentative
       ? `<b>${F.monthName(month, true)} is tentative.</b> ${F.monthName(q.closed, true)} is the last month signed off by both finance and the chief executive.`
       : `Signed off through ${F.monthName(q.closed, true)}.`}</span>
     <span class="muted">· ${s.connectedIn('finance').length

@@ -213,7 +213,8 @@ function verdictLine(ctx, m) {
         for a rule of forty of <b>${F.pct(r40.value, 0)}</b>.`;
     },
   }[id];
-  return lead + (second ? ' ' + second() : '');
+  /* the second sentence reads unit facts, which a ledger-only company does not send */
+  return lead + (second && (q.data.unitFacts || []).length ? ' ' + second() : '');
 }
 
 function basisWords(q) {
@@ -343,8 +344,25 @@ export function margin(ctx) {
          <b>${F.pct(worst.gm)}</b>, a spread of <b>${F.pct(best.gm - worst.gm, 0)}</b>.`
       : 'No units in scope carry revenue over this window.',
   }) + U.fresh(q, s) + `<div class="grid">` +
-    U.panel({
-      col: 7, title: `Margin by ${esc(ind.unit.one)}`,
+    /* ⛔ A LONG LIST TAKES THE FULL WIDTH.
+
+       A list is as tall as its rows however wide the column is, so pairing a
+       48-truck list with a 300px chart leaves 1,792px of empty column beside
+       it. That is not a balancing problem and `balanceRows()` is right to
+       refuse it: stretching an honestly-full chart to 2,049px would be the
+       dishonest fill the guard exists to prevent. The fix is the layout, which
+       is what the publishing session's measurement said.
+
+       Past eighteen rows the two panels stop sharing a row: the chart reads
+       the whole fleet at a glance and goes first, the list goes underneath at
+       full width. Below that the side-by-side still earns its place. */
+    (() => {
+      const wide = rows.length > 18;
+      const listCol = wide ? 12 : 7, plotCol = wide ? 12 : 5;
+      return (wide ? plot(plotCol) : '') + list(listCol) + (wide ? '' : plot(plotCol));
+      function list(col) {
+        return U.panel({
+      col, title: `Margin by ${esc(ind.unit.one)}`,
       note: 'Worst first. The mark on each bar is the blended margin, so a bar short of it is diluting the company.',
       body: C.hbars({
         rows: rows.map(r => ({
@@ -354,19 +372,27 @@ export function margin(ctx) {
         })),
         fmt: v => F.pct(v, 1), max: Math.max(...rows.map(r => Math.abs(r.gm)), avg) * 1.05,
       }),
-    }) +
-    U.panel({
-      col: 5, title: 'Revenue against margin',
-      note: 'Top right is where a company wants its weight. Size is revenue.',
-      body: C.scatter({
-        points: rows.map(r => ({
-          name: r.u.name, x: r.rev, y: r.gm,
-          r: Math.max(4, Math.min(16, Math.sqrt(r.rev / (total || 1)) * 42)),
-        })),
-        xFmt: v => F.money(v), yFmt: v => F.pct(v, 0),
-        xLabel: 'Revenue', yLabel: 'Gross margin', height: 300,
-      }),
-    }) +
+        });
+      }
+      function plot(col) {
+        return U.panel({
+          col, title: 'Revenue against margin',
+          note: `Top right is where a company wants its weight. Size is revenue.${
+            rows.length > 9 ? ' Only the extremes are named; hover any dot for the rest.' : ''}`,
+          body: C.scatter({
+            points: rows.map(r => ({
+              name: r.u.short || r.u.name, x: r.rev, y: r.gm,
+              r: Math.max(4, Math.min(16, Math.sqrt(r.rev / (total || 1)) * 42)),
+            })),
+            xFmt: v => F.money(v), yFmt: v => F.pct(v, 0),
+            xLabel: 'Revenue', yLabel: 'Gross margin',
+            rule: avg, ruleLabel: `blended ${avg.toFixed(1)}%`,
+            height: col === 12 ? 340 : 300,
+          }),
+          foot: `The line is the blended ${F.pct(avg)}. Anything under it dilutes the company.`,
+        });
+      }
+    })() +
     U.panel({
       col: 12, title: 'Margin trend', pad: true,
       body: C.line({

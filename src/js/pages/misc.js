@@ -53,7 +53,7 @@ export function start(ctx) {
     <h1>${esc((ind.headline.says || '{v}')
       .replace('{v}', U.display(q.kpi(ind.headline.metric))))}</h1>
     <p>${esc(s.data.company)} at ${esc(F.monthName(q.view.month, true))}.
-      ${q.view.month > q.closed
+      ${!q.closed ? 'No month is signed off yet, so every figure is tentative.' : q.view.month > q.closed
         ? 'This month is still tentative: the ledger is closed through ' + esc(F.monthName(q.closed, true)) + '.'
         : 'Signed off through ' + esc(F.monthName(q.closed, true)) + '.'}</p>
   </section>` +
@@ -93,7 +93,7 @@ export function start(ctx) {
         overlay: budSeries, overlayName: 'Plan', fmt: v => F.money(v), height: 300,
       }),
     }) +
-    U.panel({
+    (s.tenant ? '' : U.panel({
       col: 7, title: 'The same build, another industry', ico: 'grid',
       note: 'One codebase. The company, the brand, the unit of work, the measures and the connected software all move together.',
       right: U.btn('See all six', { act: 'chooser', kind: 'primary', ico: 'grid', sm: true }),
@@ -106,14 +106,14 @@ export function start(ctx) {
           <span><b>${esc(i.short)}</b><span>${esc(i.unit.collection)}</span></span>
         </button>`;
       }).join('')}</div>`,
-    }) +
+    })) +
     /* ⚖️ Same day: *"i appreciate the connections section but ... it looks like
        clutter"*. It was a list of rows with a status tag each, which reads as
        a monitoring panel and is not one: this is the catalog of what the
        build is wired to, and the detail belongs in Settings. Here it is a wall
        of marks and one sentence, which says the same thing in a glance. */
     U.panel({
-      col: 5, title: 'Live connections', ico: 'link',
+      col: s.tenant ? 12 : 5, title: 'Live connections', ico: 'link',
       note: 'What every figure on every page is read from.',
       right: U.btn('Manage', { act: 'go', arg: 'settings', sm: true }),
       body: connected.length ? `<div class="conn-wall">${connected.map(c => `
@@ -472,75 +472,91 @@ export function pipeline(ctx) {
 /* The Documents browser.
 
    Matt, 2026-11-02: *"your documents section looks like shit. there are no
-   folders....just documents...it looks horrible and unorganized"*. He is
-   describing a page that could only ever draw a list, because the data behind
-   it was a count and eight filenames. What makes a document system believable
-   is its SHAPE: one filing scheme applied to every piece of work, counts that
-   add up, and the ability to walk into a folder and back out again.
+   folders....just documents"*, and then, on the first attempt:
+   *"what the fuck is this? are you fucking broken? can you not just make
+   normal folders?"*
 
-   Where the reader is standing rides on the app, not in the saved deployment:
-   `docsAt` is '' at the root, '<unitId>' inside a unit, '<unitId>/<discipline>'
-   inside a folder. The root of the company's own filing is the literal '~',
-   which no unit id can collide with. */
+   He was right and the second complaint is the more useful one. The first cut
+   put the UNIT OF WORK at the root, which reads fine for twenty-two named
+   construction contracts and is nonsense for forty-eight trucks: a wall of
+   folders called 2187, 2160, 2241. Nobody files that way and nobody looks that
+   way either. The question a person brings to a filing system is "where are
+   the insurance certificates", not "what is inside truck 2187".
+
+   ⛔ So the ROOT IS THE FILING SCHEME: six to nine named folders, the same
+   ones on every unit, and the unit numbers live one level down where they mean
+   something. A company-wide folder sits beside them.
+
+   The other order is still real: True North's own construction convention is
+   project first, and someone who thinks that way can switch. The toggle sets
+   which level is the root; the data underneath is the same. */
 export function docs(ctx) {
   const { q, s } = ctx;
   const d = q.data.docs;
   const ind = s.industry;
   const folders = d.folders || [];
+  const by = ctx.docsBy === 'unit' ? 'unit' : 'type';
   const at = String(ctx.docsAt || '');
-  const [atUnit, atDisc] = at ? at.split('/') : [null, null];
+  const [first, second] = at ? at.split('/') : [null, null];
   const unitName = id => id === '~' ? 'Company'
     : ((q.units.find(u => u.id === id) || {}).short
       || (folders.find(f => f.unit === id) || {}).unitName || id);
 
   const total = folders.reduce((a, f) => a + f.n, 0);
-  const crumbs = [{ label: 'All documents', to: '' }];
-  if (atUnit) crumbs.push({ label: unitName(atUnit), to: atUnit });
-  if (atDisc) crumbs.push({ label: atDisc, to: at });
+  /* What the two levels are, in this order. Everything below reads these
+     rather than branching twice, so the two orders cannot drift apart. */
+  const keyOf = f => by === 'type' ? f.disc : (f.unit || '~');
+  const nameOf = k => by === 'type' ? k : unitName(k);
+  const subKeyOf = f => by === 'type' ? (f.unit || '~') : f.disc;
+  const subNameOf = k => by === 'type' ? unitName(k) : k;
 
-  /* What to draw: the units at the root, that unit's folders one level in,
-     and a folder's documents at the leaf. */
-  let body = '';
-  let heading = '';
-  if (!atUnit) {
-    const byUnit = new Map();
+  const crumbs = [{ label: 'All documents', to: '' }];
+  if (first) crumbs.push({ label: nameOf(first), to: first });
+  if (second) crumbs.push({ label: subNameOf(second), to: at });
+
+  const group = (pick, keyFn, nameFn) => {
+    const map = new Map();
     for (const f of folders) {
-      const key = f.unit || '~';
-      const g = byUnit.get(key) || { key, name: f.unitName, n: 0, size: 0, updated: '' };
+      if (pick && !pick(f)) continue;
+      const k = keyFn(f);
+      const g = map.get(k) || { key: k, name: nameFn(k), n: 0, size: 0, updated: '' };
       g.n += f.n; g.size += f.size;
       if (f.updated > g.updated) g.updated = f.updated;
-      byUnit.set(key, g);
+      map.set(k, g);
     }
-    const groups = [...byUnit.values()].sort((a, b) =>
-      (a.key === '~' ? -1 : b.key === '~' ? 1 : b.n - a.n));
-    heading = `${groups.length} places, ${F.num(total)} documents`;
-    body = `<div class="fold">${groups.map(g => `
-      <button class="fold-item${g.key === '~' ? ' is-co' : ''}" data-act="docs-open" data-arg="${esc(g.key)}">
-        ${icon(g.key === '~' ? 'ledger' : 'folder', 19)}
-        <span class="fo-name">${esc(g.name)}</span>
-        <span class="fo-meta">${F.num(g.n)} documents · ${sizeOf(g.size)}</span>
-        <span class="fo-when">last filed ${esc(g.updated)}</span>
-      </button>`).join('')}</div>`;
-  } else if (!atDisc) {
-    const mine = folders.filter(f => (f.unit || '~') === atUnit);
-    heading = `${esc(unitName(atUnit))} · ${F.num(mine.reduce((a, f) => a + f.n, 0))} documents`;
-    body = `<div class="fold">${mine.map(f => `
-      <button class="fold-item" data-act="docs-open" data-arg="${esc(atUnit)}/${esc(f.disc)}">
-        ${icon('folder', 19)}
-        <span class="fo-name">${esc(f.disc)}</span>
-        <span class="fo-meta">${F.num(f.n)} documents · ${sizeOf(f.size)}</span>
-        <span class="fo-when">last filed ${esc(f.updated)}</span>
-      </button>`).join('')}</div>`;
+    return [...map.values()];
+  };
+
+  const card = (g, href, ico) => `
+    <button class="fold-item${g.key === '~' ? ' is-co' : ''}" data-act="docs-open" data-arg="${esc(href)}">
+      ${icon(ico, 19)}
+      <span class="fo-name">${esc(g.name)}</span>
+      <span class="fo-meta">${F.num(g.n)} documents · ${sizeOf(g.size)}</span>
+      <span class="fo-when">last filed ${esc(g.updated)}</span>
+    </button>`;
+
+  let body = '';
+  let heading = '';
+  if (!first) {
+    const groups = group(null, keyOf, nameOf).sort((a, b) =>
+      by === 'type' ? d.disciplines.indexOf(a.key) - d.disciplines.indexOf(b.key)
+        : (a.key === '~' ? -1 : b.key === '~' ? 1 : b.n - a.n));
+    heading = by === 'type'
+      ? `${groups.length} folders, the same ones on every ${esc(ind.unit.one)}`
+      : `${groups.length} places, ${F.num(total)} documents`;
+    body = `<div class="fold">${groups.map(g =>
+      card(g, g.key, by === 'type' ? 'folder' : (g.key === '~' ? 'ledger' : 'folder'))).join('')}</div>`;
+  } else if (!second) {
+    const mine = group(f => keyOf(f) === first, subKeyOf, subNameOf)
+      .sort((a, b) => (a.key === '~' ? -1 : b.key === '~' ? 1 : b.n - a.n));
+    heading = `${esc(nameOf(first))} · ${F.num(mine.reduce((a, g) => a + g.n, 0))} documents
+      across ${mine.length} ${mine.length === 1 ? 'place' : 'places'}`;
+    body = `<div class="fold">${mine.map(g =>
+      card(g, `${first}/${g.key}`, g.key === '~' ? 'ledger' : 'folder')).join('')}</div>`;
   } else {
-    const f = folders.find(x => (x.unit || '~') === atUnit && x.disc === atDisc);
-    /* The folder's OWN sample, not a filter of the ten most recent filings
-       across the whole company: that matched nothing in all but a few folders,
-       so every folder a reader opened said "0 of them by name". */
+    const f = folders.find(x => keyOf(x) === first && subKeyOf(x) === second);
     const shown = (f && f.docs) || [];
-    heading = `${esc(unitName(atUnit))} · ${esc(atDisc)}`;
-    /* ⛔ The page shows the documents it HAS, and says plainly how many more
-       are in the folder. Drawing a thousand invented filenames to fill a list
-       would be the demo lying about its own depth. */
+    heading = `${esc(nameOf(first))} › ${esc(subNameOf(second))}`;
     body = (shown.length ? `<div class="rows">${shown.map(r => `
       <div class="row-item">${icon('doc', 17)}
         <span class="grow"><b>${esc(r.name)}</b>
@@ -558,13 +574,17 @@ export function docs(ctx) {
     eyebrow: 'Documents',
     title: 'Documents',
     answer: `<b>${F.num(total)}</b> documents and <b>${d.sizeGb}GB</b> filed under one scheme:
-      ${d.disciplines.length} folders repeated on every ${esc(ind.unit.one)} and on the company
-      itself. Each row is readable only by the people who can already read it where it lives,
-      and the index holds no copies.`,
+      the same <b>${d.disciplines.length}</b> folders on every ${esc(ind.unit.one)} and on the
+      company itself. Each row is readable only by the people who can already read it where it
+      lives, and the index holds no copies.`,
   }) + `<div class="grid">` +
     U.panel({
       col: 8, ico: 'folder', title: 'Browse', pad: false,
-      right: `<nav class="crumbs">${crumbs.map((c, i) => i === crumbs.length - 1
+      right: `<div class="fold-order" role="group" aria-label="Folder order">
+          <button class="${by === 'type' ? 'on' : ''}" data-act="docs-by" data-arg="type">By type</button>
+          <button class="${by === 'unit' ? 'on' : ''}" data-act="docs-by" data-arg="unit">By ${esc(ind.unit.one)}</button>
+        </div>
+        <nav class="crumbs">${crumbs.map((c, i) => i === crumbs.length - 1
         ? `<span aria-current="page">${esc(c.label)}</span>`
         : `<button data-act="docs-open" data-arg="${esc(c.to)}">${esc(c.label)}</button>${icon('chevron', 12)}`
       ).join('')}</nav>`,
@@ -576,7 +596,7 @@ export function docs(ctx) {
       body: `<div class="rows">${(d.recent || []).slice(0, 7).map(r => `
         <div class="row-item">${icon('doc', 17)}
           <span class="grow"><b>${esc(r.name)}</b>
-            <div class="sub">${esc(r.unitName)} › ${esc(r.disc)} · ${esc(r.by)}</div></span>
+            <div class="sub">${esc(r.disc)} · ${esc(r.unitName)} · ${esc(r.by)}</div></span>
         </div>`).join('')}</div>`,
       foot: 'Newest first. A filing appears here the moment it lands in its folder.',
     }) +
@@ -587,9 +607,10 @@ export function docs(ctx) {
           so storage does not double and nothing is migrated.</li>
         <li><b>One scheme everywhere.</b> The same ${d.disciplines.length} folders sit on every
           ${esc(ind.unit.one)}, which is what makes a filing scheme worth having. A company with
-          a different scheme per project has no scheme.</li>
-        <li><b>One slice per set of readers.</b> Rows are grouped by who can read them, and a
-          viewer is served only the slices they hold permission on.</li>
+          a different scheme per ${esc(ind.unit.one)} has no scheme.</li>
+        <li><b>Either way round.</b> Most people look for a kind of document, so that is the
+          default. Someone who thinks ${esc(ind.unit.one)}-first can switch the order, and it is
+          the same filing underneath.</li>
         <li><b>The page trims itself.</b> Two people on the same page see different rows, which is
           a permission decision, not a filter.</li>
       </ol>` + connectorNote(s, 'docs', 'Nothing is indexed until a document store is connected.'),

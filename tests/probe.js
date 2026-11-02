@@ -532,6 +532,42 @@ async function main() {
         ok(holes.length === 0, `${ind}/${role}/${p}: no panel left with a hole in it`,
           holes.slice(0, 2).join(', '));
 
+        /* ⛔ NO CHART LABEL SITS ON ANOTHER.
+
+           Matt, twice in one pass: *"this is bad. i literally cannot read any
+           of it"* on a 48-point scatter whose every dot was named, and
+           *"overlapping text on the graph"* on a slope chart printing "Net
+           income" over "EBITDA". Both looked like data and read like damage,
+           and the gate had nothing to say about either.
+
+           Seven separate causes behind one symptom, every one of them found by
+           this measurement rather than by reading the code: labelling every
+           point of a crowded scatter, a slope chart with no collision pass,
+           an axis thinned by COUNT instead of by the room each label has, a
+           wrapped waterfall label whose two lines were closer than the text is
+           tall, a scatter rule caption competing with point labels, a slope
+           label climbing into the column heading, and a two-line stack label.
+           A rule that reads well at 1440 can collide at 1100, so this runs at
+           whatever width the gate is using and the sweep covers both. */
+        const collisions = await page.evaluate(() => {
+          const els = [...document.querySelectorAll('#page svg text')]
+            .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() }))
+            .filter(o => o.r.width && o.r.height);
+          const out = [];
+          for (let a = 0; a < els.length; a++) {
+            for (let b = a + 1; b < els.length; b++) {
+              const x = els[a].r, z = els[b].r;
+              if (x.left < z.right - 1 && z.left < x.right - 1
+                && x.top < z.bottom - 1 && z.top < x.bottom - 1) {
+                out.push(`${els[a].t} / ${els[b].t}`);
+              }
+            }
+          }
+          return out;
+        });
+        ok(collisions.length === 0, `${ind}/${role}/${p}: no chart label sits on another`,
+          collisions.slice(0, 2).join(' , '));
+
         /* ⛔ A schedule's axis, its today line and its bars must measure from
            the SAME box. The first cut positioned the axis and the line against
            the whole row, which is wider than the bars' column, and nudged them

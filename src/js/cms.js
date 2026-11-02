@@ -86,10 +86,10 @@ export function settings(ctx) {
        <span class="sn-i">${icon(t.ico, 16)}</span>
        <span><b>${esc(t.name)}</b><span>${esc(t.why)}</span></span>
      </button>`).join('')}
-      <div class="set-reset">
+      ${s.tenant ? '' : `<div class="set-reset">
         ${U.btn('Reset to the sample', { act: 'reset-settings', sm: true })}
         <p>Puts every setting on this page back to the demo it shipped with.</p>
-      </div>
+      </div>`}
     </nav>
     <div>${body}</div>
   </div>`;
@@ -251,7 +251,7 @@ function connCard(c, s) {
       <span class="tag ${c.status === 'live' ? 'good' : c.status === 'built' ? 'warn' : ''}">
         <i class="dot"></i>${esc(statusWord(c.status))}</span>
       ${c.recommend ? `<span class="tag">${icon('bolt', 12)}We recommend</span>` : ''}
-      ${on
+      ${s.tenant ? '' : on
       ? U.btn('Disconnect', { act: 'disconnect', arg: c.id, sm: true })
       : U.btn('Connect', { act: 'connect', arg: c.id, kind: 'primary', sm: true, ico: 'link' })}
     </div>
