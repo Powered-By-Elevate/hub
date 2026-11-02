@@ -414,6 +414,72 @@ async function main() {
     ok(/\d/.test(card.shown || ''), `${ind}: the card shows a formatted figure`, card.shown);
     ok((card.label || '').length > 3, `${ind}: the card names its measure in words`, card.label);
 
+    /* ⛔ DRIVE THE READOUT, DO NOT JUST READ ITS DATA.
+
+       A readout whose data parses but which never appears is the same as no
+       readout, and the structural check above cannot tell the difference. So
+       once per industry a real pointer is moved onto a real chart and the box
+       is read off the page: it has to show, name the point, and carry one row
+       per series.
+
+       ⚠️ The chart is scrolled into view first. My own first run of this
+       hovered a chart 1,228px down a 1,000px viewport, got nothing, and read
+       as a broken feature: `elementFromPoint` outside the viewport returns
+       null, so the pointer was over nothing at all. */
+    const readout = await (async () => {
+      await page.evaluate("window.__hub.go('fin-balance')");
+      await page.waitForTimeout(220);
+      /* ⛔ SCROLL, SETTLE, THEN MEASURE. Scrolling a panel into view arms
+         world.js's settle animation, which translates the section AFTER the
+         scroll: measuring in the same tick returns coordinates the chart has
+         already left, and the pointer lands beside it. It failed on two
+         industries out of six and passed on four, which is exactly what a
+         race looks like. */
+      const found = await page.evaluate(() => {
+        const svg = document.querySelector('#page svg[data-hover]');
+        if (!svg) return false;
+        svg.scrollIntoView({ block: 'center' });
+        return true;
+      });
+      if (!found) return { skipped: true };
+      await page.waitForTimeout(320);
+      const box = await page.evaluate(() => {
+        const svg = document.querySelector('#page svg[data-hover]');
+        if (!svg) return null;
+        const r = svg.getBoundingClientRect();
+        return { x: r.left + r.width * 0.55, y: r.top + r.height * 0.5,
+          series: JSON.parse(svg.dataset.hover).series.map(s => s.name) };
+      });
+      if (!box) return { skipped: true };
+      await page.mouse.move(box.x, box.y);
+      await page.waitForTimeout(140);
+      const seen = await page.evaluate(() => {
+        const t = document.querySelector('.hoverout');
+        if (!t || t.hidden) return null;
+        return { text: t.innerText, rows: t.querySelectorAll('.ro-row').length };
+      });
+      await page.mouse.move(4, 4);
+      await page.waitForTimeout(80);
+      const gone = await page.evaluate(() => {
+        const t = document.querySelector('.hoverout');
+        return !t || t.hidden;
+      });
+      return { seen, gone, want: box.series };
+    })();
+    if (!readout.skipped) {
+      ok(!!readout.seen, `${ind}: hovering a chart shows a readout`);
+      if (readout.seen) {
+        ok(readout.seen.rows === readout.want.length,
+          `${ind}: the readout carries every series`,
+          `${readout.seen.rows} rows against ${readout.want.length} series`);
+        for (const name of readout.want) {
+          ok(readout.seen.text.includes(name),
+            `${ind}: the readout names ${name}`, readout.seen.text.replace(/\n/g, ' | '));
+        }
+      }
+      ok(readout.gone, `${ind}: the readout clears when the pointer leaves`);
+    }
+
     /* the statements must hold together, from inside the app's own query layer */
     const ties = await page.evaluate('window.__hub.ties()');
     ok(ties.worstBalance <= 1, `${ind}: balance sheet balances every month`, `worst ${ties.worstBalance}`);
@@ -577,6 +643,37 @@ async function main() {
           document.querySelectorAll('#page .grid > .strip').length);
         ok(strayStrip === 0, `${ind}/${role}/${p}: no figure strip inside the panel grid`,
           `${strayStrip} found`);
+
+        /* ⛔ THE HOVER READOUT HAS TO AGREE WITH THE CHART IT DESCRIBES.
+
+           Matt: *"all items should be interactive. when i hover over an item,
+           it needs to show data on each line or dot or whatever"*. The readout
+           carries its figures as data written at draw time, so the one defect
+           it can have is DRIFT: a series whose values no longer line up with
+           the labels, which would report September's figure under October's
+           name and look entirely plausible doing it.
+
+           Checked structurally on every page, and driven for real once per
+           industry below, because a readout that parses but never appears is
+           the same as no readout. */
+        const hoverBad = await page.evaluate(() => {
+          const out = [];
+          for (const svg of document.querySelectorAll('#page svg[data-hover]')) {
+            let d;
+            try { d = JSON.parse(svg.dataset.hover); } catch { out.push('unparseable'); continue; }
+            if (!Array.isArray(d.labels) || !d.labels.length) { out.push('no labels'); continue; }
+            if (!Number.isFinite(d.padL) || !Number.isFinite(d.iw)) { out.push('no plot box'); continue; }
+            for (const sr of d.series || []) {
+              if (!sr.name) out.push('a series with no name');
+              if ((sr.values || []).length !== d.labels.length) {
+                out.push(`${sr.name}: ${(sr.values || []).length} values against ${d.labels.length} labels`);
+              }
+            }
+          }
+          return out;
+        });
+        ok(hoverBad.length === 0, `${ind}/${role}/${p}: the hover readout lines up with its chart`,
+          hoverBad.slice(0, 2).join(', '));
 
         /* ⛔ A schedule's axis, its today line and its bars must measure from
            the SAME box. The first cut positioned the axis and the line against

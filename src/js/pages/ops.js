@@ -539,6 +539,8 @@ function backlog(ctx) {
             <span class="gt-name">${esc(x.r.short || x.r.name)}</span>
             <span class="gt-track">
               <i class="gt-bar${x.to <= now && x.pct < 0.995 ? ' late' : ''}"
+                 data-r="${esc(x.r.short || x.r.name)} · ${esc(monthOf(x.from))} to ${esc(monthOf(x.to))} · ${F.pct(x.r.f.pct, 0)} of the work earned${
+          x.to <= now && x.pct < 0.995 ? ' · calendar has run out' : ''}"
                  style="left:${at(x.from).toFixed(2)}%;width:${Math.max(1.2, at(x.to) - at(x.from)).toFixed(2)}%">
                 <b style="width:${(x.pct * 100).toFixed(1)}%"></b>
               </i>

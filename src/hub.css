@@ -1720,3 +1720,38 @@ body.presenting .strip[data-current="true"] {
 @media (max-width: 760px) {
   .sumrow { grid-template-columns: 1fr; gap: 3px; padding: 10px 0; }
 }
+
+/* ------------------------------------------------------------ the readout
+   Matt, 2026-11-02: *"all items should be interactive. when i hover over an
+   item, it needs to show data on each line or dot or whatever"*.
+
+   One box for every chart in the build. It follows the pointer, flips at the
+   window edge, and on an x-indexed chart lists EVERY series at the month under
+   the cursor, because "what was the other line doing here" is the question a
+   two-line chart exists to answer and a per-dot tooltip never answers it. */
+.hoverout {
+  position: fixed; z-index: 400; pointer-events: none;
+  max-width: 320px; padding: 10px 12px;
+  background: var(--paper); color: var(--ink);
+  border-radius: 11px; box-shadow: var(--shadow-lg);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 12px 28px -6px rgba(16, 24, 40, .22);
+  font-size: 12.5px; line-height: 1.45;
+  animation: ro-in .1s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) { .hoverout { animation: none; } }
+@keyframes ro-in { from { opacity: 0; } to { opacity: 1; } }
+.hoverout[hidden] { display: none; }
+.hoverout > b { display: block; font-size: 12px; font-weight: 650; letter-spacing: -.005em; }
+.ro-rows { margin-top: 7px; display: flex; flex-direction: column; gap: 4px; }
+.ro-rows > div { color: var(--ink-soft); }
+.ro-row { display: grid; grid-template-columns: 9px minmax(0, 1fr) auto; gap: 8px;
+  align-items: center; }
+.ro-row > i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.ro-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--ink-soft); }
+.ro-row > em { font-style: normal; font-weight: 640; font-variant-numeric: tabular-nums;
+  color: var(--ink); white-space: nowrap; }
+
+/* The dot under the cursor lifts, so the eye lands on the right month. */
+svg .pt { transition: r .08s ease-out; }
+svg .pt.on { r: 5.5; stroke: var(--paper); stroke-width: 2; }

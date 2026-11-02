@@ -58,8 +58,18 @@ export function line(opts) {
   const x = i => padL + (labels.length < 2 ? iw / 2 : iw * i / (labels.length - 1));
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
 
+  /* What the cursor needs: the plot box and one formatted value per series per
+     point. Written as data rather than recomputed on every pointermove, so the
+     readout cannot disagree with the line it is describing. */
+  const hover = JSON.stringify({
+    padL, iw, step: 'point', labels,
+    series: series.map((sr, si) => ({
+      name: sr.name, color: sr.color || seriesColour(si),
+      values: sr.values.map(v => Number.isFinite(v) ? fmt(v) : null),
+    })),
+  });
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto"
-    data-chart="line" data-id="${id}" role="img">`;
+    data-chart="line" data-id="${id}" role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="axis">`;
   for (const t of ticks(lo, hi)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
@@ -98,8 +108,12 @@ export function line(opts) {
       ${s.dash ? 'stroke-dasharray="5 4"' : ''}/>`;
     s.values.forEach((v, i) => {
       if (!Number.isFinite(v)) return;
-      svg += `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${labels.length > 18 ? 2 : 3}"
-        fill="${c}"><title>${esc(s.name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></circle>`;
+      /* `.pt` and its index: the readout lifts the dot at the month under the
+         cursor so the eye lands on the right one. No title, because the
+         position readout covers every series at once and a per-dot tooltip
+         would answer a narrower question a second later. */
+      svg += `<circle class="pt" data-i="${i}" cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}"
+        r="${labels.length > 18 ? 2 : 3}" fill="${c}"/>`;
     });
   });
 
@@ -136,7 +150,23 @@ export function bars(opts) {
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
   const c = color || seriesColour(0);
 
-  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
+  /* A bar sits in a BAND, not on a point, so the index is the band under the
+     cursor. The readout carries the bar, the overlay line where there is one
+     and the target where there is one, because all three are at that month. */
+  const hover = JSON.stringify({
+    padL, iw, step: 'band', labels,
+    series: [{ name, color: c, values: values.map(v => Number.isFinite(v) ? fmt(v) : null) }]
+      .concat(overlay ? [{
+        name: overlayName, color: 'var(--ink)',
+        values: overlay.map(v => Number.isFinite(v) ? fmt(v) : null),
+      }] : [])
+      .concat(Number.isFinite(target) ? [{
+        name: 'Target', color: 'var(--warn)', values: values.map(() => fmt(target)),
+      }] : []),
+  });
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto"
+    role="img" data-hover="${esc(hover)}">`;
+  svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
   for (const t of ticks(lo, hi)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
@@ -160,11 +190,11 @@ export function bars(opts) {
     const w = bw * 0.64;
     const top = Math.min(y(v), y(0)), h = Math.max(1.5, Math.abs(y(v) - y(0)));
     svg += `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
-      fill="${v < 0 ? negColor : c}" rx="2"><title>${esc(name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
+      fill="${v < 0 ? negColor : c}" rx="2"/>`;
     if (overlay && Number.isFinite(overlay[i])) {
       svg += `<line x1="${(bx - w * 0.1).toFixed(1)}" x2="${(bx + w * 1.1).toFixed(1)}"
         y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"
-        stroke="var(--ink)" stroke-width="2" opacity=".75"><title>${esc(overlayName)} · ${esc(labels[i] || '')}: ${esc(fmt(overlay[i]))}</title></line>`;
+        stroke="var(--ink)" stroke-width="2" opacity=".75"/>`;
     }
     if (i % step === 0) {
       svg += `<text x="${(padL + bw * i + bw / 2).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(labels[i] || '')}</text>`;
@@ -194,7 +224,18 @@ export function stack(opts) {
   const bw = iw / rows.length;
   const y = v => padT + ih - v / hi * ih;
 
-  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
+  /* Every band of the stack at the month under the cursor, so a reader sees
+     what made up that column instead of hunting one segment at a time. */
+  const hover = JSON.stringify({
+    padL, iw, step: 'band', labels,
+    series: keys.map((k, ki) => ({
+      name: names[k] || k, color: seriesColour(ki),
+      values: rows.map(r => Number.isFinite(r[k]) ? fmt(r[k]) : null),
+    })),
+  });
+  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto"
+    role="img" data-hover="${esc(hover)}">`;
+  svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
   for (const t of ticks(0, hi)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
@@ -211,7 +252,7 @@ export function stack(opts) {
       if (v <= 0) return;
       const top = y(acc + v), h = Math.max(0.8, y(acc) - y(acc + v));
       svg += `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
-        fill="${seriesColour(ki)}" rx="1.5"><title>${esc(names[k] || k)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
+        fill="${seriesColour(ki)}" rx="1.5"/>`;
       acc += v;
     });
     if (i % step === 0) {
@@ -487,23 +528,170 @@ export function scatter(opts) {
 /* Give every line chart a cursor guideline. Called once after a page renders.
    Pointer only: a page that never gets a pointer is unaffected, and nothing
    here waits on visible time, because a headless browser has none. */
+/* ===========================================================================
+   HOVER: every chart answers the cursor.
+
+   Matt, 2026-11-02: *"all items should be interactive. when i hover over an
+   item, it needs to show data on each line or dot or whatever"*.
+
+   Before this, a line chart moved a bare guideline with no figures on it, and
+   everything else relied on the browser's own `<title>` tooltip: a grey box
+   that waits a second, cannot be styled, shows one mark at a time, and on a
+   two-line chart never tells you what the OTHER line was doing at the same
+   month, which is the whole question that chart exists to answer.
+
+   One mechanism, two shapes, because charts come in two kinds:
+
+   1. An X-INDEXED chart (line, bars, stack) answers for a POSITION: the month
+      under the cursor, with every series' value at that month, so the reader
+      compares rather than guesses. It carries its figures as `data-hover`.
+   2. A MARK chart (donut, scatter, heatmap, waterfall, slope, bars within a
+      row list) answers for the THING under the cursor. Any element carrying
+      `data-r` reports it, in SVG or in plain HTML, so the schedule's rows and
+      the churn strip work the same way without knowing about this file.
+
+   ⛔ The native `<title>` tooltip is REMOVED at wire time rather than left to
+   appear a second later underneath the real readout. Its text becomes the
+   mark's `data-r` and its `aria-label`, so what a screen reader gets is
+   unchanged and what a pointer gets is ours.
+
+   The handler is delegated from the page root, so it survives a re-render
+   without rewiring, and it reads geometry only on the frames it has to. */
+
+let tip = null;
+
+function tipEl() {
+  if (tip && tip.isConnected) return tip;
+  tip = document.createElement('div');
+  /* ⛔ `hoverout`, NOT `readout`. `.readout` already means "a value drawn
+     inside a chart" (the donut's centre figure, the waterfall's bar labels),
+     and giving the tooltip the same name made one selector mean two things
+     again, hours after `.delta` taught exactly that lesson. It cost an hour:
+     every test that asked the document for `.readout` found a waterfall's SVG
+     text first and reported the feature broken on the pages that have one. */
+  tip.className = 'hoverout';
+  tip.setAttribute('role', 'status');
+  tip.setAttribute('aria-live', 'polite');
+  tip.hidden = true;
+  document.body.append(tip);
+  return tip;
+}
+
+function showTip(html, ev) {
+  const el = tipEl();
+  el.innerHTML = html;
+  el.hidden = false;
+  /* Measured, then placed: the box has to exist before its width is known, and
+     it flips rather than running off the edge of a narrow window. */
+  const b = el.getBoundingClientRect();
+  const pad = 14;
+  let left = ev.clientX + pad;
+  let top = ev.clientY + pad;
+  if (left + b.width > window.innerWidth - 8) left = ev.clientX - b.width - pad;
+  if (top + b.height > window.innerHeight - 8) top = ev.clientY - b.height - pad;
+  el.style.left = `${Math.max(8, left)}px`;
+  el.style.top = `${Math.max(8, top)}px`;
+}
+
+function hideTip() {
+  if (tip) { tip.hidden = true; }
+}
+
+/* `<title>` becomes `data-r`, once, so the native tooltip never fires. */
+function liftTitles(root) {
+  for (const t of root.querySelectorAll('svg title')) {
+    const owner = t.parentElement;
+    const text = (t.textContent || '').trim();
+    t.remove();
+    if (!owner || !text) continue;
+    if (!owner.dataset.r) owner.dataset.r = text;
+    if (!owner.getAttribute('aria-label')) owner.setAttribute('aria-label', text);
+  }
+  /* The same for plain HTML marks, whose native tooltip is a `title=`. */
+  for (const el of root.querySelectorAll('[title]:not([data-keep-title])')) {
+    const text = el.getAttribute('title');
+    if (!text) continue;
+    el.removeAttribute('title');
+    if (!el.dataset.r) el.dataset.r = text;
+    if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', text);
+  }
+}
+
+/* A readout for one mark: whatever the chart wrote, split on the separator it
+   already used so the name reads as a heading and the figures as rows. */
+function markHTML(text) {
+  const bits = String(text).split(' · ');
+  const head = bits.shift();
+  return `<b>${esc(head)}</b>${bits.length
+    ? `<div class="ro-rows">${bits.map(x => `<div>${esc(x)}</div>`).join('')}</div>` : ''}`;
+}
+
+/* A readout for a position: the label, then one row per series, each with the
+   series' own colour so a reader matches it to the line without counting. */
+function indexHTML(data, i) {
+  return `<b>${esc(data.labels[i] || '')}</b>
+    <div class="ro-rows">${data.series.map(sr => `
+      <div class="ro-row">
+        <i style="background:${esc(sr.color || 'var(--accent)')}"></i>
+        <span>${esc(sr.name)}</span>
+        <em>${esc(sr.values[i] === undefined || sr.values[i] === null ? '—' : sr.values[i])}</em>
+      </div>`).join('')}</div>`;
+}
+
 export function wire(root) {
-  root.querySelectorAll('svg[data-chart="line"]').forEach(svg => {
-    const hit = svg.querySelector('rect.hit');
+  liftTitles(root);
+  if (root.dataset.hoverWired) return;
+  root.dataset.hoverWired = '1';
+
+  const move = ev => {
+    const mark = ev.target.closest ? ev.target.closest('[data-r]') : null;
+    if (mark) { showTip(markHTML(mark.dataset.r), ev); return; }
+
+    const svg = ev.target.closest ? ev.target.closest('svg[data-hover]') : null;
+    if (!svg) { hideTip(); clearCursor(root); return; }
+
+    let data;
+    try { data = JSON.parse(svg.dataset.hover); } catch { hideTip(); return; }
+    const box = svg.getBoundingClientRect();
+    const vb = svg.viewBox.baseVal;
+    const scale = vb.width / box.width;
+    const px = (ev.clientX - box.left) * scale;
+    const n = data.labels.length;
+    if (!n) { hideTip(); return; }
+    /* Nearest index by the chart's own plot geometry, which it wrote down, so
+       this never has to know how a particular chart lays its points out. */
+    const t = (px - data.padL) / Math.max(1, data.iw);
+    const i = Math.max(0, Math.min(n - 1,
+      Math.round(data.step === 'band' ? t * n - 0.5 : t * (n - 1))));
+    showTip(indexHTML(data, i), ev);
+
     const cursor = svg.querySelector('g.cursor');
-    if (!hit || !cursor || svg.dataset.wired) return;
-    svg.dataset.wired = '1';
-    const move = ev => {
-      const box = svg.getBoundingClientRect();
-      const scale = W / box.width;
-      const px = (ev.clientX - box.left) * scale;
+    if (cursor) {
+      const cx = data.padL + (data.step === 'band'
+        ? data.iw * (i + 0.5) / n : (n < 2 ? data.iw / 2 : data.iw * i / (n - 1)));
       cursor.style.display = '';
-      cursor.querySelector('line').setAttribute('x1', px);
-      cursor.querySelector('line').setAttribute('x2', px);
-    };
-    svg.addEventListener('pointermove', move);
-    svg.addEventListener('pointerleave', () => { cursor.style.display = 'none'; });
-  });
+      for (const ln of cursor.querySelectorAll('line')) {
+        ln.setAttribute('x1', cx); ln.setAttribute('x2', cx);
+      }
+    }
+    for (const dot of svg.querySelectorAll('.pt')) {
+      dot.classList.toggle('on', Number(dot.dataset.i) === i);
+    }
+  };
+
+  root.addEventListener('pointermove', move, { passive: true });
+  root.addEventListener('pointerleave', () => { hideTip(); clearCursor(root); });
+  /* A touch is a tap, not a hover: show the readout and let the next tap
+     elsewhere clear it, rather than leaving a box stranded on screen. */
+  root.addEventListener('pointerdown', ev => {
+    if (ev.pointerType === 'touch') move(ev);
+  }, { passive: true });
+  addEventListener('scroll', hideTip, { passive: true });
+}
+
+function clearCursor(root) {
+  for (const c of root.querySelectorAll('svg g.cursor')) c.style.display = 'none';
+  for (const d of root.querySelectorAll('svg .pt.on')) d.classList.remove('on');
 }
 
 /* ---------------------------------------------------------------- heatmap */
@@ -634,7 +822,13 @@ export function multiples(opts) {
     const last = vals[vals.length - 1];
     const first = vals[0];
     const up = last >= first;
-    return `<div class="mult" ${r.click ? `data-click="${esc(r.click)}" tabindex="0"` : ''}>
+    /* A small multiple is a chart in its own right, so it answers like one:
+       what it is, where it started, where it is now, and which way it went. */
+    const first0 = vals[0], last0 = vals[vals.length - 1];
+    const dir = !Number.isFinite(first0) || !Number.isFinite(last0) ? ''
+      : last0 > first0 ? ' · rising' : last0 < first0 ? ' · falling' : ' · flat';
+    const rd = `${r.name} · ${Number.isFinite(first0) ? show(first0) : '—'} to ${Number.isFinite(last0) ? show(last0) : '—'}${dir}`;
+    return `<div class="mult" data-r="${esc(rd)}" ${r.click ? `data-click="${esc(r.click)}" tabindex="0"` : ''}>
       <div class="mult-head"><b>${esc(trim(r.name, 20))}</b>
         <span class="lastval ${up ? 'up' : 'down'}">${esc(show(last))}</span></div>
       <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
