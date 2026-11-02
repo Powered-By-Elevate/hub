@@ -33,7 +33,7 @@ const TABS = [
   { id: 'conns', name: 'Integrations', ico: 'link', why: 'What the figures are read from' },
   { id: 'levels', name: 'View levels', ico: 'lock', why: 'Who sees what, and whether in money' },
   { id: 'modules', name: 'Modules & pages', ico: 'grid', why: 'Which places exist at all' },
-  { id: 'deploy', name: 'Configuration file', ico: 'doc', why: 'Export what a deployment is built from' },
+  { id: 'deploy', name: 'Save & hand off', ico: 'download', why: 'What this is set to, and the file a deployment is built from' },
 ];
 
 /* One setting: what it is, what it does, and the control that changes it. */
@@ -508,25 +508,104 @@ function modulesTab(ctx) {
 
 /* ------------------------------------------------------------- deploy tab */
 
+/* ⛔ A TAB CALLED "CONFIGURATION FILE" THAT OPENS ON RAW JSON.
+
+   Matt, 2026-11-02: *"why is there a confuguration file seciton.....what is
+   that even for, how is it useful, and how can it not be so confusing"*. Three
+   questions, and the page answered none of them: it opened on an eighteen-row
+   textarea of JSON, which is the ANSWER to a question nobody had asked yet.
+
+   So it answers them in order. What this deployment is currently set to, read
+   back in English, because a person wants to see their own decisions before
+   they see a file. Then what the file is for, in two sentences. Then the two
+   things you actually DO here, saving it and loading one, as the primary
+   controls. The JSON itself goes behind a disclosure, because it is the
+   evidence rather than the point.
+
+   The tab is called Save & hand off now. "Configuration file" names the
+   artifact; a tab should name the job. */
 function deployTab(ctx) {
   const { s } = ctx;
   const json = s.exportJSON();
+  const d = s.data;
+  const pages = s.pages().length;
+  const allPages = Object.keys(ctx.cfg.product.pages).filter(k => k !== '$comment').length;
+  const conns = Object.keys(d.connectors || {}).length;
+  const mods = Object.values(d.modules || {}).filter(Boolean).length;
+  const withMoney = (d.roles || []).filter(r => r.money !== 'none').length;
+
+  const line = (what, value, why) => `
+    <div class="sumrow">
+      <span class="sum-k">${esc(what)}</span>
+      <span class="sum-v">${value}</span>
+      <span class="sum-w">${esc(why)}</span>
+    </div>`;
+
   return U.panel({
-    title: 'The configuration file',
-    note: 'This is the whole of a client’s Hub: brand, modules, connected software, view levels. Hand this file to the build and the dashboard comes out branded, connected and role-scoped, with no code touched.',
-    right: U.btn('Download', { act: 'export-config', kind: 'primary', ico: 'download', sm: true }),
-    body: `<div class="field">
-        <textarea rows="18" readonly style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px">${esc(json)}</textarea>
-      </div>
-      <div class="field">
-        <label>Load a configuration</label>
-        <textarea rows="4" id="import-json" placeholder="Paste a configuration file here"></textarea>
-        <div style="margin-top:8px">${U.btn('Load it', { act: 'import-config', ico: 'arrow' })}</div>
-      </div>`,
-    foot: s.tenant ? 'Changes here stay in this browser. The next build follows the settings file your administrator keeps.'
+    title: 'What this deployment is set to',
+    ico: 'check',
+    note: `Everything you changed in the other tabs, read back. This is what the file below
+      carries, so you can check your own decisions without reading JSON.`,
+    body: `<div class="sumtable">
+      ${line('Client', `<b>${esc(d.company)}</b>`, `${esc(d.industry)}, shown as ${esc(d.productName)}`)}
+      ${(() => {
+      /* ⛔ The brand nests its colours under `palette` and its faces under
+         `type`, and reading `brand.accent` and `brand.display` gave a grey
+         swatch, a dash and "default over default" on a client whose brand is
+         fully set. A summary that misreports the thing it is summarising is
+         worse than no summary. The first face name is taken out of the CSS
+         stack, because "Archivo, Impact, sans-serif" is a fallback chain and
+         the reader only chose the first one. */
+      const pal = d.brand.palette || {};
+      const face = v => String(v || '').split(',')[0].replace(/["']/g, '').trim() || 'default';
+      return line('Brand',
+        `<span class="sw" style="background:${esc(pal.accent || '#888')}"></span>
+         <b>${esc(pal.accent || 'not set')}</b>`,
+        `${esc(face((d.brand.type || {}).display))} over ${esc(face((d.brand.type || {}).body))}`);
+    })()}
+      ${line('Connected software', `<b>${conns}</b>`, conns
+      ? `read-only, and every figure on every page comes from one of them`
+      : `nothing connected yet, so every page reads the sample`)}
+      ${line('Modules on', `<b>${mods}</b>`, `${pages} of ${allPages} pages exist at all`)}
+      ${line('View levels', `<b>${(d.roles || []).length}</b>`,
+      `${withMoney} see money, ${(d.roles || []).length - withMoney} do not`)}
+      ${line('Opens on', `<b>${esc(d.theme)} theme</b>`, `${esc((d.basis || '').toUpperCase())}, as ${esc((d.roles.find(r => r.id === d.role) || {}).name || d.role)}`)}
+    </div>`,
+    foot: s.tenant
+      ? 'Changes here stay in this browser. The next build follows the settings file your administrator keeps.'
       : 'Settings live in this browser while you are trying things. A real deployment carries the file.',
+  }) + U.panel({
+    title: 'Save it, or load one',
+    ico: 'download',
+    note: `The file IS the deployment. Hand it to the build and the dashboard comes out branded,
+      connected and scoped to these levels, with no code touched. It is also how a setup moves:
+      from a laptop to a colleague, from a trial to the real thing, from one client to the next
+      as a starting point.`,
+    body: `<div class="handoff">
+        <div class="ho-card">
+          <b>Save this setup</b>
+          <p>Downloads everything above as one file. Keep it, send it, or hand it to whoever
+            builds the deployment.</p>
+          ${U.btn('Download the file', { act: 'export-config', kind: 'primary', ico: 'download' })}
+        </div>
+        <div class="ho-card">
+          <b>Load a setup</b>
+          <p>Paste a file saved here or sent to you. It replaces everything above, and you can
+            look around before deciding to keep it.</p>
+          <textarea rows="3" id="import-json" placeholder="Paste a configuration file here"></textarea>
+          ${U.btn('Load it', { act: 'import-config', ico: 'arrow' })}
+        </div>
+      </div>
+      <details class="raw">
+        <summary>Show the file itself</summary>
+        <p class="raw-why">The same thing in the form the build reads. Nothing here needs editing
+          by hand: every value in it is set by one of the other tabs.</p>
+        <textarea rows="16" readonly
+          style="font-family:ui-monospace,Menlo,monospace;font-size:11.5px">${esc(json)}</textarea>
+      </details>`,
   }) + (s.tenant ? '' : U.panel({
     title: 'What a deployment actually involves',
+    ico: 'plan',
     body: `<ol class="steps">
       <li><b>Brand.</b> The kit goes in: logo files, the palette, the two typefaces. An hour, and
         it is the part a client notices first.</li>

@@ -66,19 +66,28 @@ load from `file://`.
 node tests/probe.js          # the full walk: six industries, eight levels, every page
 node tests/probe.js --quick  # one industry
 node tests/probe.js --shots  # also write screenshots to tests/shots
+node tests/probe.js --dist <path>   # any other build, a client's included
 ```
 
-5,370 checks. Every page of every level of every industry is opened, and the
-probe asserts that it drew without throwing, that the console is clean, that
-nothing reads `NaN` or `undefined`, that there is no sideways scroll at 1440 or
-390, that the statements tie, that every KPI resolves to a real number, and
-that a level with no money permission leaks no currency anywhere. It runs one
-Chromium at a time on purpose: two in a small container gets the second killed,
-and a killed browser reads exactly like a broken page.
+**8,170 checks on the demo.** Every page of every view level of every industry is
+opened, and the probe asserts that it drew without throwing, that the console is
+clean, that nothing reads `NaN` or `undefined`, that there is no sideways scroll
+at 1440 or 390, that the statements tie, that every KPI resolves to a real
+number, and that a level with no money permission leaks no currency anywhere. It
+runs one Chromium at a time on purpose: two in a small container gets the second
+killed, and a killed browser reads exactly like a broken page.
 
-It has already earned its keep twice. It caught a `$2.10` threshold written
-into prose on the freight page, which a no-money level could read, and it
-caught a `$comment` key being walked as though it were a page.
+It keeps earning its keep, and every one of these was a real defect the eye had
+passed over: a `$2.10` threshold written into prose where a no-money level could
+read it, a `$comment` key walked as though it were a page, a statement line the
+model declared and no extract carried, a position summed as if it were a flow
+(a house margin of -222%, a contract 5,356% complete), a percent change OF a
+percentage, forty-eight scatter labels written over each other, a panel left
+with 1,810px of nothing in it, and a figure strip laid out inside the panel grid
+twice.
+
+⛔ Several of those were found by a check written for something else. A gate is
+worth more than the bug it was written for.
 
 ## How it is put together
 
