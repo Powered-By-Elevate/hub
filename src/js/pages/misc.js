@@ -34,8 +34,17 @@ function filedName(raw) {
   const name = String(raw).replace(/\.[a-z0-9]+$/i, '');
   const m = name.match(/^(.*?)\s*-\s*(\d{4}-\d{2}-\d{2})\s+(.+)$/);
   if (!m) return { line: `<span class="jf-h">${esc(name)}</span>`, when: '' };
+  /* ⛔ THE SEPARATOR IS IN THE TEXT, NOT ONLY IN THE PAINT.
+
+     It began as a `::before` on the tail, which paints a bullet but puts
+     nothing in `textContent`, so the row read `Elmgrove Civic CenterRequest
+     for information` to anything that takes the text rather than the pixels:
+     a copy, a screen reader, a find-in-page. The old single-line name had a
+     literal separator and this had quietly dropped it. */
   return {
-    line: `<span class="jf-h">${esc(m[1])}</span><span class="jf-t">${esc(m[3])}</span>`,
+    line: `<span class="jf-h">${esc(m[1])}</span>`
+      + `<span class="jf-sep" aria-hidden="true"> \u00b7 </span>`
+      + `<span class="jf-t">${esc(m[3])}</span>`,
     when: m[2],
   };
 }

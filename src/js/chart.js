@@ -924,8 +924,14 @@ export function dial(opts) {
       fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
   };
 
+  /* ⛔ The cap goes through a custom property so the container can govern it.
+     This emitted a bare `max-width:${size}px`, and an inline style beats a
+     stylesheet rule, so `.dials svg.dial { max-width: ... }` was a dead
+     declaration: the property fed the grid track and nothing else, while the
+     comment beside it claimed it fed both. The fallback keeps a dial used
+     outside a `.dials` grid drawing at its own size. */
   let svg = `<svg class="chart dial" viewBox="0 0 ${size} ${size}"
-    style="width:100%;max-width:${size}px;height:auto" role="img">`;
+    style="width:100%;max-width:var(--dial-cap, ${size}px);height:auto" role="img">`;
   svg += arc(a0, a1, r, 13, 'var(--rule-soft)');
   for (const b of bands) {
     svg += arc(at(b.from), at(b.to), r, 13, b.color || 'var(--rule)', .9);

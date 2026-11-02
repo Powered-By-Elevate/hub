@@ -27,7 +27,20 @@
   --ground-deep: #e2e9f1;
   --ink: #16202e;
   --ink-soft: #4a5a6e;
-  --ink-faint: #76859a;
+  /* ⛔ 4.5:1 ON EVERY SURFACE IT CAN LAND ON, NOT JUST ON WHITE.
+
+     This was #76859a, which reads 3.76:1 on paper, 3.34:1 on the ground and
+     3.07:1 on the deep ground: a WCAG AA failure for small text everywhere it
+     is used, and it is used for every label, note, unit and caption in the
+     build. The publishing session caught it because a date moved into a span
+     wearing this colour today. The colour was not new; nothing had ever
+     measured it.
+
+     #5b6a7a is the lightest value clearing 4.5:1 against all three light
+     surfaces (5.54, 4.93, 4.53), so the text stays visibly faint and the
+     hierarchy is unchanged. The dark theme's own faint ink already passed
+     (4.88, 5.33, 5.54) and is untouched. */
+  --ink-faint: #5b6a7a;
   --rule: #d8e0ea;
   --rule-soft: #e8edf4;
 
@@ -1310,7 +1323,23 @@ body.presenting .strip[data-current="true"] {
    the same custom property: change one and the other follows, because two
    numbers describing one measurement is how they drift apart. */
 .dials-fit { container-type: inline-size; }
-.dials { --dial-w: 168px; --dial-gap: 18px; display: grid; gap: 8px var(--dial-gap);
+/* ⛔ TWO DIFFERENT FACTS, SO TWO NAMES.
+
+   This carried one `--dial-w: 168px` and a comment claiming it fed both the
+   track and the dial's own width. It did not: `dial()` emitted its cap inline
+   and an inline style wins, so the stylesheet's declaration was dead and the
+   property governed the track alone. The publishing session measured the dial
+   drawing at 190px while the property read 168px.
+
+   The real mistake was conflating two quantities under one name. The smallest
+   width at which a dial still READS is a judgement (168px). The width it
+   DRAWS at is the component's own size (190px). They are not the same number
+   and neither is wrong, so each gets its name and the comment can be true:
+   the track is sized by the minimum, the drawing is capped at the cap, and
+   between 540px and 606px of container three dials sit slightly under their
+   cap, which is the intended outcome and not a squeeze to be avoided. */
+.dials { --dial-min: 168px; --dial-cap: 190px; --dial-gap: 18px;
+  display: grid; gap: 8px var(--dial-gap);
   justify-items: center; grid-template-columns: 1fr; }
 
 /* ⛔ THREE ACROSS OR ONE, NEVER TWO AND A SPARE.
@@ -1328,10 +1357,10 @@ body.presenting .strip[data-current="true"] {
    panel its width instead of asking the window, so a dial set inside a narrow
    column behaves the same as one on a narrow screen. */
 @container (min-width: 540px) {
-  .dials { grid-template-columns: repeat(3, minmax(var(--dial-w), 1fr)); }
+  .dials { grid-template-columns: repeat(3, minmax(var(--dial-min), 1fr)); }
 }
 .dial-cell { display: flex; flex-direction: column; align-items: center; max-width: 280px; }
-.dials svg.dial { margin: 0 auto; max-width: var(--dial-w); }
+.dials svg.dial { margin: 0 auto; max-width: var(--dial-cap); }
 .dials p { margin-bottom: 10px; max-width: 34ch; }
 
 /* the close coverage strip: one cell per month */
@@ -1588,12 +1617,27 @@ body.presenting .strip[data-current="true"] {
 .panel.roomy > .panel-body { display: flex; flex-direction: column; justify-content: center; }
 /* ⛔ Except where the body IS the content edge to edge. A table or a row list
    centred in its card leaves a white band above the first row, which is a
-   different hole, not a fix. */
-.panel.roomy > .panel-body:has(> table),
-.panel.roomy > .panel-body:has(> .rows),
-.panel.roomy > .panel-body:has(> .fold),
-.panel.roomy > .panel-body:has(> .sc),
-.panel.roomy > .panel-body:has(> .pf) { display: block; }
+   different hole, not a fix.
+
+   ⚠️ THE DIRECT-CHILD TEST MADE THIS RULE DEAD FOR TABLES. It read
+   `:has(> table)`, and `U.table()` always wraps its output, so the real DOM is
+   `.panel-body > div.scroll > table.t` and the selector never matched once.
+   The publishing session found eight panels floating a table in a centred
+   body: `fin-balance "Assets"` in all six industries with a 70px white band
+   above its header row, and `ops-grid "What moved"` in retail and industrial
+   with 47px. Beside each one its own twin started right under its heading.
+
+   The irony is exact. The argument for reading the centring decision back off
+   the computed style was that two copies of one list drift apart, and this
+   list had already drifted from the DOM it describes: it was written against a
+   shape the build does not produce. A descendant match asks the question the
+   rule means, which is whether the body CONTAINS a top-anchored block, not
+   whether it happens to hold one at depth one. */
+.panel.roomy > .panel-body:has(table),
+.panel.roomy > .panel-body:has(.rows),
+.panel.roomy > .panel-body:has(.fold),
+.panel.roomy > .panel-body:has(.sc),
+.panel.roomy > .panel-body:has(.pf) { display: block; }
 
 /* ------------------------------------------------------------- the schedule
    Matt, 2026-11-02: *"backlog and schedule is ugly and needs better graphics
@@ -1820,6 +1864,6 @@ svg .pt.on { r: 5.5; stroke: var(--paper); stroke-width: 2; }
    at 1440, 1024 and 390, nothing reaches the clamp. */
 .jf-n { font-size: 12.5px; font-weight: 600; display: -webkit-box; -webkit-box-orient: vertical;
   -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
-.jf-t::before { content: ' \2022  '; color: var(--ink-faint); font-weight: 400; }
+.jf-sep { color: var(--ink-faint); font-weight: 400; }
 .jf-m { font-size: 11px; color: var(--ink-faint); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }

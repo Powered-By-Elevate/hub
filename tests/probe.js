@@ -71,6 +71,75 @@ async function main() {
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction('window.__hub !== undefined', { timeout: 20000 });
 
+  /* ⛔ EVERY INK READS ON EVERY SURFACE IT CAN LAND ON.
+
+     This build shipped with NO contrast check of any kind, and `--ink-faint`
+     was a WCAG AA failure for small text in the light theme the whole time:
+     3.76:1 on paper, 3.34:1 on the ground, 3.07:1 on the deep ground, against
+     4.5 needed. It carries every label, note, unit and caption in the build.
+     Nothing reported it because nothing measured it, and the Core BI sweep
+     that would have caught it was never carried over: a design ruling recorded
+     against one project is not inherited by the next.
+
+     ⚠️ This is deliberately ARITHMETIC OVER THE TOKENS, not a sweep of the
+     rendered page. A DOM sweep was tried first and was not trustworthy: this
+     build paints its surfaces with gradients and runtime brand colours, so a
+     walk up the ancestors for `backgroundColor` finds nothing to compose
+     against and falls through to white. It reported 1.03:1 on text that
+     screenshots as near-white on near-black, about 14:1. Measuring text on a
+     painted ground needs pixels, and until that exists this check guards the
+     pairs that are decided in the stylesheet, where the answer is exact.
+
+     What it does NOT cover, stated so nobody reads it as more than it is:
+     text over a gradient, a brand colour, a chart fill, or any SVG label. */
+  {
+    const css = fs.readFileSync(path.join(ROOT, 'src', 'hub.css'), 'utf8');
+    const block = name => {
+      const i = css.indexOf(name);
+      if (i < 0) return null;
+      const open = css.indexOf('{', i);
+      return css.slice(open + 1, css.indexOf('}', open));
+    };
+    const tokens = text => {
+      const out = {};
+      for (const m of text.matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{6})\s*;/g)) out[m[1]] = m[2];
+      return out;
+    };
+    const lum = hex => {
+      const v = [1, 3, 5].map(i => parseInt(hex.substr(i, 2), 16) / 255)
+        .map(x => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4)));
+      return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+    };
+    const ratio = (a, b) => {
+      const l1 = lum(a), l2 = lum(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+    const INKS = ['ink', 'ink-soft', 'ink-faint'];
+    const SURFACES = ['paper', 'ground', 'ground-deep'];
+    const themes = {
+      light: tokens(block(':root') || ''),
+      dark: tokens(block(':root[data-theme="dark"]') || ''),
+    };
+    const fails = [];
+    for (const [name, t] of Object.entries(themes)) {
+      for (const ink of INKS) {
+        for (const surf of SURFACES) {
+          if (!t[ink] || !t[surf]) continue;
+          const r = ratio(t[ink], t[surf]);
+          /* 4.5:1 is AA for small text, and every one of these inks is used at
+             10.5px to 13px somewhere in this build, so small is the case. */
+          if (r + 0.005 < 4.5) fails.push(`${name} --${ink} on --${surf} ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    ok(Object.keys(themes.light).length > 5, 'the light theme tokens parse',
+      `${Object.keys(themes.light).length} found`);
+    ok(Object.keys(themes.dark).length > 5, 'the dark theme tokens parse',
+      `${Object.keys(themes.dark).length} found`);
+    ok(fails.length === 0, 'every ink reads 4.5:1 on every surface, both themes',
+      fails.join('; '));
+  }
+
   /* the front door: a first-time viewer lands here before any extract loads */
   const firstScreen = await page.evaluate(() => ({
     showing: window.__hub.choosing(),
@@ -700,7 +769,26 @@ async function main() {
            layout, so a last row holding one panel is a deliberate full-width
            panel and not an orphan at all. The rule only means anything where
            every item has the same width, so that is the condition, read off
-           the items themselves rather than from a list of class names. */
+           the items themselves rather than from a list of class names.
+
+           ⚠️ AND THE WIDTH TEST IS NOT WHAT BOUNDS THIS CHECK. The publishing
+           session swept every container on every page, ignoring the two
+           selectors: 2,989 have three or more uniform-width children across
+           more than one row, 8 orphan their last item, and this check catches
+           none of them. All 8 are variable-length lists where an orphan cannot
+           be avoided (nine items cannot fill a two-wide track), so no defect
+           is missed. But "uniform width" READS as a general rule and is not
+           one: what actually bounds this check is the two selectors, and the
+           width test is a class list in disguise.
+
+           The property that makes the dials different is that they are a
+           fixed, small, COMPLETE set whose count the layout can choose to
+           match, and nothing in the DOM distinguishes "three items because
+           there are three ratios" from "seven items because there are seven
+           trucks". So this stays selector-scoped on purpose, and a new set of
+           known count has to be named here to be guarded. Saying so is the
+           whole point: the wording above, left alone, would have told whoever
+           adds a fourth dial set that they were already covered. */
         const orphans = await page.evaluate(() => {
           const out = [];
           for (const g of document.querySelectorAll('#page .dials, #page .grid')) {
