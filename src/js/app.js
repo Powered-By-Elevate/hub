@@ -390,7 +390,56 @@ function balanceRows() {
   const host = document.getElementById('page');
   if (!host) return;
   const panels = [...host.querySelectorAll('.grid > .panel')];
-  for (const panel of panels) panel.classList.remove('unstretch', 'roomy');
+  for (const panel of panels) panel.classList.remove('unstretch', 'roomy', 'go-wide');
+
+  /* ⛔ A PANEL FAR TALLER THAN ITS NEIGHBOUR TAKES THE WHOLE ROW.
+
+     Margin & drivers was fixed by a rule in the page: past eighteen rows, the
+     list and the chart stop sharing a row. The publishing session measured the
+     next page over and found the same defect wearing a different shape:
+     logistics' ops-grid pairs a 2,284px small-multiples GRID with a 591px
+     table, and "past eighteen rows" never fires on it because it is not a row
+     list at all.
+
+     A rule written in terms of what a panel CONTAINS only ever covers the
+     shapes someone thought of. This one is written in terms of what a panel
+     MEASURES, so it covers the next shape too: if a row's tallest panel is
+     more than twice its shortest and over 900px, it takes the full width and
+     the others fall below it. Nothing is stretched to fill, because that is
+     the dishonest fill the un-stretch guard exists to refuse. */
+  const byTop = new Map();
+  for (const panel of panels) {
+    const top = Math.round(panel.getBoundingClientRect().top);
+    let key = [...byTop.keys()].find(k => Math.abs(k - top) < 8);
+    if (key === undefined) { key = top; byTop.set(key, []); }
+    byTop.get(key).push(panel);
+  }
+
+  /* ⛔ MEASURE NATURAL HEIGHTS, NOT STRETCHED ONES.
+
+     `.grid` stretches its children, so every panel in a row already reports
+     the row's height and a comparison between them can never find a mismatch.
+     The first cut of this rule looked correct, ran on every page, and fired
+     exactly zero times: logistics' ops-grid reported 2,284 against 2,284 for a
+     pair that is really 2,284 against 591. Un-stretch everything first, read
+     the heights the content actually wants, then put the stretch back. */
+  for (const panel of panels) panel.classList.add('unstretch');
+  void host.offsetHeight;
+  const natural = new Map(panels.map(p => [p, p.getBoundingClientRect().height]));
+  for (const panel of panels) panel.classList.remove('unstretch');
+
+  let widened = false;
+  for (const row of byTop.values()) {
+    if (row.length < 2) continue;
+    const hs = row.map(p => natural.get(p) || 0);
+    const tall = Math.max(...hs), short = Math.min(...hs);
+    if (tall < 900 || tall < short * 2) continue;
+    row[hs.indexOf(tall)].classList.add('go-wide');
+    widened = true;
+  }
+  /* The widened panel reflows everything under it, so the stretch decisions
+     below are made against the layout the reader will actually see. */
+  if (widened) void host.offsetHeight;
   for (const panel of panels) {
     /* ⛔ Measure the BODY against its own content, not the panel against its
        lowest child.

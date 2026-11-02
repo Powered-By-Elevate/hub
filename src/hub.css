@@ -1673,3 +1673,9 @@ body.presenting .strip[data-current="true"] {
   .tk { grid-template-columns: 24px minmax(0, 1fr); }
   .tk-do { grid-column: 2; justify-content: flex-start; }
 }
+
+/* A panel measured far taller than the one beside it takes the whole row, so
+   the short one is not left with a column of nothing down its side. Set by
+   balanceRows() from the rendered heights, never authored: which panel is the
+   tall one depends on the industry and the scope. */
+.panel.go-wide { grid-column: 1 / -1; }
