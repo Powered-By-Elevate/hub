@@ -358,7 +358,8 @@ export function second(ctx) {
 /* --- construction: backlog and schedule */
 function backlog(ctx) {
   const { q, s } = ctx;
-  const rows = q.unitRows().filter(r => r.status !== 'Complete');
+  const all = q.unitRows();
+  const rows = all.filter(r => r.status !== 'Complete');
   const remaining = rows.map(r => ({
     name: r.short || r.name,
     value: (r.f.contract || 0) - (r.f.earned || 0),
@@ -368,14 +369,85 @@ function backlog(ctx) {
   const total = remaining.reduce((a, r) => a + r.value, 0);
   const burn = q.factSum('rev', q.months.slice(-3)) / 3;
 
+  /* THE SCHEDULE. The page is called Backlog & schedule and had no schedule in
+     it: three panels, two of them the same horizontal bar chart, which is what
+     Matt meant by *"backlog and schedule is ugly and needs better graphics and
+     layout"*. Every unit carries the month it started and how many months it
+     runs, so the schedule can be drawn rather than described.
+
+     The window is every open contract's span, so the bars share one axis and
+     can be compared. A bar is filled to the work actually earned, which is the
+     comparison that matters: a contract three quarters through its CALENDAR
+     and half through its WORK is the finding, and no table of percentages
+     shows it the way two lengths side by side do. */
+  const span = rows.map(r => ({
+    r,
+    from: Number.isFinite(r.start) ? r.start : 0,
+    to: (Number.isFinite(r.start) ? r.start : 0) + (r.dur || 12),
+    pct: Math.max(0, Math.min(1, (r.f.pct || 0) / 100)),
+  }));
+  const now = q.months.indexOf(q.view.month);
+  const lo = Math.min(now, ...span.map(x => x.from));
+  const hi = Math.max(now + 2, ...span.map(x => x.to));
+  const at = v => ((v - lo) / Math.max(1, hi - lo)) * 100;
+  const monthOf = i => {
+    if (i >= 0 && i < q.months.length) return F.monthName(q.months[i], true);
+    const base = q.months[0];
+    const [y, m] = base.split('-').map(Number);
+    const total2 = (y * 12 + (m - 1)) + i;
+    return F.monthName(`${Math.floor(total2 / 12)}-${String(total2 % 12 + 1).padStart(2, '0')}`, true);
+  };
+  /* A contract whose calendar has run out while work remains. The page says
+     how many rather than leaving the reader to compare two bars by eye. */
+  const late = span.filter(x => x.to <= now && x.pct < 0.995);
+  const ticks = [];
+  for (let i = Math.ceil(lo / 6) * 6; i <= hi; i += 6) ticks.push(i);
+
   return U.panel({
-    col: 7, title: 'Backlog by job',
-    note: 'What is left to earn on each open contract, and how far through it is.',
+    col: 12, ico: 'clock', title: 'When each contract runs',
+    note: `Every open contract on one calendar. The pale bar is its schedule, the solid part is the work earned, and the line is ${esc(F.monthName(q.view.month, true))}.`,
+    /* ⛔ The axis, the today line and the bars must all measure from the SAME
+       box. The first cut positioned the axis and the line against the whole
+       row, which is wider than the bars' column by the name and percent
+       cells, and offset them by a hard-coded margin on top. Measured: the line
+       landed on May 2027 while the page was as of October 2026, seven months
+       out, against bars that were drawn correctly. So the axis and the line
+       are now laid out on the row's own grid and positioned inside its track
+       cell, which cannot drift from the bars whatever the column widths do. */
+    body: `<div class="gantt">
+      <div class="gt-row gt-axis"><span></span><span class="gt-track">${ticks.map(t =>
+      `<i style="left:${at(t).toFixed(2)}%">${esc(monthOf(t))}</i>`).join('')}</span><span></span></div>
+      <div class="gt-rows">
+        <div class="gt-row gt-nowrow" aria-hidden="true"><span></span><span class="gt-track">
+          <i class="gt-now" style="left:${at(now).toFixed(2)}%"></i></span><span></span></div>
+        ${span.slice().sort((a, b) => a.from - b.from).map(x => `
+          <div class="gt-row" data-click="unit:${esc(x.r.id)}" tabindex="0">
+            <span class="gt-name">${esc(x.r.short || x.r.name)}</span>
+            <span class="gt-track">
+              <i class="gt-bar${x.to <= now && x.pct < 0.995 ? ' late' : ''}"
+                 style="left:${at(x.from).toFixed(2)}%;width:${Math.max(1.2, at(x.to) - at(x.from)).toFixed(2)}%">
+                <b style="width:${(x.pct * 100).toFixed(1)}%"></b>
+              </i>
+            </span>
+            <span class="gt-pct">${F.pct(x.r.f.pct, 0)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="hm-key"><p>
+        A bar that ends left of the line with its solid part short is a contract
+        whose calendar has run out while work remains.
+        ${late.length
+      ? `<b>${late.length}</b> of <b>${span.length}</b> ${late.length === 1 ? 'is' : 'are'} in that position.`
+      : 'None is in that position today.'}
+      </p></div>
+    </div>`,
+  }) + U.panel({
+    col: 7, ico: 'bars', title: 'What is left to earn',
+    note: 'The open contracts by the work still to come, largest first.',
     body: C.hbars({ rows: remaining, fmt: v => F.money(v) }),
     foot: `At the last three months’ pace of ${F.money(burn)} a month, the backlog is
       ${F.num(burn ? total / burn : 0, 1)} months of work.`,
   }) + U.panel({
-    col: 5, title: 'Completion spread',
+    col: 5, ico: 'target', title: 'Completion spread',
     note: 'Where the open contracts sit. A cluster near the end means revenue falls off unless the pipeline lands.',
     body: C.bars({
       values: [0, 0, 0, 0, 0].map((_, i) =>
@@ -383,17 +455,25 @@ function backlog(ctx) {
       labels: ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'],
       fmt: v => F.num(v), height: 230, negativeOk: false,
     }),
+    foot: `${rows.filter(r => (r.f.pct || 0) >= 80).length} of ${rows.length} open contracts are
+      past 80% complete.`,
   }) + U.panel({
-    col: 12, title: 'Billing against work done',
-    note: 'A bar above the line is billed ahead of the work, below it is work not yet invoiced.',
+    col: 12, ico: 'scale', title: 'Billing against work done',
+    note: 'To the right is billed ahead of the work, to the left is work done and not yet invoiced.',
     body: C.hbars({
-      rows: q.unitRows().map(r => ({
+      rows: all.map(r => ({
         name: r.short || r.name, value: (r.f.billed || 0) - (r.f.earned || 0),
       })).sort((a, b) => a.value - b.value),
       fmt: v => F.money(v),
     }),
+    foot: (() => {
+      const under = all.map(r => (r.f.billed || 0) - (r.f.earned || 0)).filter(v => v < 0);
+      return `${under.length} ${under.length === 1 ? 'contract carries' : 'contracts carry'}
+        ${F.money(Math.abs(under.reduce((a, v) => a + v, 0)))} of work done and not yet invoiced.`;
+    })(),
   });
 }
+
 backlog.answer = ctx => {
   const { q } = ctx;
   const open = q.unitRows().filter(r => r.status !== 'Complete');
@@ -1276,7 +1356,18 @@ export function season(ctx) {
         /* A quiet month is the calendar, not a failure. Red here would say
            February went wrong, and February goes like this every year. */
         color: 'var(--accent)', negColor: 'var(--accent-lift)',
-      }),
+      }) + `<div class="hm-key">
+        <div class="hm-ramp">
+          <i style="opacity:1"></i><span>above an average month</span>
+          <i style="opacity:.42;margin-left:14px"></i><span>below it</span>
+        </div>
+        <p>Every bar is one calendar month measured against the AVERAGE month of
+          this extract, so the baseline is not zero ${esc(label.toLowerCase())}, it is a
+          normal month. ${esc(peak)} runs <b>${F.pct(Math.max(...shape.filter(Number.isFinite)), 0)}</b>
+          richer than normal and ${esc(trough)} runs
+          <b>${F.pct(Math.abs(Math.min(...shape.filter(Number.isFinite))), 0)}</b> leaner.
+          A bar below the line is the calendar, not a month that went wrong.</p>
+      </div>`,
       foot: `This is why a pace read as a share of the year gone can mislead: by
         ${esc(peak)} a seasonal business is further through its year than the calendar says.`,
     }) + `</div>`;

@@ -531,6 +531,34 @@ async function main() {
         });
         ok(holes.length === 0, `${ind}/${role}/${p}: no panel left with a hole in it`,
           holes.slice(0, 2).join(', '));
+
+        /* ⛔ A schedule's axis, its today line and its bars must measure from
+           the SAME box. The first cut positioned the axis and the line against
+           the whole row, which is wider than the bars' column, and nudged them
+           with a hard-coded margin: the line landed on May 2027 on a page as of
+           October 2026, seven months out, against bars drawn correctly. Three
+           things on one axis is three chances to drift, so the gate checks they
+           still share an edge. */
+        const sched = await page.evaluate(() => {
+          const axis = document.querySelector('.gt-axis .gt-track');
+          const bar = document.querySelector('.gt-rows .gt-row:not(.gt-nowrow) .gt-track');
+          const now = document.querySelector('.gt-now');
+          if (!axis || !bar) return null;
+          const a = axis.getBoundingClientRect(), b = bar.getBoundingClientRect();
+          const out = { dx: Math.round(Math.abs(a.left - b.left)),
+            dw: Math.round(Math.abs(a.width - b.width)), nowIn: true };
+          if (now) {
+            const n = now.getBoundingClientRect();
+            out.nowIn = n.left >= b.left - 2 && n.left <= b.right + 2;
+          }
+          return out;
+        });
+        if (sched) {
+          ok(sched.dx <= 1 && sched.dw <= 1,
+            `${ind}/${role}/${p}: the schedule's axis and its bars share one box`,
+            `left off by ${sched.dx}px, width off by ${sched.dw}px`);
+          ok(sched.nowIn, `${ind}/${role}/${p}: the schedule's today line is on its own axis`);
+        }
         ok(errors.length === 0, `${ind}/${role}/${p}: console clean`, errors.slice(0, 2).join(' | '));
 
         /* a level that may not see money must not leak a single currency mark */

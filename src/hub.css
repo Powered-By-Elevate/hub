@@ -1556,3 +1556,70 @@ body.presenting .strip[data-current="true"] {
 .panel.roomy > .panel-body:has(> .fold),
 .panel.roomy > .panel-body:has(> .sc),
 .panel.roomy > .panel-body:has(> .pf) { display: block; }
+
+/* ------------------------------------------------------------- the schedule
+   Matt, 2026-11-02: *"backlog and schedule is ugly and needs better graphics
+   and layout"*. The page was three panels, two of them the same horizontal bar
+   chart, and it had no schedule in it at all. Every contract carries the month
+   it started and how long it runs, so the calendar can be drawn.
+
+   The comparison the chart exists for: a bar's LENGTH is the schedule and its
+   FILL is the work earned. A contract three quarters through its calendar and
+   half through its work is a finding you see instantly here and never see in a
+   column of percentages. */
+.gantt { display: block; }
+/* The axis rides the ROW'S OWN GRID, so its track cell is the same box the
+   bars are drawn in. Positioning it against the whole row and nudging it with
+   a hard-coded margin put the today line seven months out from the bars. */
+.gt-axis { padding: 0 0 4px; cursor: default; border-bottom: 1px solid var(--rule-soft);
+  margin-bottom: 6px; }
+.gt-axis:hover { background: none; }
+.gt-axis .gt-track { height: 16px; }
+.gt-axis i {
+  position: absolute; transform: translateX(-50%); bottom: 0; font-style: normal;
+  font-size: 10.5px; color: var(--ink-faint); white-space: nowrap;
+}
+.gt-rows { position: relative; }
+/* today, drawn through every row so a bar can be read against it */
+.gt-nowrow { position: absolute; inset: 0; pointer-events: none; padding: 0; }
+.gt-nowrow:hover { background: none; }
+.gt-nowrow .gt-track { height: 100%; }
+.gt-now {
+  position: absolute; top: 0; bottom: 0; width: 0;
+  border-left: 2px dashed var(--accent); opacity: .5; z-index: 1;
+}
+.gt-row {
+  display: grid; grid-template-columns: 164px minmax(0, 1fr) 46px;
+  gap: 12px; align-items: center; padding: 4px 0; cursor: pointer;
+  border-radius: 7px;
+}
+.gt-row:hover { background: var(--tint); }
+.gt-row:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: -1px; }
+.gt-name {
+  font-size: 12.5px; font-weight: 580; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.gt-track { position: relative; height: 20px; }
+.gt-bar {
+  position: absolute; top: 0; height: 20px; border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 17%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  overflow: hidden;
+}
+.gt-bar > b {
+  display: block; height: 100%; border-radius: 5px 0 0 5px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-lift));
+}
+/* the calendar has run out and the work has not finished */
+.gt-bar.late { box-shadow: inset 0 0 0 1px var(--bad); }
+.gt-bar.late > b { background: linear-gradient(90deg, var(--bad), var(--warn)); }
+.gt-pct {
+  font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--ink-soft);
+  text-align: right;
+}
+
+@media (max-width: 760px) {
+  .gt-row { grid-template-columns: minmax(0, 1fr) 46px; }
+  .gt-track { grid-column: 1 / -1; order: 3; }
+  .gt-axis, .gt-now { margin-left: 0; }
+}
