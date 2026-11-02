@@ -73,7 +73,7 @@ export function start(ctx) {
     `<div class="grid">` +
     U.panel({
       col: 12, title: 'Where to go', ico: 'compass',
-      note: `Six places, cut to what a ${esc(role.name.toLowerCase())} may see.`,
+      note: `${F.countWord(Math.min(6, offered.length), true)} places, cut to what the ${esc(role.name.toLowerCase())} level may see.`,
       body: `<div class="doors">${doors}</div>`,
     }) +
     /* ⚖️ Matt, 2026-11-02: *"the revenue section looks out of place like a
@@ -85,10 +85,10 @@ export function start(ctx) {
        never does, at any width. */
     U.panel({
       col: 12, title: `The year so far`, ico: 'clock',
-      note: `Twelve months to ${esc(F.monthName(q.view.month, true))}.${
+      note: `${F.monthsWord(last12.length, true)} to ${esc(F.monthName(q.view.month, true))}.${
         budSeries ? ' The bars are what happened, the line is the plan.' : ''}`,
       right: U.btn('Open the dashboard', { act: 'go', arg: 'fin-dash', sm: true, ico: 'arrow' }),
-      body: `<p class="lede">${yearRead(q, rev, prior, bRev)}</p>` + C.bars({
+      body: `<p class="lede">${yearRead(q, rev, prior, bRev, last12.length)}</p>` + C.bars({
         values: revSeries, labels: last12.map(m => F.monthName(m)),
         overlay: budSeries, overlayName: 'Plan', fmt: v => F.money(v), height: 300,
       }),
@@ -120,7 +120,8 @@ export function start(ctx) {
         <span class="conn-chip ${c.status}" title="${esc(c.name)} · ${esc(statusWord(c.status))}">
           ${connTile(c)}<b>${esc(c.name)}</b></span>`).join('')}</div>`
         : `<div class="empty">Nothing is connected yet. Settings &rsaquo; Integrations.</div>`,
-      foot: connected.length
+      foot: s.tenant ? (connected.length ? 'Read only. Nothing here writes back to these systems.' : '')
+        : connected.length
         ? `<b>${live.length} of ${connected.length}</b> have been run against a real company’s
            data in production. The rest are adapters built or cataloged, and the page says
            which on every figure that depends on one.`
@@ -130,8 +131,8 @@ export function start(ctx) {
 
 /* One sentence that reads the twelve months, so the band has a verdict rather
    than only a picture. Never invents a comparison it does not have. */
-function yearRead(q, rev, prior, bRev) {
-  const bits = [`<b>${F.money(rev)}</b> of revenue over the twelve months`];
+function yearRead(q, rev, prior, bRev, n = 12) {
+  const bits = [`<b>${F.money(rev)}</b> of revenue over the ${F.monthsWord(n)}`];
   if (Number.isFinite(prior) && prior > 0) {
     const d = (rev - prior) / prior * 100;
     bits.push(`${Math.abs(d) < 0.5 ? 'level with' : (d > 0 ? 'up' : 'down')}

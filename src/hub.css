@@ -1635,3 +1635,41 @@ body.presenting .strip[data-current="true"] {
 }
 .fold-order button.on { background: var(--paper); color: var(--ink); box-shadow: var(--shadow-sm); }
 .fold-order button:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: 1px; }
+
+/* ------------------------------------------------------- What needs you, as a list
+   Matt, 2026-11-02: *"what eneds you is fine i guess but still lacking somewhat
+   of what a real webpage would be like. something that actually helps you with
+   task management"*. A row you can act on, ordered by what it costs, with the
+   rule, the owner and the money on the row rather than in a legend. */
+.tasks { display: flex; flex-direction: column; }
+.tk {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) auto;
+  gap: 12px; align-items: start; padding: 13px 16px;
+  border-top: 1px solid var(--rule-soft);
+}
+.tk:first-child { border-top: 0; }
+.tk:hover { background: var(--tint); }
+.tk-n { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-faint);
+  padding-top: 2px; }
+.tk-bad .tk-n { color: var(--bad); font-weight: 650; }
+.tk-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tk-main > b { font-size: 14px; font-weight: 620; }
+.tk-why { font-size: 12.5px; color: var(--ink-soft); line-height: 1.45; }
+.tk-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+.tk-meta i { font-style: normal; font-size: 11.5px; color: var(--ink-faint); }
+.tk-val { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--ink-2);
+  font-weight: 600; white-space: nowrap; }
+.tk-do { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+
+/* A line the viewer has dealt with stays readable and stops shouting. */
+.tk-done, .tk-snooze { opacity: .5; }
+.tk-done .tk-main > b { text-decoration: line-through; }
+.tk-done .tk-n::after { content: "✓"; }
+.tk-done .tk-n { font-size: 0; color: var(--good); }
+.tk-done .tk-n::after { font-size: 13px; }
+.tk-snooze .tk-n { color: var(--ink-faint); }
+
+@media (max-width: 760px) {
+  .tk { grid-template-columns: 24px minmax(0, 1fr); }
+  .tk-do { grid-column: 2; justify-content: flex-start; }
+}

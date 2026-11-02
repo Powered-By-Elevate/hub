@@ -206,6 +206,15 @@ function headFigs(q, s, ind) {
   });
 }
 
+/* A `why` clause is written to sit after a colon and carries no full stop, so
+   anything spliced after it runs on: "over the estimate Everything below it".
+   The same defect appeared in the operations verdict and on What needs you, so
+   the termination lives in one place rather than being remembered twice. */
+function endSentence(html) {
+  const text = String(html).replace(/<[^>]+>/g, '').trim();
+  return /[.!?]$/.test(text) ? html : `${html}.`;
+}
+
 function opsVerdict(ctx, rows, flagged) {
   const { q, s } = ctx;
   const ind = s.industry;
@@ -217,8 +226,7 @@ function opsVerdict(ctx, rows, flagged) {
      sentence ran straight on: "against a company 42.8% 2 others are flagged".
      And the count read "1 other ARE flagged" at exactly two, because the
      plural was taken off the noun and left on the verb. */
-  const why = /[.!?]$/.test(String(first.why).replace(/<[^>]+>/g, '').trim())
-    ? first.why : `${first.why}.`;
+  const why = endSentence(first.why);
   const rest = flagged.length - 1;
   return `${lead}. <b>${esc(first.name)}</b> is the one to look at: ${why}` +
     (rest > 0 ? ` ${rest} other${rest > 1 ? 's are' : ' is'} flagged.` : '');
@@ -251,14 +259,21 @@ function flags(q, rows, ind) {
   const month = q.view.month;
   for (const r of rows) {
     const f = r.f || {};
-    const add = (tag, kind, why) => out.push({ id: r.id, name: r.name, tag, kind, why });
+    /* `value` is what the finding is WORTH, which is what orders a task list.
+       Without it every flag is equally urgent, and a $29K overrun sorts beside
+       a $4M one. Where a rule has no money behind it the value is 0 and the
+       page says the list is ordered by severity for those. */
+    const add = (tag, kind, why, value = 0) =>
+      out.push({ id: r.id, name: r.name, owner: r.owner, tag, kind, why, value });
     if (ind.id === 'construction') {
       const p = (f.pct || 0) / 100;
       const proj = p > 0.05 ? (f.cost || 0) / p : 0;
       if (proj && f.estCost && proj > f.estCost * 1.05) {
-        add('Overrun', 'bad', `projected to finish <b>${F.money(proj - f.estCost)}</b> over the estimate`);
+        add('Overrun', 'bad', `projected to finish <b>${F.money(proj - f.estCost)}</b> over the estimate`,
+          proj - f.estCost);
       } else if ((f.earned || 0) - (f.billed || 0) > (f.contract || 0) * 0.04) {
-        add('Under-billed', 'warn', `<b>${F.money(f.earned - f.billed)}</b> of work is done and not invoiced`);
+        add('Under-billed', 'warn', `<b>${F.money(f.earned - f.billed)}</b> of work is done and not invoiced`,
+          f.earned - f.billed);
       }
     } else if (ind.id === 'education') {
       const fill = f.capacity ? f.enrolled / f.capacity : 1;
@@ -266,16 +281,19 @@ function flags(q, rows, ind) {
         add('Seats empty', fill < 0.7 ? 'bad' : 'warn',
           `<b>${F.num(f.capacity - f.enrolled)}</b> seats open at
            <b>${F.pct(fill * 100, 0)}</b> full, worth
-           <b>${F.money((f.capacity - f.enrolled) * (f.funding || 0))}</b> of funding`);
+           <b>${F.money((f.capacity - f.enrolled) * (f.funding || 0))}</b> of funding`,
+          (f.capacity - f.enrolled) * (f.funding || 0));
       }
     } else if (ind.id === 'retail') {
       if (f.margin && f.margin < ind.model.gm * 100 - 6) {
         add('Margin down', 'bad', `margin of <b>${F.pct(f.margin)}</b> against a company
-          ${F.pct(ind.model.gm * 100)}`);
+          ${F.pct(ind.model.gm * 100)}`,
+          (f.sales || 0) * (ind.model.gm * 100 - f.margin) / 100);
       }
     } else if (ind.id === 'industrial') {
       if (f.oee && f.oee < 62) add('Downtime', 'bad', `OEE of <b>${F.pct(f.oee)}</b>, with
-        <b>${F.num((f.hoursAvl || 0) - (f.hoursRun || 0), 0)}</b> hours lost`);
+        <b>${F.num((f.hoursAvl || 0) - (f.hoursRun || 0), 0)}</b> hours lost`,
+        ((f.hoursAvl || 0) - (f.hoursRun || 0)) * (f.ratePerHour || 0));
       else if (f.produced && f.scrap / f.produced > 0.04) {
         add('Scrap', 'warn', `scrap at <b>${F.pct(f.scrap / f.produced * 100)}</b>`);
       }
@@ -291,7 +309,7 @@ function flags(q, rows, ind) {
     } else if (ind.id === 'tech') {
       if (f.arr && f.churn / f.arr > 0.014) {
         add('Churn', 'bad', `<b>${F.money(f.churn)}</b> churned this month, which is
-          <b>${F.pct(f.churn / f.arr * 100, 2)}</b> of the product’s ARR`);
+          <b>${F.pct(f.churn / f.arr * 100, 2)}</b> of the product’s ARR`, f.churn);
       }
     }
   }
@@ -307,18 +325,105 @@ export function units(ctx) {
   const rows = q.unitRows();
   const name = (ind.pages && ind.pages['ops-units'] && ind.pages['ops-units'].name) || ind.unit.collection;
 
-  return U.pageHead({
+  /* ⛔ A WORK IN PROGRESS SCHEDULE IS NOT A TABLE OF UNITS.
+
+     Matt, 2026-11-02: *"work in progress could definitely have a better
+     build"*. Construction calls this page Work in progress, and a WIP schedule
+     is THE report a construction CFO reads: what is under contract, what the
+     work has earned, what has been billed, and the gap between the last two.
+     That gap is the point. Billed ahead of the work is money the company owes
+     back in service; work done and not billed is money it has already spent
+     and not asked for. They are opposite problems and a single net figure
+     hides both, so the page shows the two sides apart and nets them underneath.
+
+     It is driven by the facts, not by the industry name: any deployment whose
+     units carry a contract, what it has earned and what it has billed gets the
+     schedule. Everything else keeps the table, which also gains its totals. */
+  const hasWip = rows.some(r => Number.isFinite(r.f.contract) && Number.isFinite(r.f.earned)
+    && Number.isFinite(r.f.billed));
+
+  const wip = rows.map(r => ({
+    r,
+    contract: r.f.contract || 0,
+    earned: r.f.earned || 0,
+    billed: r.f.billed || 0,
+    cost: r.f.cost || 0,
+    pos: (r.f.billed || 0) - (r.f.earned || 0),
+  }));
+  const sum = k => wip.reduce((a, x) => a + x[k], 0);
+  const over = wip.filter(x => x.pos > 0);
+  const under = wip.filter(x => x.pos < 0);
+  const overTotal = over.reduce((a, x) => a + x.pos, 0);
+  const underTotal = Math.abs(under.reduce((a, x) => a + x.pos, 0));
+
+  const head = U.pageHead({
     eyebrow: 'Operations',
     title: name,
     motif: motif(ind.id, s.data.brand.palette),
-    answer: `Every ${esc(ind.unit.one)} in scope as of <b>${esc(F.monthName(q.view.month, true))}</b>.
-      A position is read as of the month, not summed over the window. Click any row for the arithmetic behind it.`,
-  }) + U.fresh(q, s) + `<div class="grid">` +
+    answer: hasWip
+      ? `<b>${F.money(sum('contract'))}</b> under contract, of which
+         <b>${F.money(sum('earned'))}</b> has been earned and
+         <b>${F.money(sum('billed'))}</b> billed.
+         ${overTotal >= underTotal
+        ? `On balance the company is <b>${F.money(overTotal - underTotal)}</b> ahead of its work,
+             which is revenue it still has to deliver.`
+        : `On balance <b>${F.money(underTotal - overTotal)}</b> of work is done and not yet
+             invoiced, which is cash already spent and not asked for.`}`
+      : `Every ${esc(ind.unit.one)} in scope as of <b>${esc(F.monthName(q.view.month, true))}</b>.
+         A position is read as of the month, not summed over the window. Click any row for the
+         arithmetic behind it.`,
+  }) + U.fresh(q, s);
+
+  /* ⛔ THE STRIP GOES BEFORE THE GRID, NEVER INSIDE IT. A `.strip` laid out as
+     a grid child becomes a single column and overlaps the panel beside it.
+     This is the second time I have made exactly this mistake, so the gate now
+     refuses it rather than relying on me remembering. */
+  const wipStrip = !hasWip ? '' :
+    U.strip([
+      { label: 'Under contract', value: F.money(sum('contract')), note: `${rows.length} ${esc(ind.unit.many)}` },
+      { label: 'Earned to date', value: F.money(sum('earned')), note: `${F.pct(sum('contract') ? sum('earned') / sum('contract') * 100 : 0, 0)} of contract` },
+      { label: 'Billed to date', value: F.money(sum('billed')), note: 'invoiced' },
+      { label: 'Billed ahead', value: F.money(overTotal), note: `${over.length} ${over.length === 1 ? esc(ind.unit.one) : esc(ind.unit.many)}` },
+      { label: 'Not yet billed', value: F.money(underTotal), note: `${under.length} ${under.length === 1 ? esc(ind.unit.one) : esc(ind.unit.many)}` },
+    ]);
+
+  const wipPanels = !hasWip ? '' :
+    U.panel({
+      col: 12, ico: 'scale', title: 'The two sides of the billing position',
+      note: `Left is work done and not invoiced, which is cash already spent. Right is billing
+        ahead of the work, which is revenue still to deliver. A company wants both small, and
+        a single net figure would hide either one.`,
+      body: C.twoSided({
+        /* ⛔ EVERY contract, not the largest eight. Cutting the chart at eight
+           made its right-hand column total $394K while the strip above it and
+           the note below it both said $468K: three figures for one fact on one
+           page, which is the defect class this build keeps finding. A thin
+           slice is honest; a total that disagrees with the card above it is
+           not. */
+        left: {
+          name: 'Work done, not billed',
+          parts: under.slice().sort((a, b) => a.pos - b.pos)
+            .map(x => ({ name: x.r.short || x.r.name, value: Math.abs(x.pos) })),
+        },
+        right: {
+          name: 'Billed ahead of the work',
+          parts: over.slice().sort((a, b) => b.pos - a.pos)
+            .map(x => ({ name: x.r.short || x.r.name, value: x.pos })),
+        },
+        fmt: v => F.money(v),
+      }),
+      foot: `${F.money(underTotal)} on the left against ${F.money(overTotal)} on the right.
+        Both sides are read as of ${esc(F.monthName(q.view.month, true))}, because a position is
+        a position and does not sum over a window.`,
+    });
+
+  return head + wipStrip + `<div class="grid">` + wipPanels +
     U.panel({
       col: 12, pad: false,
       right: U.btn('Download', { act: 'export-units', ico: 'download', sm: true }),
-      title: `${rows.length} ${esc(ind.unit.many)}`,
-      note: `Owner shown as the ${esc((ind.unit.owner || 'manager').toLowerCase())} responsible.`,
+      title: hasWip ? 'The schedule' : `${rows.length} ${esc(ind.unit.many)}`,
+      note: `Owner shown as the ${esc((ind.unit.owner || 'manager').toLowerCase())} responsible.
+        Click any row for the arithmetic behind it.`,
       body: U.table({
         maxHeight: '620px',
         cols: [{ name: ind.unit.key, w: '22%' }, { name: 'Status' }, ...cols],
@@ -331,6 +436,15 @@ export function units(ctx) {
           ],
         })),
       }),
+      /* ⛔ A schedule without totals is a list. The figure a reader checks
+         first is the bottom line, and making them add a column themselves is
+         the difference between a report and a data dump. */
+      foot: hasWip
+        ? `<b>${F.money(sum('contract'))}</b> under contract · <b>${F.money(sum('earned'))}</b>
+           earned · <b>${F.money(sum('billed'))}</b> billed · <b>${F.money(sum('cost'))}</b> cost
+           to date, leaving <b>${F.money(sum('earned') - sum('cost'))}</b> of margin on the work
+           done so far.`
+        : `${rows.length} ${esc(ind.unit.many)} as of ${esc(F.monthName(q.view.month, true))}.`,
     }) + `</div>`;
 }
 
@@ -1102,6 +1216,19 @@ const RULES = {
   tech: ['Monthly churn over 1.4% of the product’s ARR'],
 };
 
+/* What needs you.
+
+   Matt, 2026-11-02: *"what eneds you is fine i guess but still lacking somewhat
+   of what a real webpage would be like. something that actually helps you with
+   task management"*. A page that lists findings grouped by rule is a report. A
+   page that helps you work has to answer, in order: what is the ONE thing to do
+   now, who owns each of the rest, what is it worth, and what have I already
+   dealt with.
+
+   ⛔ The state lives in the viewer's own browser and the page SAYS SO. A static
+   demo has nowhere else to put it, and quietly keeping a per-browser list while
+   implying a shared one is the trap Core BI's db rule exists to prevent. A real
+   deployment writes it where every viewer reads the same list. */
 export function watch(ctx) {
   const { q, s } = ctx;
   const ind = s.industry;
@@ -1109,53 +1236,99 @@ export function watch(ctx) {
   const found = flags(q, rows, ind);
   const bad = found.filter(f => f.kind === 'bad');
   const warn = found.filter(f => f.kind === 'warn');
-  const byTag = {};
-  for (const f of found) (byTag[f.tag] ||= []).push(f);
+  const atStakeAll = found.reduce((a, f) => a + Math.max(0, f.value || 0), 0);
+
+  /* Worst first, and worst means money where a rule carries money, severity
+     where it does not. */
+  const marks = ctx.tasks || {};
+  const stateOf = f => marks[`${f.id}:${f.tag}`] || '';
+  const RANK = { '': 0, snooze: 1, done: 2 };
+  const queue = found.slice().sort((a, b) =>
+    RANK[stateOf(a)] - RANK[stateOf(b)]
+    || (b.kind === 'bad' ? 1 : 0) - (a.kind === 'bad' ? 1 : 0)
+    || (b.value || 0) - (a.value || 0));
+  const open = queue.filter(f => !stateOf(f));
+  const first = open[0];
+
+  const byOwner = {};
+  for (const f of open) {
+    const o = (byOwner[f.owner || 'Unassigned'] ||= { name: f.owner || 'Unassigned', n: 0, value: 0, bad: 0 });
+    o.n += 1; o.value += Math.max(0, f.value || 0); o.bad += f.kind === 'bad' ? 1 : 0;
+  }
+  const owners = Object.values(byOwner).sort((a, b) => b.value - a.value);
+
+  const taskRow = (f, n) => `
+    <div class="tk${f.kind === 'bad' ? ' tk-bad' : ''}${stateOf(f) ? ` tk-${stateOf(f)}` : ''}">
+      <span class="tk-n">${n}</span>
+      <span class="tk-main">
+        <b>${esc(f.name)}</b>
+        <span class="tk-why">${f.why}</span>
+        <span class="tk-meta">${U.statusTag(f.tag, f.kind)}
+          <i>${esc(f.owner || 'Unassigned')}</i>
+          ${f.value > 0 ? `<i class="tk-val">${F.money(f.value)} at stake</i>` : ''}</span>
+      </span>
+      <span class="tk-do">
+        <button class="btn sm ghost" data-act="task" data-arg="done:${esc(f.id)}:${esc(f.tag)}">Done</button>
+        <button class="btn sm ghost" data-act="task" data-arg="snooze:${esc(f.id)}:${esc(f.tag)}">Snooze</button>
+        <button class="btn sm" data-click="unit:${esc(f.id)}">Open</button>
+      </span>
+    </div>`;
 
   return U.verdict({
     title: found.length
       ? `<b>${found.length}</b> of <b>${rows.length}</b> ${esc(ind.unit.many)} are outside their
-         band, <b>${bad.length}</b> of them badly.`
+         band, <b>${bad.length}</b> of them badly${atStakeAll > 0
+        ? `, with <b>${F.money(atStakeAll)}</b> at stake` : ''}.`
       : `Every one of <b>${rows.length}</b> ${esc(ind.unit.many)} is inside its band this month.`,
-    body: found.length
-      ? `Each line is a rule, not an opinion, and the rules are listed below. Click any
-         ${esc(ind.unit.one)} to see the arithmetic that tripped it.`
-      : `The rules are listed below, so an empty list can be read rather than taken on trust.`,
+    body: first
+      ? `Start with <b>${esc(first.name)}</b>: ${endSentence(first.why)} Everything below it is
+         ordered by what it costs, and each line can be opened, snoozed or marked done.`
+      : found.length
+        ? `Every line is marked done or snoozed. The rules are listed below, so a cleared list
+           can be read rather than taken on trust.`
+        : `The rules are listed below, so an empty list can be read rather than taken on trust.`,
     figs: [
-      { label: 'Flagged', value: String(found.length) },
-      { label: 'Serious', value: String(bad.length) },
-      { label: 'Worth a look', value: String(warn.length) },
-      { label: `Clear`, value: String(rows.length - found.length) },
+      { label: 'Open', value: String(open.length) },
+      { label: 'Serious', value: String(open.filter(f => f.kind === 'bad').length) },
+      { label: 'At stake', value: (() => { const v = open.reduce((a, f) => a + Math.max(0, f.value || 0), 0); return v > 0 ? F.money(v) : '—'; })() },
+      { label: 'Clear', value: String(rows.length - found.length) },
     ],
   }) + `<div class="grid">` +
     U.panel({
-      col: 8, title: 'What tripped',
-      note: found.length ? 'Grouped by rule, worst first.' : '',
+      col: 8, ico: 'check', title: 'Your list', pad: false,
+      note: found.length
+        ? `Worst first, by what it costs. Snoozed and finished lines drop to the bottom and
+           stop counting against you.`
+        : '',
       body: found.length
-        ? Object.entries(byTag).sort((a, b) =>
-            (b[1][0].kind === 'bad' ? 1 : 0) - (a[1][0].kind === 'bad' ? 1 : 0))
-          .map(([tag, list]) => `
-            <h4 style="margin:14px 0 8px;font-size:13.5px">${U.statusTag(tag, list[0].kind)}
-              <span class="muted" style="font-weight:400">${list.length}
-              ${list.length === 1 ? esc(ind.unit.one) : esc(ind.unit.many)}</span></h4>
-            <div class="rows">${list.map(f => `
-              <div class="row-item" data-click="unit:${esc(f.id)}" style="cursor:pointer">
-                <span class="grow"><b>${esc(f.name)}</b><div class="sub">${f.why}</div></span>
-                ${icon('arrow', 15)}
-              </div>`).join('')}</div>`).join('')
+        ? `<div class="tasks">${queue.map((f, i) => taskRow(f, i + 1)).join('')}</div>`
         : `<div class="empty">Nothing is outside its band. The month is clean.</div>`,
+      foot: found.length
+        ? `Done and Snooze are remembered in this browser only, which is what a page with no
+           server can honestly offer. A deployment writes them where everyone sees the same list.`
+        : '',
     }) +
     U.panel({
-      col: 4, title: 'The rules',
-      note: `What this ${esc(ind.unit.one)} list is tested against.`,
+      col: 4, ico: 'people', title: 'Who it lands on',
+      note: 'Each person and what their open lines are worth.',
+      body: owners.length
+        ? `<div class="rows">${owners.map(o => `
+          <div class="row-item">
+            <span class="grow"><b>${esc(o.name)}</b>
+              <div class="sub">${o.n} open${o.bad ? ` · ${o.bad} serious` : ''}</div></span>
+            <span class="tk-val">${o.value > 0 ? F.money(o.value) : '—'}</span>
+          </div>`).join('')}</div>`
+        : `<div class="empty">Nobody has anything open.</div>`,
+    }) +
+    U.panel({
+      col: 12, ico: 'list', title: 'The rules',
+      note: `What this ${esc(ind.unit.one)} list is tested against. A company sets its own
+        thresholds at deployment; these are the build’s, and the page says so rather than
+        implying they are yours.`,
       body: `<ol class="steps">${(RULES[ind.id] || []).map(r =>
         `<li>${esc(r)}</li>`).join('')}</ol>`,
-      foot: `A company sets its own thresholds at deployment. These are the build’s, and
-        the page says so rather than implying they are yours.`,
     }) + `</div>`;
 }
-
-/* ------------------------------------------------------------ who carries */
 
 export function people(ctx) {
   const { q, s } = ctx;

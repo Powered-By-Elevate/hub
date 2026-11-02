@@ -568,6 +568,16 @@ async function main() {
         ok(collisions.length === 0, `${ind}/${role}/${p}: no chart label sits on another`,
           collisions.slice(0, 2).join(' , '));
 
+        /* ⛔ A figure strip is never a grid child. `.strip` is its own flex row
+           and `.grid` is a twelve-column layout, so a strip placed inside the
+           grid collapses into one column and lies across the panel beside it.
+           I shipped that bug on Pipeline, fixed it, and then wrote it again on
+           Work in progress, which is what a gate is for. */
+        const strayStrip = await page.evaluate(() =>
+          document.querySelectorAll('#page .grid > .strip').length);
+        ok(strayStrip === 0, `${ind}/${role}/${p}: no figure strip inside the panel grid`,
+          `${strayStrip} found`);
+
         /* ⛔ A schedule's axis, its today line and its bars must measure from
            the SAME box. The first cut positioned the axis and the line against
            the whole row, which is wider than the bars' column, and nudged them

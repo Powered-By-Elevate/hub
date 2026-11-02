@@ -60,6 +60,18 @@ export function figure(text) {
   return unit ? `${head}<span class="u">${unit}</span>` : head;
 }
 
+/* "Twelve months" only when there are twelve: a client with two months of
+   ledger reads "Two months", never the demo's year. */
+export function countWord(n, cap = false) {
+  const w = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+    'eleven', 'twelve'][n] || String(n);
+  return cap ? w[0].toUpperCase() + w.slice(1) : w;
+}
+
+export function monthsWord(n, cap = false) {
+  return `${countWord(n, cap)} month${n === 1 ? '' : 's'}`;
+}
+
 export function monthName(m, long = false) {
   if (!m) return HIDDEN;
   const [y, mm] = m.split('-').map(Number);

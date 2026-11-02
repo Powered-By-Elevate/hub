@@ -78,7 +78,9 @@ export function settings(ctx) {
   return U.pageHead({
     eyebrow: 'Settings',
     title: 'Settings',
-    answer: `Everything on this page is configuration, not code. Change it here and the whole
+    answer: s.tenant ? `How this Hub looks and who sees what. A change here shows in this browser,
+      and the next build follows the settings file your administrator keeps.`
+      : `Everything on this page is configuration, not code. Change it here and the whole
       dashboard follows; export it and the same dashboard is built for a real deployment.`,
   }) + `<div class="set-grid">
     <nav class="set-nav">${TABS.map(t =>
@@ -121,7 +123,8 @@ function brandTab(ctx) {
       }) +
       srow({
         name: 'Logo',
-        hint: `A client’s own logo replaces the monogram the moment it lands. It stays in this
+        hint: d && s.tenant ? 'Your logo replaces the monogram in this browser. Send the file to your administrator to put it in every build.'
+          : `A client’s own logo replaces the monogram the moment it lands. It stays in this
           browser: a real deployment takes the file itself.`,
         control: `<div class="drop" id="logo-drop">${d.brand.logo
           ? `<img src="${esc(d.brand.logo)}" alt="">
@@ -191,7 +194,8 @@ function connsTab(ctx) {
 
   const header = U.panel({
     title: 'What this Hub reads',
-    note: 'Nine categories. Switch one on and its figures go live on the pages that use it; switch it off and those pages say so rather than showing a number from nowhere.',
+    note: s.tenant ? 'What this Hub is connected to. A page whose source is not connected says so rather than showing a number from nowhere.'
+      : 'Nine categories. Switch one on and its figures go live on the pages that use it; switch it off and those pages say so rather than showing a number from nowhere.',
     body: `<div class="strip" style="margin:4px 0 0">
       ${counts.map(x => `<div class="strip-item">
         <div class="strip-label">${esc(x.c.name)}</div>
@@ -440,8 +444,8 @@ function levelsTab(ctx) {
     }).join(''),
     foot: `How much of the company and how much money are independent on purpose: a site
       supervisor can see every operational page for their own crew with no currency anywhere on
-      them. A real deployment reads the people from the company\u2019s own directory, so this list
-      is the shape of it rather than the list itself.`,
+      them.${s.tenant ? '' : ` A real deployment reads the people from the company\u2019s own directory, so this list
+      is the shape of it rather than the list itself.`}`,
   });
 }
 
@@ -519,8 +523,9 @@ function deployTab(ctx) {
         <textarea rows="4" id="import-json" placeholder="Paste a configuration file here"></textarea>
         <div style="margin-top:8px">${U.btn('Load it', { act: 'import-config', ico: 'arrow' })}</div>
       </div>`,
-    foot: 'Settings live in this browser while you are trying things. A real deployment carries the file.',
-  }) + U.panel({
+    foot: s.tenant ? 'Changes here stay in this browser. The next build follows the settings file your administrator keeps.'
+      : 'Settings live in this browser while you are trying things. A real deployment carries the file.',
+  }) + (s.tenant ? '' : U.panel({
     title: 'What a deployment actually involves',
     body: `<ol class="steps">
       <li><b>Brand.</b> The kit goes in: logo files, the palette, the two typefaces. An hour, and
@@ -535,5 +540,5 @@ function deployTab(ctx) {
         one at a time, each one earning its place rather than arriving as a bundle.</li>
     </ol>`,
     foot: 'A month closes on a signature, never on the calendar. That rule is in the product, not in a policy document.',
-  });
+  }));
 }

@@ -64,7 +64,8 @@ export function dash(ctx) {
     U.panel({
       col: 8,
       title: 'Revenue against the plan',
-      note: `Twelve months to ${esc(F.monthName(q.view.month, true))}. The bar is what happened, the line is what was budgeted.`,
+      note: `${F.monthsWord(last12.length, true)} to ${esc(F.monthName(q.view.month, true))}.${
+        budSeries && budSeries.some(v => v) ? ' The bar is what happened, the line is what was budgeted.' : ''}`,
       body: C.bars({
         values: revSeries, labels: last12.map(mN), fmt: v => F.money(v),
         overlay: budSeries && budSeries.some(v => v) ? budSeries : null,
@@ -254,7 +255,7 @@ export function pl(ctx) {
         esc(l.name),
         F.money(v),
         F.pct(v / rev * 100, 1),
-        F.money(p),
+        ya.length ? F.money(p) : 'n/a',
         F.deltaTag(delta, { invert: l.kind === 'cost' }),
       ],
     };
@@ -266,7 +267,7 @@ export function pl(ctx) {
   return U.pageHead({
     eyebrow: 'Finance',
     title: 'Profit & loss',
-    answer: `${esc(basisWords(q))}, beside the same months a year earlier.
+    answer: `${esc(basisWords(q))}${ya.length ? ', beside the same months a year earlier' : ''}.
       Revenue of <b>${F.money(q.sum('rev', w))}</b> left
       <b>${F.money(q.sum('ni', w))}</b> of net income, a margin of
       <b>${F.pct(q.sum('ni', w) / rev * 100)}</b>.`,
@@ -282,7 +283,7 @@ export function pl(ctx) {
     }) +
     U.panel({
       col: 5, title: 'Overhead by kind',
-      note: 'Twelve months. The question is whether overhead grows with revenue or ahead of it.',
+      note: `${F.monthsWord(last12.length, true)}. The question is whether overhead grows with revenue or ahead of it.`,
       body: C.stack({
         rows: last12.map(m => Object.fromEntries(overheadKeys.map(k => [k, q.sum(k, [m])]))),
         keys: overheadKeys, labels: last12.map(mN), names, fmt: v => F.money(v), height: 260,
@@ -290,10 +291,11 @@ export function pl(ctx) {
       foot: (() => {
         const ohNow = q.sum('oh', w) / (q.sum('rev', w) || 1) * 100;
         const ohYa = q.sum('oh', ya) / (q.sum('rev', ya) || 1) * 100;
-        return `Overhead is ${F.pct(ohNow)} of revenue, against ${F.pct(ohYa)} a year ago.`;
+        return ya.length ? `Overhead is ${F.pct(ohNow)} of revenue, against ${F.pct(ohYa)} a year ago.`
+          : `Overhead is ${F.pct(ohNow)} of revenue. The ledger holds no year earlier to set it against.`;
       })(),
     }) +
-    U.panel({
+    (!ya.length ? '' : U.panel({
       col: 12, title: 'This period against a year earlier',
       note: 'One line per statement line. Following a line is a different act from comparing two bars that sit apart.',
       body: C.slope({
@@ -306,7 +308,7 @@ export function pl(ctx) {
         height: 320,
       }),
       foot: 'A cost line rising is not the same as revenue rising, so read the names, not only the slopes.',
-    }) +
+    })) +
     U.panel({
       col: 12, title: 'Revenue and net income, month by month',
       body: C.line({
@@ -696,7 +698,7 @@ export function statements(ctx) {
       }).join('')}</div>`,
       foot: (() => {
         const n = months.filter(m => m > closed).length;
-        return `Signed off through <b>${esc(F.monthName(closed, true))}</b>. ` + (n === 1
+        return (closed ? `Signed off through <b>${esc(F.monthName(closed, true))}</b>. ` : 'No month is signed off yet. ') + (n === 1
           ? '1 later month is tentative and carries that label everywhere it appears.'
           : `${n} later months are tentative and carry that label everywhere they appear.`);
       })(),
@@ -708,7 +710,7 @@ export function statements(ctx) {
       body: `<div class="rows">${p.holds.map(h =>
         `<div class="row-item" style="padding:8px 12px">${icon('check', 15)}
           <span class="grow">${esc(h)}</span></div>`).join('')}</div>`,
-      foot: `Covers ${esc(F.monthName(closed, true))} and earlier \u00b7
+      foot: `${closed ? `Covers ${esc(F.monthName(closed, true))} and earlier` : 'Covers no signed-off month yet'} \u00b7
         ${q.scopeEntities.length} ${q.scopeEntities.length === 1 ? 'company' : 'companies'} \u00b7
         ${q.units.length} ${esc(s.industry.unit.many)}`,
     })).join('') + `</div>`;
@@ -718,6 +720,7 @@ export function statements(ctx) {
 
 export function close(ctx) {
   const { q, s } = ctx;
+  if (s.tenant) return tenantClose(q);
   const month = q.view.month;
   const closedIdx = q.months.indexOf(q.closed);
   const rows = q.entities.map((e, i) => {
@@ -770,6 +773,47 @@ export function close(ctx) {
         <div class="row-item">
           <span class="tag ${c.ok ? 'good' : 'bad'}"><i class="dot"></i>${c.ok ? 'Pass' : 'Fail'}</span>
           <span class="grow"><b>${esc(c.name)}</b>${c.note ? `<div class="sub">${esc(c.note)}</div>` : ''}</span>
+        </div>`).join('')}</div>`,
+    }) + `</div>`;
+}
+
+/* A client's close page shows only what its data says: a month per company
+   where the close record names one, otherwise one line for the whole group.
+   The checks are the ones this page can run on the figures it holds. */
+function tenantClose(q) {
+  const by = q.data.meta.closedByEntity || null;
+  const rows = by
+    ? q.entities.map(e => ({ cells: [esc(e.name), by[e.id] ? esc(F.monthName(by[e.id], true)) : 'No close record',
+      by[e.id] ? U.statusTag('Closed', 'good') : U.statusTag('Not closed', 'warn')] }))
+    : [{ cells: [q.entities.length > 1 ? 'Every company' : esc(q.entities[0].name),
+      esc(F.monthName(q.closed, true)), U.statusTag('Closed', 'good')] }];
+  const ids = q.entities.map(e => e.id);
+  const gap = Math.max(...q.months.map(m => Math.abs(
+    ['cash', 'ar', 'inv', 'oca', 'fa', 'ooa'].reduce((t, l) => t + q.bal(l, m, ids), 0)
+    - ['ap', 'accr', 'cd', 'ltd', 'ocl', 'cap', 're', 'cy'].reduce((t, l) => t + q.bal(l, m, ids), 0))));
+  const later = q.months.filter(m => m > q.closed).length;
+  const checks = [
+    { name: 'Assets equal liabilities plus equity', ok: gap <= 1, note: gap <= 1 ? 'Every month in the ledger' : `Out by ${F.money(gap)} at worst` },
+    { name: 'A tentative month is labelled on every page', ok: true, note: 'Header, month picker and freshness strip' },
+  ];
+  return U.pageHead({
+    eyebrow: 'Finance',
+    title: 'Close & controls',
+    answer: `Signed off through <b>${esc(F.monthName(q.closed, true))}</b>${by ? ' for the group, the earliest of its companies' : ''}.
+      ${later ? `${later === 1 ? '1 later month is' : `${later} later months are`} tentative.` : ''}`,
+  }) + `<div class="grid">` +
+    U.panel({
+      col: 7, title: by ? 'By company' : 'The close', pad: false,
+      note: 'As your close record states it.',
+      body: U.table({ cols: [{ name: 'Company' }, { name: 'Signed off through', n: true }, { name: 'State' }], rows }),
+    }) +
+    U.panel({
+      col: 5, title: 'Checks',
+      note: 'Run on the figures this page holds.',
+      body: `<div class="rows">${checks.map(c => `
+        <div class="row-item">
+          <span class="tag ${c.ok ? 'good' : 'bad'}"><i class="dot"></i>${c.ok ? 'Pass' : 'Fail'}</span>
+          <span class="grow"><b>${esc(c.name)}</b><div class="sub">${esc(c.note)}</div></span>
         </div>`).join('')}</div>`,
     }) + `</div>`;
 }

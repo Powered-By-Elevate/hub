@@ -31,7 +31,7 @@ const PAGES = { ...financePages, ...opsPages, ...miscPages, settings: settingsPa
 const app = {
   cfg: null, s: null, q: null, data: {},
   page: 'home', arg: null, subtab: 'brand', menu: null, sheet: null, docsAt: '',
-  detailFrom: null, docsBy: 'type',
+  detailFrom: null, docsBy: 'type', tasks: null,
 };
 
 /* --------------------------------------------------------------- bootstrap */
@@ -167,7 +167,7 @@ function render() {
   document.getElementById('bar').innerHTML = bar();
 
   const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go,
-    strip: stripIds(), docsAt: app.docsAt, docsBy: app.docsBy,
+    strip: stripIds(), docsAt: app.docsAt, docsBy: app.docsBy, tasks: taskState(),
     detailFrom: app.detailFrom };
   const host = document.getElementById('page');
   let html = '';
@@ -359,6 +359,18 @@ function caret() {
 }
 
 /* ------------------------------------------------------------------ menus */
+
+/* What the viewer has marked done or snoozed on What needs you.
+
+   Wrapped because a private window throws on localStorage rather than
+   returning null, and a page that cannot read a convenience must still draw. */
+const TASK_KEY = 'hub.tasks.v1';
+function taskState() {
+  if (app.tasks) return app.tasks;
+  try { app.tasks = JSON.parse(localStorage.getItem(TASK_KEY) || '{}') || {}; }
+  catch { app.tasks = {}; }
+  return app.tasks;
+}
 
 /* Un-stretch a panel that cannot honestly fill its row.
 
@@ -628,6 +640,24 @@ async function onClick(ev) {
        sorted their folders. Changing the order returns to the root, because a
        path in one order means nothing in the other. */
     case 'docs-by': app.docsBy = arg; app.docsAt = ''; render(); break;
+    /* Done and Snooze on What needs you.
+
+       ⛔ This is the ONE place in the build that keeps state the data does not
+       produce, and it keeps it in the viewer's own browser because a static
+       page has nowhere else. The page says so in as many words. It is NOT in
+       the saved deployment: a client's configuration file must not carry one
+       person's half-worked task list, and a second viewer must not inherit it.
+       A real deployment writes this where every viewer reads the same list. */
+    case 'task': {
+      const [what, id, tag] = arg.split(':');
+      const key = `${id}:${tag}`;
+      const next = { ...taskState() };
+      if (next[key] === what) delete next[key]; else next[key] = what;
+      try { localStorage.setItem(TASK_KEY, JSON.stringify(next)); } catch { /* private window */ }
+      app.tasks = next;
+      render();
+      break;
+    }
     case 'theme': app.s.data.theme = arg; app.s.save().apply(); render(); break;
     case 'theme-toggle':
       app.s.data.theme = app.s.data.theme === 'dark' ? 'light' : 'dark';
