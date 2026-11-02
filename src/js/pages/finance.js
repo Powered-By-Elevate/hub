@@ -636,7 +636,7 @@ export function balance(ctx) {
          side it measures about 300px and nothing is left over. */
       col: 12, title: 'Three ratios',
       note: 'The bands are conventional comfort, not this company\u2019s covenants.',
-      body: `<div class="dials">
+      body: `<div class="dials-fit"><div class="dials">
         <div class="dial-cell">${C.dial({
           value: cur, min: 0, max: 4, label: 'Current ratio',
           bands: [{ from: 0, to: 1, color: 'var(--bad)' }, { from: 1, to: 1.5, color: 'var(--warn)' }],
@@ -652,7 +652,7 @@ export function balance(ctx) {
           bands: [{ from: 2, to: 3, color: 'var(--warn)' }, { from: 3, to: 4, color: 'var(--bad)' }],
           note: 'Borrowed against owned. Higher is more leveraged.',
         })}</div>
-      </div>`,
+      </div></div>`,
     }) +
     U.panel({
       col: 12, title: 'Equity and debt over time',

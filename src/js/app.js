@@ -442,10 +442,27 @@ function balanceRows() {
        list whose length follows the unit count sitting beside a chart whose
        height is fixed, and a per-unit list can never match a fixed chart.
 
-       Measured across the build after the page-level fixes: nothing legitimate
-       sits between 250px and 1.6x, so these two numbers separate "a row with
-       some room in it" from "a row with a hole in it" without naming a single
-       page or component. */
+       ⚠️ The first version of this comment claimed the two numbers separate "a
+       row with some room in it" from "a row with a hole in it". That reading
+       was wrong, and the publishing session was right to attack it: the gaps
+       in the build stop at 233px against a 250px floor, which is the shape of
+       a constant fitted to its own data. What the measurement actually shows
+       is that the HOLE is closed somewhere else entirely, by the centre-or-end
+       rule below, at every size and regardless of this bound. Of 43 ragged
+       rows, 34 are centred and 9 end at their content, none leaving more than
+       134px of white.
+
+       So this rule is not the dead-space rule and must not be justified as
+       one. It answers a narrower question: a list whose length follows the
+       unit count makes a fixed-height chart beside it look like a footnote,
+       whatever the white space does. Measured against three candidates derived
+       from the viewport instead of the data, this bound selects five rows and
+       all five are that shape (1.88x to 3.86x, 550px to 2,284px); the derived
+       bounds select one or two and leave the 2.3x cases paired. A bound that
+       picks the right set is worth keeping even when its origin was a fitted
+       number, as long as the comment says which it is. Lowering it further is
+       now a question of taste, not a defect, because nothing depends on it to
+       close a hole. */
     if (tall - short < 250 || tall < short * 1.6) continue;
     row[hs.indexOf(tall)].classList.add('go-wide');
     widened = true;
@@ -481,10 +498,35 @@ function balanceRows() {
        given rather than clinging to the top with all the empty space pooled
        underneath. A bar chart with 280px of white below it is what Matt keeps
        pointing at, and it reads as a hole. The same 280px split above and
-       below the chart reads as a card with room in it. */
+       below the chart reads as a card with room in it.
+
+       ⛔ BUT NOT EVERY BODY CAN BE CENTRED, AND THE ONES THAT CANNOT HAVE NO
+          THIRD OPTION, SO THEY GET THE SECOND ONE EARLY.
+
+       A table or a row list has to start at the top: a table floating in the
+       middle of its card reads as a mistake, which is why the stylesheet
+       refuses to centre one. The refusal was silent, so those cards took the
+       `roomy` class, ignored it, and kept the whole gap pooled underneath.
+       Measured across the 120 combinations: of 43 ragged rows, 34 were
+       centred and absorbed (worst residue 134px) and the nine the stylesheet
+       excluded held 152px to 251px of pooled white, which is the hole Matt
+       raised three times. The 250px widen bound never came into it.
+
+       So the question is not how big the gap is but whether the room can be
+       SHARED. Where it can, share it. Where it cannot, end the card where its
+       content ends and let the row sit honestly ragged. The stylesheet stays
+       the only list of what cannot be centred, and this reads the answer back
+       off the computed style rather than keeping a copy of the list, because
+       two mechanisms deciding one question is how they drift apart. */
     const gap = box.bottom - low;
-    if (gap > 320) panel.classList.add('unstretch');
-    else if (gap > 70) panel.classList.add('roomy');
+    if (gap <= 70) continue;
+    if (gap > 320) { panel.classList.add('unstretch'); continue; }
+    panel.classList.add('roomy');
+    const cs = getComputedStyle(body);
+    if (cs.display !== 'flex' || cs.justifyContent !== 'center') {
+      panel.classList.remove('roomy');
+      panel.classList.add('unstretch');
+    }
   }
 }
 

@@ -1295,10 +1295,43 @@ body.presenting .strip[data-current="true"] {
 /* Three ratios read ACROSS: they are a set to be compared, and a set compared
    down a narrow column is both taller and harder to read. Each dial and its
    note are one cell so the grid can place them side by side. */
-.dials { display: grid; gap: 8px 18px; justify-items: center;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+/* ⛔ THE COLUMN BREAKS WHEN THE DIAL DOES, AND NOT BEFORE.
+
+   The track was `minmax(210px, 1fr)` while the dial itself draws at most
+   168px, so a 568px panel at 1100 wide gave three columns of 177px, which is
+   room enough for every dial, and wrapped anyway. The publishing session
+   measured the result: three across at 1280 and above and again at 768 to
+   860, two-then-one at 1100, 1024, 700, 620 and 540, and one-each at 960, 480
+   and 390. 1024 and 1100 are ordinary laptop widths, which is where it was
+   being read.
+
+   210px was a number that worked at the widths someone checked. The dial's
+   own drawing width is a fact, so the track is derived from it and both read
+   the same custom property: change one and the other follows, because two
+   numbers describing one measurement is how they drift apart. */
+.dials-fit { container-type: inline-size; }
+.dials { --dial-w: 168px; --dial-gap: 18px; display: grid; gap: 8px var(--dial-gap);
+  justify-items: center; grid-template-columns: 1fr; }
+
+/* ⛔ THREE ACROSS OR ONE, NEVER TWO AND A SPARE.
+
+   `auto-fit` has a third outcome nobody wants: at a grid between 428px and
+   492px it placed two dials and dropped the third onto a row of its own, and
+   a last row holding one of three is the same ragged bottom this build spent
+   the day removing one floor up. It showed at 1024 and 960, which is where
+   the page is actually read.
+
+   The count here is fixed at three, so the layout has exactly two honest
+   answers and the condition between them is arithmetic rather than a chosen
+   breakpoint: three columns the moment three dials and their two gaps fit,
+   one column below that. 3 x 168 + 2 x 18 = 540px. A container query asks the
+   panel its width instead of asking the window, so a dial set inside a narrow
+   column behaves the same as one on a narrow screen. */
+@container (min-width: 540px) {
+  .dials { grid-template-columns: repeat(3, minmax(var(--dial-w), 1fr)); }
+}
 .dial-cell { display: flex; flex-direction: column; align-items: center; max-width: 280px; }
-.dials svg.dial { margin: 0 auto; max-width: 168px; }
+.dials svg.dial { margin: 0 auto; max-width: var(--dial-w); }
 .dials p { margin-bottom: 10px; max-width: 34ch; }
 
 /* the close coverage strip: one cell per month */
@@ -1772,7 +1805,21 @@ svg .pt.on { r: 5.5; stroke: var(--paper); stroke-width: 2; }
 }
 .jf-row:first-child { border-top: 0; }
 .jf-row svg { color: var(--ink-faint); grid-row: 1 / span 2; }
-.jf-n { font-size: 12.5px; font-weight: 600; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap; }
+/* ⛔ WHEN BOTH FACTS MATTER AND NEITHER FITS, THE LINE WRAPS.
+
+   Measured at 1024, the filed row's name line is 196px while the place wants
+   134px and a type like "Request for information" wants 143px: 277px of text,
+   so no priority rule can fit both and any single-line answer has to throw one
+   away. Protecting the tail threw away the place, capping the tail threw away
+   the type, and the type is the part that tells one filing from the next.
+
+   The compression onto one line was there to save height, and that reason has
+   gone: the dead space it was fighting is now closed by the centre-or-end rule
+   in balanceRows, so a row that needs two lines can have two lines. Clamped at
+   two so a freak name cannot run away, and measured across all six industries
+   at 1440, 1024 and 390, nothing reaches the clamp. */
+.jf-n { font-size: 12.5px; font-weight: 600; display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.jf-t::before { content: ' \2022  '; color: var(--ink-faint); font-weight: 400; }
 .jf-m { font-size: 11px; color: var(--ink-faint); overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; }

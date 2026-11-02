@@ -610,13 +610,25 @@ async function main() {
            is a comparison that can never find a mismatch. */
         const ragged = await page.evaluate(() => {
           const ps = [...document.querySelectorAll('#page .grid > .panel')];
+          /* ⛔ PUT BACK EXACTLY WHAT WAS THERE, NOT WHAT YOU ADDED.
+
+             This read adds `.unstretch` to measure natural heights, and the
+             first cut took it off again afterwards. `balanceRows` sets that
+             same class as its own decision, so the removal wiped the fix on
+             every panel that had been corrected, and every check that runs
+             after this one was reading a page the gate itself had broken: the
+             pooled-white check below failed on nine panels that were measured
+             correct seconds earlier in isolation. Save the className, restore
+             the className. */
+          const had = ps.map(e => e.className);
           for (const e of ps) e.classList.add('unstretch');
           void document.body.offsetHeight;
           const info = ps.map(e => ({
             t: ((e.querySelector('h3') || {}).textContent || '?').trim().slice(0, 30),
             h: e.getBoundingClientRect().height, top: Math.round(e.getBoundingClientRect().top),
           }));
-          for (const e of ps) e.classList.remove('unstretch');
+          ps.forEach((e, i) => { e.className = had[i]; });
+          void document.body.offsetHeight;
           const rows = [];
           for (const k of info) {
             const r = rows.find(x => Math.abs(x.top - k.top) < 8);
@@ -630,6 +642,120 @@ async function main() {
         });
         ok(ragged.length === 0, `${ind}/${role}/${p}: no row left ragged`,
           ragged.slice(0, 2).join(', '));
+
+        /* ⛔ EVERY PANEL EITHER SHARES ITS SLACK OR ENDS AT ITS CONTENT.
+
+           This is the dead-space invariant, and it is deliberately STRUCTURAL
+           rather than a number. The previous guards each named a threshold
+           (320px for the hole, 250px for the widen), and the publishing
+           session was right that a threshold measured against today's build
+           is a constant fitted to its own data: the gaps stopped at 233px
+           against a 250px floor, so the rule could never fire on the thing
+           Matt kept raising.
+
+           What is actually true has no number in it. A panel with slack has
+           exactly two honest outcomes: share the room above and below its
+           content, or end where its content ends. Anything else is white
+           pooled under the content, which is what reads as a hole. So the
+           check asks which outcome each panel took, and a panel that took
+           neither fails however many pixels it happens to be. */
+        const unresolved = await page.evaluate(() => {
+          const out = [];
+          for (const panel of document.querySelectorAll('#page .grid > .panel')) {
+            const body = panel.querySelector('.panel-body');
+            if (!body) continue;
+            const box = body.getBoundingClientRect();
+            if (box.height < 40) continue;
+            let low = box.top;
+            for (const kid of body.querySelectorAll('*')) {
+              const k = kid.getBoundingClientRect();
+              if (!k.height && !k.width) continue;
+              if (k.bottom > low) low = k.bottom;
+            }
+            const gap = Math.round(box.bottom - low);
+            if (gap <= 70) continue;
+            const cs = getComputedStyle(body);
+            const centred = cs.display === 'flex' && cs.justifyContent === 'center';
+            if (panel.classList.contains('unstretch') || centred) continue;
+            out.push(`${((panel.querySelector('h3') || {}).textContent || '?').trim().slice(0, 30)} (${gap}px pooled)`);
+          }
+          return out;
+        });
+        ok(unresolved.length === 0,
+          `${ind}/${role}/${p}: every panel with slack shares it or ends at its content`,
+          unresolved.slice(0, 2).join(', '));
+
+        /* ⛔ NO GRID LEAVES A LAST ROW HOLDING ONE OF THREE.
+
+           `auto-fit` has a third outcome nobody wants. The three ratio dials
+           placed two and dropped the third onto a row of its own between 428px
+           and 492px of grid, which showed at 1024 and 960, ordinary laptop
+           widths. A last row holding one of three is the ragged bottom this
+           build spent the day removing one floor up, so it fails here too,
+           and the rule is structural: either every row is full or there is one
+           item per row.
+
+           ⚠️ Scoped to a UNIFORM track. The first cut swept `#page .grid` too
+           and failed on four pages, wrongly: that grid is a column-span
+           layout, so a last row holding one panel is a deliberate full-width
+           panel and not an orphan at all. The rule only means anything where
+           every item has the same width, so that is the condition, read off
+           the items themselves rather than from a list of class names. */
+        const orphans = await page.evaluate(() => {
+          const out = [];
+          for (const g of document.querySelectorAll('#page .dials, #page .grid')) {
+            const kids = [...g.children].filter(k => k.getBoundingClientRect().height > 4);
+            if (kids.length < 3) continue;
+            const ws = kids.map(k => Math.round(k.getBoundingClientRect().width));
+            if (Math.max(...ws) - Math.min(...ws) > 2) continue;   /* not a uniform track */
+            const rows = [];
+            for (const k of kids) {
+              const t = Math.round(k.getBoundingClientRect().top);
+              const r = rows.find(x => Math.abs(x.t - t) < 6);
+              if (r) r.n++; else rows.push({ t, n: 1 });
+            }
+            if (rows.length < 2) continue;
+            const counts = rows.map(r => r.n);
+            const last = counts[counts.length - 1];
+            if (counts[0] > 1 && last === 1 && counts.slice(0, -1).every(n => n === counts[0])) {
+              out.push(`${g.className} ${JSON.stringify(counts)}`);
+            }
+          }
+          return out;
+        });
+        ok(orphans.length === 0, `${ind}/${role}/${p}: no grid orphans its last item`,
+          orphans.slice(0, 2).join(', '));
+
+        /* ⛔ A FILED ROW KEEPS BOTH FACTS THAT IDENTIFY IT.
+
+           A filing is named `<place> - <date> <type>` and the row used to cut
+           the end of the string, which is the type: the publishing session
+           measured 196px shown of 371px needed at 1024, so nearly half went
+           and what went was the only part that tells one filing from the next.
+           Place and type are now both on the line and the date has moved to
+           the meta row.
+
+           Read from the rects the text PAINTS, not from clientWidth: a span
+           inside a `-webkit-box` reports clientWidth 0, which made the first
+           version of this measurement report every row as fine. */
+        const filed = await page.evaluate(() => {
+          const out = [];
+          for (const row of document.querySelectorAll('#page .jf-row')) {
+            const n = row.querySelector('.jf-n');
+            if (!n) continue;
+            const box = n.getBoundingClientRect();
+            const shown = el => el && [...el.getClientRects()].length > 0 &&
+              [...el.getClientRects()].every(r => r.bottom <= box.bottom + 1 && r.top >= box.top - 1);
+            const t = row.querySelector('.jf-t'), h = row.querySelector('.jf-h');
+            if (!t) continue;                       /* a name off the pattern stays whole */
+            if (n.scrollHeight > n.clientHeight + 1) { out.push(`clamped: ${t.textContent}`); continue; }
+            if (!shown(t)) out.push(`type cut: ${t.textContent}`);
+            else if (!shown(h)) out.push(`place cut: ${h && h.textContent}`);
+          }
+          return out;
+        });
+        ok(filed.length === 0, `${ind}/${role}/${p}: a filed row keeps its place and its type`,
+          filed.slice(0, 2).join(', '));
 
         /* ⛔ NO CHART LABEL SITS ON ANOTHER.
 

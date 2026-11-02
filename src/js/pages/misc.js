@@ -8,6 +8,38 @@ import * as U from '../ui.js';
 import { esc, icon, brandMark, connTile, INDUSTRY_ICON } from '../icons.js';
 import { scene, motif } from '../scenes.js';
 
+/* ⛔ TRUNCATE WHERE THE INFORMATION IS NOT.
+
+   A filing is named `<place> - <date> <type>`, and the row cut the END of the
+   string, which is the type: "Summerton Middle School - 2026-10-22 Executed
+   agreem\u2026". The publishing session measured it showing 196px of a needed
+   371px at 1024 wide, so nearly half went, and what went was the only part
+   that tells one filing from the next. Place and date survived, and those are
+   the parts a reader can already see from the folder they are standing in.
+
+   Protecting the tail alone was not enough: measured again, construction's
+   longer types ("Request for information") still lost at 1024, because place
+   AND date AND type genuinely do not fit a 300px column and something has to
+   go. The date is what goes. The list is newest first and says so in its foot,
+   so it is already ordered by date, and the date is the one fact a reader can
+   infer from position. It moves to the meta line, which is its own row at 11px
+   and has the room.
+
+   So the name line carries the two identifying facts, place and type, with the
+   type protected and the place taking the ellipsis. Nothing on that line
+   competes with anything else, which is why it holds at every width rather
+   than at the widths someone checked. A name that does not match the pattern
+   is left whole and behaves as before. */
+function filedName(raw) {
+  const name = String(raw).replace(/\.[a-z0-9]+$/i, '');
+  const m = name.match(/^(.*?)\s*-\s*(\d{4}-\d{2}-\d{2})\s+(.+)$/);
+  if (!m) return { line: `<span class="jf-h">${esc(name)}</span>`, when: '' };
+  return {
+    line: `<span class="jf-h">${esc(m[1])}</span><span class="jf-t">${esc(m[3])}</span>`,
+    when: m[2],
+  };
+}
+
 export function start(ctx) {
   const { q, s, cfg } = ctx;
   const ind = s.industry;
@@ -619,8 +651,9 @@ export function docs(ctx) {
       body: `<div class="jf">${(d.recent || []).slice(0, 7).map(r => `
         <div class="jf-row" data-r="${esc(r.name)} · ${esc(r.unitName)} › ${esc(r.disc)} · filed ${esc(r.when)} by ${esc(r.by)}">
           ${icon('doc', 15)}
-          <span class="jf-n">${esc(r.name.replace(/\.[a-z0-9]+$/i, ''))}</span>
-          <span class="jf-m">${esc(r.disc)} · ${esc(r.by)}</span>
+          <span class="jf-n">${filedName(r.name).line}</span>
+          <span class="jf-m">${[filedName(r.name).when, esc(r.disc), esc(r.by)]
+            .filter(Boolean).join(' · ')}</span>
         </div>`).join('')}</div>`,
       foot: 'Newest first. A filing appears here the moment it lands in its folder.',
     }) +
