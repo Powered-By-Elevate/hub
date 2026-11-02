@@ -82,52 +82,103 @@ function bar(v, max, label) {
 
 /* ------------------------------------------------------------------- home */
 
+/* ⚖️ Matt, 2026-11-02: *"job portfolio section is really lame for the first
+   tab and main page of the operations tab. more isnt always better but you can
+   definitely fix it. make it prettier. give it more wow. have it be more
+   useful"*.
+
+   It was three generic panels: a bar chart of units by size, a flag list and a
+   line. Nothing on it said what the book actually IS. The page now opens on
+   the book as one object and then draws every unit as a real row, which is the
+   view a person running the work actually wants: how far along, how big, and
+   what is wrong with it, on one line each.
+
+   ⛔ What a row shows is declared per industry in `portfolio` (industries.json)
+   rather than branched on here, because a contract that is 60% complete and a
+   campus that is 60% full are the same shape and different words. */
 export function home(ctx) {
   const { q, s } = ctx;
   const ind = s.industry;
   const rows = q.unitRows();
   const w = q.window();
-  const name = (ind.pages && ind.pages['ops-home'] && ind.pages['ops-home'].name) || 'Operations';
-
-  const byStatus = {};
-  for (const r of rows) byStatus[r.status] = (byStatus[r.status] || 0) + 1;
-
-  const ranked = rows.map(r => ({
-    name: r.short || r.name,
-    value: headlineOf(q, r, ind, w),
-    id: r.id,
-  })).sort((a, b) => b.value - a.value);
-
+  const port = ind.portfolio || {};
   const flagged = flags(q, rows, ind);
+  const flagOf = new Map(flagged.map(f => [f.id, f]));
+
+  const read = (r, spec) => {
+    if (!spec) return null;
+    if (Array.isArray(spec)) {
+      const a = r.f[spec[0]], b = r.f[spec[1]];
+      return Number.isFinite(a) && Number.isFinite(b) && b ? a / b : null;
+    }
+    const v = r.f[spec];
+    return Number.isFinite(v) ? (v > 1.5 ? v / 100 : v) : null;
+  };
+
+  const book = rows.map(r => ({
+    r, size: Number.isFinite(r.f[port.size]) ? r.f[port.size] : 0,
+    bar: read(r, port.bar), mark: read(r, port.mark),
+    flag: flagOf.get(r.id),
+  })).sort((a, b) => b.size - a.size);
+
+  const total = book.reduce((a, x) => a + x.size, 0);
+  const done = book.reduce((a, x) => a + x.size * (x.bar || 0), 0);
+  const money = port.size && /contract|arr|sales|linehaul|funding/.test(port.size);
+  const fmtSize = v => money ? F.money(v) : F.num(v);
 
   return U.verdict({
     title: opsVerdict(ctx, rows, flagged),
-    body: `${esc(ind.tagline)}. ${rows.length} ${esc(ind.unit.many)} in scope, ` +
-      Object.entries(byStatus).map(([k, v]) => `${v} ${esc(k.toLowerCase())}`).join(', ') + '.',
+    body: `${esc(ind.tagline)}. ${rows.length} ${esc(ind.unit.many)} in scope.`,
     figs: headFigs(q, s, ind),
   }) + `<div class="grid">` +
     U.panel({
-      col: 7, title: `${esc(ind.unit.collection)} by size`,
-      note: `Revenue over the window, largest first. Click a row to open it.`,
-      body: C.hbars({
-        rows: ranked.slice(0, 12).map(r => ({ name: r.name, value: r.value })),
-        fmt: v => F.money(v),
-      }),
+      col: 12, title: `The whole book`, ico: 'grid',
+      note: `Every ${esc(ind.unit.one)} on one scale. The bar is ${esc((port.barLabel || 'progress').toLowerCase())}${
+        port.mark ? `, the tick is ${esc((port.markLabel || '').toLowerCase())}` : ''}.`,
+      body: `<div class="book-top">
+          <div class="book-bar" role="img" aria-label="${Math.round(done / (total || 1) * 100)}% of the book">
+            ${book.map(x => `<span style="flex:${Math.max(x.size, total * 0.004)} 0 0"
+              class="${x.flag ? 'bad' : ''}" title="${esc(x.r.short || x.r.name)}: ${fmtSize(x.size)}">
+              <i style="width:${Math.round((x.bar || 0) * 100)}%"></i></span>`).join('')}
+          </div>
+          <div class="book-key">
+            <span><b>${fmtSize(total)}</b>${esc(port.sizeLabel || 'total')} across ${book.length} ${esc(ind.unit.many)}</span>
+            <span><i class="k-done"></i>${Math.round(done / (total || 1) * 100)}% ${esc((port.barLabel || '').toLowerCase())}</span>
+            ${flagged.length ? `<span><i class="k-bad"></i>${flagged.length} flagged</span>` : ''}
+          </div>
+        </div>`,
     }) +
     U.panel({
-      col: 5, title: 'What needs a look',
-      note: flagged.length ? 'Each line is a rule, not an opinion.' : 'Nothing is outside its band.',
-      body: flagged.length
-        ? `<div class="rows">${flagged.map(f => `
-          <div class="row-item" data-click="unit:${esc(f.id)}" style="cursor:pointer">
-            <span class="tag ${f.kind}"><i class="dot"></i>${esc(f.tag)}</span>
-            <span class="grow"><b>${esc(f.name)}</b><div class="sub">${f.why}</div></span>
-          </div>`).join('')}</div>`
-        : `<div class="empty">Every ${esc(ind.unit.one)} is inside its band this month.</div>`,
-      foot: `${flagged.length} of ${rows.length} ${esc(ind.unit.many)} flagged.`,
+      col: 12, title: `Every ${esc(ind.unit.one)}`, ico: 'list', pad: false,
+      note: `Largest first. Click any row to open its arithmetic.`,
+      body: `<div class="pf">${book.map((x, n) => {
+        const pct = Math.round((x.bar || 0) * 100);
+        return `<div class="pf-row" data-click="unit:${esc(x.r.id)}" tabindex="0">
+          <span class="pf-n">${n + 1}</span>
+          <span class="pf-name">
+            <b>${esc(x.r.short || x.r.name)}</b>
+            <span>${esc([x.r.id, x.r.status, x.r.owner].filter(Boolean).join(' \u00b7 '))}</span>
+          </span>
+          <span class="pf-bar" title="${esc(port.barLabel || '')}: ${pct}%">
+            <i style="width:${pct}%" class="${x.flag ? 'bad' : ''}"></i>
+            ${Number.isFinite(x.mark) ? `<em style="left:${Math.min(100, Math.round(x.mark * 100))}%"
+              title="${esc(port.markLabel || '')}"></em>` : ''}
+            <b>${pct}%</b>
+          </span>
+          ${(port.chips || []).map(([k, label]) => `<span class="pf-chip">
+            <b>${Number.isFinite(x.r.f[k]) ? (/cost|earned|cpu|arr|margin/i.test(k)
+              ? F.money(x.r.f[k]) : F.num(x.r.f[k])) : '—'}</b><span>${esc(label)}</span></span>`).join('')}
+          <span class="pf-size">${fmtSize(x.size)}<span>${esc(port.sizeLabel || '')}</span></span>
+          <span class="pf-flag">${x.flag
+          ? `<span class="tag ${x.flag.kind}"><i class="dot"></i>${esc(x.flag.tag)}</span>`
+          : `<span class="tag good"><i class="dot"></i>In band</span>`}</span>
+        </div>`;
+      }).join('')}</div>`,
+      foot: `${flagged.length} of ${rows.length} ${esc(ind.unit.many)} are outside their band.
+        The rules are on <b>What needs you</b>.`,
     }) +
     U.panel({
-      col: 12, title: 'The whole picture, month by month',
+      col: 12, title: 'The whole picture, month by month', ico: 'clock',
       body: C.line({
         series: [{ name: headlineName(ind), values: q.months.slice(-18).map(m => headlineTotal(q, ind, m)) }],
         labels: q.months.slice(-18).map(mN), fmt: v => headlineFmt(ind, v), height: 240, legend: false,

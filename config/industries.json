@@ -147,6 +147,27 @@
         "dpo": 41,
         "capex": 0.018,
         "debt": 14800000
+      },
+      "portfolio": {
+        "barLabel": "Complete",
+        "bar": "pct",
+        "markLabel": "Billed",
+        "mark": [
+          "billed",
+          "contract"
+        ],
+        "size": "contract",
+        "sizeLabel": "Contract",
+        "chips": [
+          [
+            "earned",
+            "Earned"
+          ],
+          [
+            "cost",
+            "Cost"
+          ]
+        ]
       }
     },
     {
@@ -291,6 +312,25 @@
         "dpo": 29,
         "capex": 0.011,
         "debt": 22400000
+      },
+      "portfolio": {
+        "barLabel": "Seats filled",
+        "bar": [
+          "enrolled",
+          "capacity"
+        ],
+        "size": "funding",
+        "sizeLabel": "Funding per student",
+        "chips": [
+          [
+            "enrolled",
+            "Enrolled"
+          ],
+          [
+            "staff",
+            "Staff"
+          ]
+        ]
       }
     },
     {
@@ -434,6 +474,22 @@
         "dpo": 44,
         "capex": 0.022,
         "debt": 6200000
+      },
+      "portfolio": {
+        "barLabel": "Conversion",
+        "bar": "conv",
+        "size": "sales",
+        "sizeLabel": "Sales",
+        "chips": [
+          [
+            "traffic",
+            "Traffic"
+          ],
+          [
+            "margin",
+            "Margin"
+          ]
+        ]
       }
     },
     {
@@ -579,6 +635,22 @@
         "dpo": 52,
         "capex": 0.041,
         "debt": 31500000
+      },
+      "portfolio": {
+        "barLabel": "Equipment effectiveness",
+        "bar": "oee",
+        "size": "produced",
+        "sizeLabel": "Produced",
+        "chips": [
+          [
+            "scrap",
+            "Scrap"
+          ],
+          [
+            "cpu",
+            "Cost per unit"
+          ]
+        ]
       }
     },
     {
@@ -728,6 +800,22 @@
         "dpo": 24,
         "capex": 0.052,
         "debt": 19700000
+      },
+      "portfolio": {
+        "barLabel": "On time",
+        "bar": "onTime",
+        "size": "linehaul",
+        "sizeLabel": "Linehaul",
+        "chips": [
+          [
+            "loads",
+            "Loads"
+          ],
+          [
+            "miles",
+            "Miles"
+          ]
+        ]
       }
     },
     {
@@ -868,6 +956,22 @@
         "dpo": 33,
         "capex": 0.008,
         "debt": 2000000
+      },
+      "portfolio": {
+        "barLabel": "Gross margin",
+        "bar": "gm",
+        "size": "arr",
+        "sizeLabel": "ARR",
+        "chips": [
+          [
+            "newArr",
+            "New ARR"
+          ],
+          [
+            "churn",
+            "Churn"
+          ]
+        ]
       }
     }
   ]

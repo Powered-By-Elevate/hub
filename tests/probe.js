@@ -308,6 +308,76 @@ async function main() {
     'a module switch is a switch, not a circle',
     switches.map(x => `${x.w}x${x.h}`).join(' '));
 
+  /* --- the statement model and the data must agree (2026-11-02) -------------
+     ⛔ A rename that moves `product.json` but not `data/gen.py`, or the other
+     way, is a two-file version skew: the page asks for a line the extract does
+     not carry, the figure comes out empty or NaN, and NOTHING fails. CI only
+     asserts that three dist paths exist, so it cannot see this either.
+
+     It nearly shipped: the British-spelling sweep renamed the overhead line id
+     `labour` to `labor` in product.json AND its formula AND the generator, and
+     a brief that claimed the generator was untouched would have left one side
+     behind. Caught by the publishing session deriving the diff rather than
+     trusting the brief. This check is so nobody has to notice next time. */
+  const model = await page.evaluate(async () => {
+    const base = document.body.dataset.base || '';
+    const product = await (await fetch(`${base}config/product.json`)).json();
+    const inds = await (await fetch(`${base}config/industries.json`)).json();
+    const want = {
+      pl: product.statement.pl.map(l => l.id),
+      bs: product.statement.bs.map(l => l.id),
+    };
+    const out = [];
+    for (const ind of inds.industries) {
+      const d = await (await fetch(`${base}data/${ind.id}.json`)).json();
+      const have = {
+        pl: new Set((d.pl || []).map(r => r.l)),
+        bs: new Set((d.bs || []).map(r => r.l)),
+      };
+      /* a derived line is computed, never stored, so it is allowed to be absent */
+      const derived = new Set(product.statement.pl.concat(product.statement.bs)
+        .filter(l => l.of || l.sum || l.formula).map(l => l.id));
+      for (const side of ['pl', 'bs']) {
+        for (const id of want[side]) {
+          if (!have[side].has(id) && !derived.has(id)) out.push(`${ind.id}.${side}.${id}`);
+        }
+      }
+    }
+    return out;
+  });
+  ok(model.length === 0,
+    'every statement line the model declares is carried by every extract',
+    model.join(', '));
+
+  /* The sibling hole, named by the publishing session the same day: the check
+     above compares the model against the extracts, so a key renamed on BOTH
+     sides together still passes while a third reader keeps the old spelling.
+     The readers inside the model are its own formulas, and they are cheap to
+     check: every id a formula names must be a line the model declares. That is
+     exactly the shape the `labour` rename would have broken had the sweep
+     renamed the line and not `oh`'s formula. */
+  const dangling = await page.evaluate(async () => {
+    const base = document.body.dataset.base || '';
+    const product = await (await fetch(`${base}config/product.json`)).json();
+    const lines = product.statement.pl.concat(product.statement.bs);
+    const ids = new Set(lines.map(l => l.id));
+    const out = [];
+    for (const l of lines) {
+      const refs = [];
+      /* `formula` only. `of` and `sum` name ACCOUNT codes, not line ids, so
+         walking them here would fail on data that is perfectly correct. */
+      if (l.formula) refs.push(...String(l.formula).split(/[^A-Za-z0-9_]+/));
+      for (const r of refs) {
+        if (!r || /^[0-9.]+$/.test(r)) continue;
+        if (!ids.has(r)) out.push(`${l.id} -> ${r}`);
+      }
+    }
+    return out;
+  });
+  ok(dangling.length === 0,
+    'every id a statement formula names is a line the model declares',
+    dangling.join(', '));
+
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');
   ok(industries.length === 6, 'six industries ship', industries.join(','));
