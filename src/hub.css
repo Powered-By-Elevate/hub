@@ -1292,9 +1292,14 @@ body.presenting .strip[data-current="true"] {
 .mult-note { font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
 
 /* three dials side by side, or stacked when there is no room */
-.dials { display: grid; gap: 4px; justify-items: center; }
-.dials > svg.dial { margin: 0 auto; max-width: 168px; }
-.dials > p { margin-bottom: 10px; max-width: 34ch; }
+/* Three ratios read ACROSS: they are a set to be compared, and a set compared
+   down a narrow column is both taller and harder to read. Each dial and its
+   note are one cell so the grid can place them side by side. */
+.dials { display: grid; gap: 8px 18px; justify-items: center;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.dial-cell { display: flex; flex-direction: column; align-items: center; max-width: 280px; }
+.dials svg.dial { margin: 0 auto; max-width: 168px; }
+.dials p { margin-bottom: 10px; max-width: 34ch; }
 
 /* the close coverage strip: one cell per month */
 .cover-strip { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -1755,3 +1760,19 @@ body.presenting .strip[data-current="true"] {
 /* The dot under the cursor lifts, so the eye lands on the right month. */
 svg .pt { transition: r .08s ease-out; }
 svg .pt.on { r: 5.5; stroke: var(--paper); stroke-width: 2; }
+
+/* Just filed: a glance, not a record. One truncated line per document with its
+   folder and filer under it, so seven filings read in the height a folder grid
+   actually takes rather than half a screen more. */
+.jf { display: flex; flex-direction: column; }
+.jf-row {
+  display: grid; grid-template-columns: 15px minmax(0, 1fr);
+  column-gap: 9px; row-gap: 1px; align-items: center;
+  padding: 7px 0; border-top: 1px solid var(--rule-soft);
+}
+.jf-row:first-child { border-top: 0; }
+.jf-row svg { color: var(--ink-faint); grid-row: 1 / span 2; }
+.jf-n { font-size: 12.5px; font-weight: 600; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.jf-m { font-size: 11px; color: var(--ink-faint); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }

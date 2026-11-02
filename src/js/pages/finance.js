@@ -273,7 +273,7 @@ export function pl(ctx) {
       <b>${F.pct(q.sum('ni', w) / rev * 100)}</b>.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
     U.panel({
-      col: 7, title: 'The statement', pad: false,
+      col: 12, title: 'The statement', pad: false,
       body: U.table({
         cols: [{ name: 'Line', w: '32%' }, { name: 'This period', n: true },
         { name: 'Of revenue', n: true }, { name: 'Year earlier', n: true }, { name: 'Change', n: true }],
@@ -281,6 +281,25 @@ export function pl(ctx) {
       }),
       foot: 'Every line is the sum of the ledger accounts mapped to it. No figure on this page is typed by hand.',
     }) +
+    /* ⛔ The statement used to sit at col-7 beside this stack at col-5, 637px
+       against 330px, on every one of the six industries. A table and a chart
+       are not the same shape and pairing them by habit leaves a column of
+       nothing. Two charts of similar height pair honestly; the statement takes
+       the width it deserves above them. */
+    (!ya.length ? '' : U.panel({
+      col: 7, title: 'This period against a year earlier',
+      note: 'One line per statement line. Following a line is a different act from comparing two bars that sit apart.',
+      body: C.slope({
+        rows: ['rev', 'cor', 'gp', 'oh', 'ebitda', 'ni'].map(id => ({
+          name: names[id], from: q.sum(id, ya), to: q.sum(id, w),
+        })).filter(r => Number.isFinite(r.from) && Number.isFinite(r.to) && (r.from || r.to)),
+        fmt: v => F.money(v),
+        from: ya.length ? F.monthName(ya[ya.length - 1], true) : 'A year earlier',
+        to: F.monthName(w[w.length - 1], true),
+        height: 320,
+      }),
+      foot: 'A cost line rising is not the same as revenue rising, so read the names, not only the slopes.',
+    })) +
     U.panel({
       col: 5, title: 'Overhead by kind',
       note: `${F.monthsWord(last12.length, true)}. The question is whether overhead grows with revenue or ahead of it.`,
@@ -295,20 +314,7 @@ export function pl(ctx) {
           : `Overhead is ${F.pct(ohNow)} of revenue. The ledger holds no year earlier to set it against.`;
       })(),
     }) +
-    (!ya.length ? '' : U.panel({
-      col: 12, title: 'This period against a year earlier',
-      note: 'One line per statement line. Following a line is a different act from comparing two bars that sit apart.',
-      body: C.slope({
-        rows: ['rev', 'cor', 'gp', 'oh', 'ebitda', 'ni'].map(id => ({
-          name: names[id], from: q.sum(id, ya), to: q.sum(id, w),
-        })).filter(r => Number.isFinite(r.from) && Number.isFinite(r.to) && (r.from || r.to)),
-        fmt: v => F.money(v),
-        from: ya.length ? F.monthName(ya[ya.length - 1], true) : 'A year earlier',
-        to: F.monthName(w[w.length - 1], true),
-        height: 320,
-      }),
-      foot: 'A cost line rising is not the same as revenue rising, so read the names, not only the slopes.',
-    })) +
+
     U.panel({
       col: 12, title: 'Revenue and net income, month by month',
       body: C.line({
@@ -358,10 +364,17 @@ export function margin(ctx) {
        Past eighteen rows the two panels stop sharing a row: the chart reads
        the whole fleet at a glance and goes first, the list goes underneath at
        full width. Below that the side-by-side still earns its place. */
+    /* ⛔ The chart first, then the list, both full width.
+
+       This used to switch on `rows.length > 18`, a number I picked. It did the
+       right thing for logistics' 48 trucks and nothing for construction's
+       twenty-two, and `balanceRows()` now separates the same cases by
+       MEASUREMENT rather than by a count I guessed. Two mechanisms deciding
+       one question is how they drift apart, so the count is gone: the order
+       here is the only thing the page still decides, and the chart reads the
+       whole book at a glance so it goes first. */
     (() => {
-      const wide = rows.length > 18;
-      const listCol = wide ? 12 : 7, plotCol = wide ? 12 : 5;
-      return (wide ? plot(plotCol) : '') + list(listCol) + (wide ? '' : plot(plotCol));
+      return plot(12) + list(12);
       function list(col) {
         return U.panel({
       col, title: `Margin by ${esc(ind.unit.one)}`,
@@ -584,7 +597,7 @@ export function balance(ctx) {
       `<b>The sheet is out by ${F.money(tie)}</b>, which is a finding, not a rounding.`}`,
   }) + U.fresh(q, s) + `<div class="grid">` +
     U.panel({
-      col: 8, title: 'What the money is in, and who it belongs to',
+      col: 12, title: 'What the money is in, and who it belongs to',
       note: 'Both columns on one scale. A balance sheet balances, and this is what that looks like.',
       body: (() => {
         /* Grouped, not line by line. Fourteen segments across two columns
@@ -614,24 +627,31 @@ export function balance(ctx) {
       })(),
     }) +
     U.panel({
-      col: 4, title: 'Three ratios',
+      /* ⛔ col-12 WITH THE DIALS ACROSS, not col-4 with them stacked.
+
+         Three dials in a four-column panel stack to 816px beside a 358px
+         chart, which is 458px of nothing down the side of the page on all six
+         industries. Stacked is also the worse READING: three ratios are a set
+         to be compared, and a set reads across, not down. Wide and side by
+         side it measures about 300px and nothing is left over. */
+      col: 12, title: 'Three ratios',
       note: 'The bands are conventional comfort, not this company\u2019s covenants.',
       body: `<div class="dials">
-        ${C.dial({
+        <div class="dial-cell">${C.dial({
           value: cur, min: 0, max: 4, label: 'Current ratio',
           bands: [{ from: 0, to: 1, color: 'var(--bad)' }, { from: 1, to: 1.5, color: 'var(--warn)' }],
           note: 'Current assets over current liabilities. Under 1 is a squeeze.',
-        })}
-        ${C.dial({
+        })}</div>
+        <div class="dial-cell">${C.dial({
           value: qk, min: 0, max: 3, label: 'Quick ratio',
           bands: [{ from: 0, to: 0.8, color: 'var(--bad)' }, { from: 0.8, to: 1, color: 'var(--warn)' }],
           note: 'Without inventory or work in hand.',
-        })}
-        ${C.dial({
+        })}</div>
+        <div class="dial-cell">${C.dial({
           value: de, min: 0, max: 4, label: 'Debt to equity',
           bands: [{ from: 2, to: 3, color: 'var(--warn)' }, { from: 3, to: 4, color: 'var(--bad)' }],
           note: 'Borrowed against owned. Higher is more leveraged.',
-        })}
+        })}</div>
       </div>`,
     }) +
     U.panel({
@@ -756,8 +776,13 @@ export function close(ctx) {
         : 'Every company is signed off through the close month.'}
       ${month > q.closed ? `<b>${esc(F.monthName(month, true))} is tentative</b> and labelled so everywhere it appears.` : ''}`,
   }) + `<div class="grid">` +
+    /* ⛔ Two panels, both full width, because they are the whole page and they
+       are 250px against 584px. A short table beside a long list leaves a third
+       of a screen empty on five of six industries, and both of these read
+       better wide anyway: the table gets room for five columns, and a check
+       gets its name and its reason on one line instead of wrapping. */
     U.panel({
-      col: 7, title: 'By company', pad: false,
+      col: 12, title: 'By company', pad: false,
       note: 'The ledger’s own close date, then the signature. A reopening in the ledger voids the signature.',
       body: U.table({
         cols: [{ name: 'Company' }, { name: 'Closed in the ledger', n: true },
@@ -767,7 +792,7 @@ export function close(ctx) {
       foot: 'One signature from a controller or the chief executive closes a company. Both are recorded with who and when.',
     }) +
     U.panel({
-      col: 5, title: 'Checks',
+      col: 12, title: 'Checks',
       note: 'Run on every refresh. A check that fails names the month and the figure.',
       body: `<div class="rows">${checks.map(c => `
         <div class="row-item">

@@ -270,7 +270,7 @@ export function people(ctx) {
     }) +
 
     U.panel({
-      col: 7, ico: 'pulse', title: 'Payroll against revenue',
+      col: 12, ico: 'pulse', title: 'Payroll against revenue',
       note: 'The question is whether labor grows with the work or ahead of it. Both lines are money on the same scale, so the gap between them is the margin the work leaves.',
       body: C.line({
         series: [
@@ -281,14 +281,25 @@ export function people(ctx) {
       }),
     }) +
 
+    /* ⛔ A TABLE, FULL WIDTH, not a stacked list in a narrow column.
+
+       Every open seat carries four facts (the role, its department, how long
+       it has been open and what the vacancy has cost), and four facts stacked
+       in a five-column panel ran to 859px beside a 302px chart on five of six
+       industries. Four facts across is a table, which is both shorter and the
+       shape a reader can sort by eye. */
     U.panel({
-      col: 5, ico: 'clock', title: 'Open seats',
+      col: 12, ico: 'clock', title: 'Open seats', pad: false,
       note: 'What is unfilled, how long it has been unfilled, and what the empty seat has cost so far.',
-      body: roles.length ? `<div class="rows">${roles.map(r => `
-        <div class="row-item">
-          <span class="grow"><b>${esc(r.title)}</b><div class="sub">${esc(r.dept)} · ${F.money(r.cost)} a year</div></span>
-          <span class="agepill ${r.days > 120 ? 'bad' : r.days > 60 ? 'warn' : ''}">${r.days}d</span>
-        </div>`).join('')}</div>` : `<div class="empty">Nothing open.</div>`,
+      body: roles.length ? U.table({
+        cols: [{ name: 'Role', w: '34%' }, { name: 'Department' },
+        { name: 'Open', n: true }, { name: 'Cost a year', n: true }, { name: 'Cost so far', n: true }],
+        rows: roles.map(r => ({
+          cells: [`<b>${esc(r.title)}</b>`, esc(r.dept),
+          `<span class="agepill ${r.days > 120 ? 'bad' : r.days > 60 ? 'warn' : ''}">${r.days}d</span>`,
+          F.money(r.cost), F.money(r.cost * (r.days / 365))],
+        })),
+      }) : `<div class="empty">Nothing open.</div>`,
       foot: `${F.money(vacancyCost)} of salary unspent, which is work not being done rather than money saved.`,
     }) +
 
@@ -420,8 +431,11 @@ export function pipeline(ctx) {
       foot: `${F.money(closed.filter(c => !c.won).reduce((a, c) => a + c.value, 0))} of work closed lost against ${F.money(won.reduce((a, c) => a + c.value, 0))} won.`,
     }) +
 
+    /* The donut and its legend measured 497px against this chart's 234px on all
+       six industries. A legend is a list and grows with its parts, so it never
+       matches a fixed-height chart: they take a row each. */
     U.panel({
-      col: 7, ico: 'plan', title: 'When it lands',
+      col: 12, ico: 'plan', title: 'When it lands',
       note: 'Weighted value by the month each pursuit expects to close.',
       body: (() => {
         const byMonth = {};
@@ -436,7 +450,7 @@ export function pipeline(ctx) {
     }) +
 
     U.panel({
-      col: 5, ico: 'link', title: 'Where it comes from',
+      col: 12, ico: 'link', title: 'Where it comes from',
       note: 'Open value by how the pursuit reached us.',
       body: (() => {
         const by = {};
@@ -592,12 +606,21 @@ export function docs(ctx) {
       note: heading,
       body,
     }) +
+    /* ⛔ One line per filing, not two.
+
+       A filename plus a second line of metadata, in a four-column panel, wraps
+       to about 100px a row: seven of them measured 677px to 915px beside a
+       342px folder grid on every industry. A "just filed" strip is a glance,
+       not a record, so the name is one truncated line with its folder and
+       filer beneath it at a size that fits. The full name is on the row's
+       hover readout and in the folder itself. */
     U.panel({
       col: 4, ico: 'clock', title: 'Just filed',
-      body: `<div class="rows">${(d.recent || []).slice(0, 7).map(r => `
-        <div class="row-item">${icon('doc', 17)}
-          <span class="grow"><b>${esc(r.name)}</b>
-            <div class="sub">${esc(r.disc)} · ${esc(r.unitName)} · ${esc(r.by)}</div></span>
+      body: `<div class="jf">${(d.recent || []).slice(0, 7).map(r => `
+        <div class="jf-row" data-r="${esc(r.name)} · ${esc(r.unitName)} › ${esc(r.disc)} · filed ${esc(r.when)} by ${esc(r.by)}">
+          ${icon('doc', 15)}
+          <span class="jf-n">${esc(r.name.replace(/\.[a-z0-9]+$/i, ''))}</span>
+          <span class="jf-m">${esc(r.disc)} · ${esc(r.by)}</span>
         </div>`).join('')}</div>`,
       foot: 'Newest first. A filing appears here the moment it lands in its folder.',
     }) +

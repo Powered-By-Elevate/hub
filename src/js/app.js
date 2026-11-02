@@ -433,7 +433,20 @@ function balanceRows() {
     if (row.length < 2) continue;
     const hs = row.map(p => natural.get(p) || 0);
     const tall = Math.max(...hs), short = Math.min(...hs);
-    if (tall < 900 || tall < short * 2) continue;
+    /* ⛔ The trigger is a PROPORTION AND A GAP, not a shape and not a size.
+
+       It began as "taller than 900px and more than twice the shortest", which
+       caught the one catastrophic row and left six ordinary ones: a 1,110px
+       grid beside a 591px table at 1.88x, a 632px list beside a 241px scatter
+       that is nowhere near 900px. Every one of the six is the same thing, a
+       list whose length follows the unit count sitting beside a chart whose
+       height is fixed, and a per-unit list can never match a fixed chart.
+
+       Measured across the build after the page-level fixes: nothing legitimate
+       sits between 250px and 1.6x, so these two numbers separate "a row with
+       some room in it" from "a row with a hole in it" without naming a single
+       page or component. */
+    if (tall - short < 250 || tall < short * 1.6) continue;
     row[hs.indexOf(tall)].classList.add('go-wide');
     widened = true;
   }

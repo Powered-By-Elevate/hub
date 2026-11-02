@@ -598,6 +598,39 @@ async function main() {
         ok(holes.length === 0, `${ind}/${role}/${p}: no panel left with a hole in it`,
           holes.slice(0, 2).join(', '));
 
+        /* ⛔ AND NO ROW LEFT WITH A COLUMN OF NOTHING DOWN ITS SIDE.
+
+           The check above catches a hole INSIDE a card. This one catches the
+           hole BESIDE it, which is what Matt actually kept seeing. Both are
+           needed: `balanceRows()` trades one for the other, so a change that
+           fixes either by breaking the other has to fail.
+
+           Measured from NATURAL heights, because `.grid` stretches its
+           children and stretched siblings all report the row's height, which
+           is a comparison that can never find a mismatch. */
+        const ragged = await page.evaluate(() => {
+          const ps = [...document.querySelectorAll('#page .grid > .panel')];
+          for (const e of ps) e.classList.add('unstretch');
+          void document.body.offsetHeight;
+          const info = ps.map(e => ({
+            t: ((e.querySelector('h3') || {}).textContent || '?').trim().slice(0, 30),
+            h: e.getBoundingClientRect().height, top: Math.round(e.getBoundingClientRect().top),
+          }));
+          for (const e of ps) e.classList.remove('unstretch');
+          const rows = [];
+          for (const k of info) {
+            const r = rows.find(x => Math.abs(x.top - k.top) < 8);
+            if (r) r.items.push(k); else rows.push({ top: k.top, items: [k] });
+          }
+          return rows.filter(r => r.items.length > 1)
+            .map(r => ({ mis: Math.round(Math.max(...r.items.map(x => x.h)) - Math.min(...r.items.map(x => x.h))),
+              who: r.items.map(x => x.t).join(' + ') }))
+            .filter(r => r.mis > 300)
+            .map(r => `${r.who} (${r.mis}px)`);
+        });
+        ok(ragged.length === 0, `${ind}/${role}/${p}: no row left ragged`,
+          ragged.slice(0, 2).join(', '));
+
         /* ⛔ NO CHART LABEL SITS ON ANOTHER.
 
            Matt, twice in one pass: *"this is bad. i literally cannot read any
