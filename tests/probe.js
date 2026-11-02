@@ -499,6 +499,38 @@ async function main() {
           `${ind}/${role}/${p}: no level past 125% (a position summed as a flow)`,
           seen.wild.join(', '));
         ok(seen.overflow <= 1, `${ind}/${role}/${p}: no sideways scroll at 1440`, String(seen.overflow));
+
+        /* ⛔ No panel left with a hole in it. `balanceRows()` stretches a row's
+           cards to one bottom edge, which is what removes the dead space Matt
+           reported three times, and un-stretches any card it cannot honestly
+           fill. If that guard stops firing, the hole moves INSIDE the card,
+           which is the 830px defect the Core BI audit paid for once already.
+
+           ⛔ Measure the BODY, not the panel. The foot is pinned to the bottom
+           edge, so a stretched panel's lowest drawing child is its own bottom
+           and the slack reads zero however empty it is. The first cut of this
+           measurement was fooled exactly that way and reported a clean build
+           with 1,810px of empty card on it. */
+        const holes = await page.evaluate(() => {
+          const out = [];
+          for (const panel of document.querySelectorAll('#page .grid > .panel')) {
+            const body = panel.querySelector('.panel-body');
+            if (!body) continue;
+            const box = body.getBoundingClientRect();
+            if (box.height < 40) continue;
+            let low = box.top;
+            for (const kid of body.querySelectorAll('*')) {
+              const k = kid.getBoundingClientRect();
+              if (!k.height && !k.width) continue;
+              if (k.bottom > low) low = k.bottom;
+            }
+            const gap = Math.round(box.bottom - low);
+            if (gap > 340) out.push(`${(panel.querySelector('h3') || {}).textContent || '?'} ${gap}px`);
+          }
+          return out;
+        });
+        ok(holes.length === 0, `${ind}/${role}/${p}: no panel left with a hole in it`,
+          holes.slice(0, 2).join(', '));
         ok(errors.length === 0, `${ind}/${role}/${p}: console clean`, errors.slice(0, 2).join(' | '));
 
         /* a level that may not see money must not leak a single currency mark */

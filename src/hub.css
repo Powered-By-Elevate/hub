@@ -1512,3 +1512,47 @@ body.presenting .strip[data-current="true"] {
 .lastval { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12.5px; }
 .lastval.up { color: var(--good); }
 .lastval.down { color: var(--bad); }
+
+/* ===========================================================================
+   DEAD SPACE BETWEEN PANELS
+   Matt, 2026-11-02, three times: *"there is weird deadspace in between
+   objects"*, *"the layout of the objects with deadspace is still a problem"*,
+   *"oddly shaped objects with lots of deadspace"*.
+
+   Measured before touching anything: NO panel has slack inside it. The hole is
+   the grid's, under the shorter panel in a row with a taller one. 108 rows
+   across the build carry a mismatch over 40px, median 172px.
+
+   ⛔ The obvious fix is `align-items: stretch`, and on its own it is WRONG.
+   The worst rows here are 1,792px apart (logistics' 48-row table beside a
+   small panel), and stretching a 257px panel to 2,049px moves the hole inside
+   the card, which is the 830px-hole defect the Core BI formula audit already
+   paid for once.
+
+   So: panels stretch and their feet sit on the bottom edge, which tidies the
+   common case, and `balanceRows()` in app.js un-stretches any panel left more
+   than a screenful past its own content. The threshold is in the JS, measured,
+   not guessed.
+   =========================================================================== */
+.grid { align-items: stretch; }
+.panel { display: flex; flex-direction: column; }
+.panel-body { flex: 1 1 auto; }
+/* A foot belongs on the card's bottom edge once the card is taller than its
+   content, so the card reads as finished rather than as padding. */
+.panel-foot { margin-top: auto; }
+/* What the guard sets: this panel is so much shorter than its neighbour that
+   growing it would be worse than the gap. */
+.panel.unstretch { align-self: start; }
+
+/* A panel given more room than its content needs centres that content, so the
+   space reads as room rather than as a hole under a chart. Set by
+   balanceRows(), never by hand: it depends on what the row beside it does. */
+.panel.roomy > .panel-body { display: flex; flex-direction: column; justify-content: center; }
+/* ⛔ Except where the body IS the content edge to edge. A table or a row list
+   centred in its card leaves a white band above the first row, which is a
+   different hole, not a fix. */
+.panel.roomy > .panel-body:has(> table),
+.panel.roomy > .panel-body:has(> .rows),
+.panel.roomy > .panel-body:has(> .fold),
+.panel.roomy > .panel-body:has(> .sc),
+.panel.roomy > .panel-body:has(> .pf) { display: block; }

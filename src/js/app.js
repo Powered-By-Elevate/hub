@@ -56,6 +56,15 @@ async function boot() {
   await useIndustry(app.s.data.industry, true);
 
   World.start();
+  /* A row that sits level at 1440 can be wildly mismatched at 900 once the
+     columns reflow, so the balance is re-measured on resize. Throttled to one
+     frame: it reads geometry, and reading it per resize event is how a drag
+     turns into a stutter. */
+  let balanceFrame = 0;
+  addEventListener('resize', () => {
+    if (balanceFrame) return;
+    balanceFrame = requestAnimationFrame(() => { balanceFrame = 0; balanceRows(); });
+  }, { passive: true });
   window.addEventListener('hashchange', () => { readHash(); render(); });
   document.addEventListener('click', onClick);
   document.addEventListener('change', onChange);
@@ -171,6 +180,10 @@ function render() {
   C.wire(host);
   U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
   World.arm(host);
+  /* After the markup is in and the charts are wired, so the measurement sees
+     real geometry. Again on resize, because a row that fits at 1440 can be
+     wildly mismatched at 900 once the columns reflow. */
+  balanceRows();
   if (Present.isOn()) Present.collect();
   host.scrollIntoView({ block: 'start' });
   window.scrollTo({ top: 0 });
@@ -307,6 +320,60 @@ function caret() {
 }
 
 /* ------------------------------------------------------------------ menus */
+
+/* Un-stretch a panel that cannot honestly fill its row.
+
+   `.grid` stretches its children so a row's cards share one bottom edge, which
+   is what removes the gap Matt kept seeing. But a card stretched far past its
+   own content is a worse defect than the gap: it is the 830px hole the Core BI
+   audit found, and this build has rows 1,792px apart.
+
+   ⛔ MEASURE FROM THE LEAVES, NEVER FROM A CONTAINER. The panel's body is
+   stretched too, so asking it how tall its content is returns the stretched
+   height and the check can never fire. The lowest bottom edge of any element
+   that actually draws something is the only honest answer.
+
+   The threshold is a screenful: a card with more than 320px of nothing under
+   its content reads as broken, and below that reads as a card. */
+function balanceRows() {
+  const host = document.getElementById('page');
+  if (!host) return;
+  const panels = [...host.querySelectorAll('.grid > .panel')];
+  for (const panel of panels) panel.classList.remove('unstretch', 'roomy');
+  for (const panel of panels) {
+    /* ⛔ Measure the BODY against its own content, not the panel against its
+       lowest child.
+
+       The panel's foot is pinned to the bottom edge by `margin-top: auto`, so
+       the lowest drawing child of a stretched panel IS its bottom edge and the
+       slack reads zero however empty the card is. I wrote the warning about
+       measuring from leaves and then walked into it anyway: the first cut of
+       this guard never fired once, and left 1,810px of empty body on
+       logistics' Margin & drivers while every measurement said the page was
+       clean. The body is the part that is actually asked to stretch, so the
+       body is the part to measure. */
+    const body = panel.querySelector('.panel-body');
+    if (!body) continue;
+    const box = body.getBoundingClientRect();
+    if (box.height < 40) continue;
+    let low = box.top;
+    for (const kid of body.querySelectorAll('*')) {
+      const k = kid.getBoundingClientRect();
+      if (!k.height && !k.width) continue;
+      if (k.bottom > low) low = k.bottom;
+    }
+    /* Three states, because two were not enough. A card stretched a long way
+       past its content should shrink; a card stretched a little is fine; and
+       in between, the content should sit in the MIDDLE of the room it was
+       given rather than clinging to the top with all the empty space pooled
+       underneath. A bar chart with 280px of white below it is what Matt keeps
+       pointing at, and it reads as a hole. The same 280px split above and
+       below the chart reads as a card with room in it. */
+    const gap = box.bottom - low;
+    if (gap > 320) panel.classList.add('unstretch');
+    else if (gap > 70) panel.classList.add('roomy');
+  }
+}
 
 /* Put a menu where it fits.
 
