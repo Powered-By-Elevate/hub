@@ -177,36 +177,120 @@ export function people(ctx) {
   const { q, s } = ctx;
   const p = q.data.people;
   const w = q.window();
-  const labor = q.sum('labor', w);
   const rev = q.sum('rev', w) || 1;
+  /* Payroll has TWO homes. The overhead line is only the people who are not
+     doing the work; the rest sits inside cost of revenue. Reading the overhead
+     line alone put "payroll at 4.6% of revenue" on a page whose own department
+     table added to five times that, which is exactly the kind of disagreement
+     the Core BI formula audit existed to find. So the headline is the ALL-IN
+     figure and the page says where each half lives. */
+  const pay = p.payroll || { allIn: 0, direct: 0, overhead: 0 };
+  const annualRev = q.sum('rev', q.months.slice(-12)) || 1;
+  const hist = p.history || [];
+  const roles = p.roles || [];
+  const last12 = hist.slice(-12);
+
+  /* Whether the team is growing with the work or ahead of it. Both sides are
+     put on the same base so the comparison is a real one: revenue per head
+     this year against revenue per head a year ago. */
+  const yearly = rev * (12 / Math.max(1, w.length));
+  const perHead = yearly / p.headcount;
+  const headAgo = (hist[hist.length - 13] || hist[0] || {}).head || p.headcount;
+  const headDelta = p.headcount - headAgo;
+  const joined12 = last12.reduce((a, m) => a + m.joined, 0);
+  const left12 = last12.reduce((a, m) => a + m.left, 0);
+
+  /* What the empty seats cost. A count of open roles says nothing about
+     whether that is a week of recruiting or a structural hole, so the page
+     carries the money and the oldest vacancy beside the count. */
+  const vacancyCost = roles.reduce((a, r) => a + r.cost * (r.days / 365), 0);
+  const oldest = roles[0];
+
+  const worstDept = p.departments.slice()
+    .sort((a, b) => b.turnover - a.turnover)[0];
 
   return U.pageHead({
     eyebrow: 'People',
     title: 'People & labor',
-    answer: `<b>${F.num(p.headcount)}</b> people, with payroll and benefits at
-      <b>${F.money(labor)}</b> over the window, or <b>${F.pct(labor / rev * 100)}</b> of revenue.
-      Turnover is running at <b>${F.pct(p.turnover)}</b> a year, and
-      <b>${F.num(p.open)}</b> roles are open.`,
-  }) + U.fresh(q, s) + `<div class="grid">` +
+    answer: `<b>${F.num(p.headcount)}</b> people carry <b>${F.money(yearly)}</b> of annual revenue,
+      or <b>${F.money(perHead)}</b> each. All-in payroll runs at
+      <b>${F.pct(pay.allIn / annualRev * 100)}</b> of revenue, turnover at <b>${F.pct(p.turnover)}</b>,
+      and <b>${F.num(roles.length)}</b> seats are open
+      ${oldest ? `with the oldest unfilled for <b>${oldest.days}</b> days` : ''}.`,
+  }) + U.fresh(q, s) + U.strip([
+    {
+      label: 'Headcount', value: F.num(p.headcount),
+      note: headDelta === 0 ? 'flat on last year'
+        : `<span class="delta ${headDelta > 0 ? 'up' : 'down'}">${headDelta > 0 ? '↑' : '↓'} ${Math.abs(headDelta)}</span> on last year`,
+    },
+    { label: 'Revenue per head', value: F.money(perHead), note: 'a year' },
+    {
+      label: 'Payroll of revenue', value: F.pct(pay.allIn / annualRev * 100),
+      note: `${F.money(pay.allIn)} all in`,
+    },
+    { label: 'Turnover', value: F.pct(p.turnover), note: `${left12} left, ${joined12} joined` },
+    { label: 'Open seats', value: F.num(roles.length), note: `${F.money(vacancyCost)} of vacancy so far` },
+  ]) + `<div class="grid">` +
+
     U.panel({
-      col: 5, title: 'By department',
-      body: C.hbars({
-        rows: p.departments.map(d => ({ name: d.name, value: d.fte })),
-        fmt: v => F.num(v),
-      }),
-      foot: `Revenue per head is ${F.money(rev * (12 / Math.max(1, w.length)) / p.headcount)} a year.`,
+      col: 7, ico: 'people', title: 'The team, month by month',
+      note: 'Headcount as the line. The bars below the axis are people who joined and people who left, so a flat line made of churn does not read as stability.',
+      body: C.line({
+        series: [{ name: 'Headcount', values: last12.map(m => m.head) }],
+        labels: last12.map(m => F.monthName(m.m)), fmt: v => F.num(v), height: 170,
+        /* ⛔ Headcount is never zero-based. A team of 148 that lost 11 people
+           drew as a perfectly flat line against an axis starting at zero, which
+           is the opposite of what happened. A count that never approaches zero
+           is read by its change, so the axis starts where the data does. */
+        zeroBase: false, legend: false,
+      }) + C.churn({
+        labels: last12.map(m => F.monthName(m.m, true)),
+        up: last12.map(m => m.joined), down: last12.map(m => m.left),
+      }) + `<div class="ch-key"><span><i class="sw in"></i>Joined</span><span><i class="sw out"></i>Left</span></div>`,
+      foot: `${joined12} joined and ${left12} left over the twelve months, on a team of ${F.num(p.headcount)}.`,
     }) +
+
     U.panel({
-      col: 7, title: 'Payroll against revenue',
-      note: 'The question is whether labor grows with the work or ahead of it.',
+      col: 5, ico: 'bars', title: 'Where the cost sits',
+      note: 'Each department by its all-in annual payroll. The five add to the whole company payroll, direct and overhead together.',
+      pad: false,
+      body: U.table({
+        cols: [{ name: 'Department' }, { name: 'People', n: true },
+        { name: 'Payroll', n: true }, { name: 'Turnover', n: true }],
+        rows: p.departments.slice().sort((a, b) => b.cost - a.cost).map(d => ({
+          cells: [`<b>${esc(d.name)}</b>${d.open ? `<div class="sub">${d.open} open</div>` : ''}`,
+            F.num(d.fte), F.money(d.cost),
+          `<span class="${d.turnover > p.turnover * 1.25 ? 'delta down' : d.turnover < p.turnover * 0.75 ? 'delta up' : 'delta flat'}">${F.pct(d.turnover, 0)}</span>`],
+        })),
+      }),
+      foot: `${F.money(pay.allIn)} all in, of which ${F.money(pay.direct)} sits inside the cost
+        of the work and ${F.money(pay.overhead)} in overhead.${worstDept
+        ? ` ${esc(worstDept.name)} is losing people fastest, at ${F.pct(worstDept.turnover, 0)} a year.` : ''}`,
+    }) +
+
+    U.panel({
+      col: 7, ico: 'pulse', title: 'Payroll against revenue',
+      note: 'The question is whether labor grows with the work or ahead of it. Both lines are money on the same scale, so the gap between them is the margin the work leaves.',
       body: C.line({
         series: [
           { name: 'Revenue', values: q.series('rev', q.months.slice(-18)) },
           { name: 'Payroll & benefits', values: q.series('labor', q.months.slice(-18)) },
         ],
-        labels: q.months.slice(-18).map(m => F.monthName(m)), fmt: v => F.money(v), height: 250,
+        labels: q.months.slice(-18).map(m => F.monthName(m)), fmt: v => F.money(v), height: 230,
       }),
     }) +
+
+    U.panel({
+      col: 5, ico: 'clock', title: 'Open seats',
+      note: 'What is unfilled, how long it has been unfilled, and what the empty seat has cost so far.',
+      body: roles.length ? `<div class="rows">${roles.map(r => `
+        <div class="row-item">
+          <span class="grow"><b>${esc(r.title)}</b><div class="sub">${esc(r.dept)} · ${F.money(r.cost)} a year</div></span>
+          <span class="agepill ${r.days > 120 ? 'bad' : r.days > 60 ? 'warn' : ''}">${r.days}d</span>
+        </div>`).join('')}</div>` : `<div class="empty">Nothing open.</div>`,
+      foot: `${F.money(vacancyCost)} of salary unspent, which is work not being done rather than money saved.`,
+    }) +
+
     U.panel({
       col: 12, title: 'Where this comes from',
       body: connectorNote(s, 'people', 'Headcount and labor cost arrive from the payroll system. Until one is connected these figures are the sample set.'),
@@ -220,34 +304,163 @@ export function pipeline(ctx) {
   const p = q.data.pipeline;
   const total = p.rows.reduce((a, r) => a + r.value, 0);
   const weighted = p.rows.reduce((a, r) => a + r.weighted, 0);
-  const byStage = p.stages.map(st => ({
-    name: st,
-    value: p.rows.filter(r => r.stage === st).reduce((a, r) => a + r.value, 0),
-  }));
+  const target = p.target || 0;
+
+  /* The one question a pipeline page has to answer. Coverage is weighted
+     pipeline against what is left of the plan, and the convention every sales
+     organisation uses is that under 3x is thin. The page states the rule it is
+     judging by rather than colouring a number and leaving the reader to
+     guess. */
+  const w = q.window();
+  const booked = q.sum('rev', w);
+  const gap = Math.max(0, target - booked);
+  const coverage = gap > 0 ? total / gap : null;
+  const thin = coverage !== null && coverage < 3;
+
+  const closed = p.closed || [];
+  const won = closed.filter(c => c.won);
+  const winRate = closed.length ? won.length / closed.length * 100 : null;
+
+  /* Stage counts and values, in the funnel's own order so the drop-off between
+     one stage and the next is the thing you see first. */
+  const byStage = p.stages.map(st => {
+    const mine = p.rows.filter(r => r.stage === st);
+    return {
+      name: st,
+      n: mine.length,
+      value: mine.reduce((a, r) => a + r.value, 0),
+      weight: (mine[0] && mine[0].weight) || 0,
+      stuck: mine.filter(r => r.age > 120).length,
+    };
+  });
+  const widest = Math.max(1, ...byStage.map(x => x.value));
+
+  const verdictBody = coverage === null
+    ? `The plan is already covered by booked work, so everything in the pipeline
+       is upside rather than cover.`
+    : `<b>${F.money(total)}</b> of open opportunity stands against a
+       <b>${F.money(gap)}</b> gap to the plan, which is
+       <b>${coverage.toFixed(1)}×</b> coverage.
+       ${thin ? 'That is under the 3× a pipeline usually needs to land a plan, so this is thin.'
+      : 'That is at or above the 3× a pipeline usually needs to land a plan.'}`;
+
+  const ageRows = p.rows.slice().sort((a, b) => b.age - a.age).slice(0, 6);
 
   return U.pageHead({
     eyebrow: 'Pipeline',
     title: 'Pipeline',
-    answer: `<b>${F.money(total)}</b> of open opportunity across <b>${p.rows.length}</b> pursuits,
-      <b>${F.money(weighted)}</b> of it weighted by stage.
-      ${esc(p.note)}`,
-  }) + `<div class="grid">` +
+    answer: verdictBody,
+  }) + U.strip([
+      { label: 'Open opportunity', value: F.money(total), note: `${p.rows.length} pursuits` },
+      { label: 'Weighted', value: F.money(weighted), note: 'by stage' },
+      {
+        label: 'Coverage', value: coverage === null ? '—' : `${coverage.toFixed(1)}×`,
+        note: coverage === null ? 'plan already covered'
+          : thin ? '<span class="delta down">thin, under 3×</span>' : 'at or above 3×',
+      },
+      { label: 'Win rate', value: winRate === null ? '—' : F.pct(winRate), note: `${won.length} of ${closed.length} closed` },
+      { label: 'Gap to plan', value: F.money(gap), note: `plan ${F.money(target)}` },
+    ]) + `<div class="grid">` +
     U.panel({
-      col: 5, title: 'By stage',
-      body: C.hbars({ rows: byStage, fmt: v => F.money(v) }),
+      col: 7, ico: 'funnel', title: 'The funnel',
+      note: 'Each stage is its open value. The step down from one to the next is where work is being lost.',
+      body: `<div class="fun">${byStage.map((st, i) => {
+        const prev = byStage[i - 1];
+        const drop = prev && prev.value ? (1 - st.value / prev.value) * 100 : null;
+        return `<div class="fun-row">
+          <span class="fun-name">${esc(st.name)}<i>${Math.round(st.weight * 100)}% weight</i></span>
+          <span class="fun-track"><i style="width:${Math.max(2, st.value / widest * 100).toFixed(1)}%"></i></span>
+          <span class="fun-val">${F.money(st.value)}<i>${st.n} open${st.stuck ? ` · ${st.stuck} stalled` : ''}</i></span>
+          <span class="fun-drop">${drop === null ? '<i class="muted">entry</i>'
+            : `<i class="${drop > 55 ? 'down' : ''}">${drop > 0 ? '−' : '+'}${Math.abs(drop).toFixed(0)}%</i>`}</span>
+        </div>`;
+      }).join('')}</div>`,
       foot: 'Stage weights are the build’s until a company sets its own, and the page says so rather than implying they are the company’s.',
     }) +
+
     U.panel({
-      col: 7, title: 'Every pursuit', pad: false,
+      col: 5, ico: 'clock', title: 'Sitting longest',
+      note: 'A pursuit that has not moved in four months is usually not a pursuit.',
+      body: `<div class="rows">${ageRows.map(r => `
+        <div class="row-item">
+          <span class="grow"><b>${esc(r.name)}</b><div class="sub">${esc(r.stage)} · ${esc(r.owner)}</div></span>
+          <span class="agepill ${r.age > 120 ? 'bad' : r.age > 60 ? 'warn' : ''}">${r.age}d</span>
+        </div>`).join('')}</div>`,
+      foot: `${p.rows.filter(r => r.age > 120).length} of ${p.rows.length} pursuits are past 120 days.`,
+    }) +
+
+    U.panel({
+      col: 6, ico: 'people', title: 'By owner',
+      note: 'Open value is what they are carrying. Win rate is what they have actually closed.',
+      pad: false,
       body: U.table({
-        cols: [{ name: 'Opportunity' }, { name: 'Stage' }, { name: 'Owner' },
-        { name: 'Value', n: true }, { name: 'Weighted', n: true }, { name: 'Expected', n: true }],
-        rows: p.rows.slice().sort((a, b) => b.weighted - a.weighted).map(r => ({
-          cells: [`<b>${esc(r.name)}</b>`, U.statusTag(r.stage, r.stage === 'Won' ? 'good' : ''),
-          esc(r.owner), F.money(r.value), F.money(r.weighted), esc(F.monthName(r.close, true))],
+        cols: [{ name: 'Owner' }, { name: 'Open', n: true }, { name: 'Weighted', n: true },
+        { name: 'Won', n: true }, { name: 'Win rate', n: true }],
+        rows: (p.owners || []).map(o => ({
+          cells: [`<b>${esc(o.name)}</b><div class="sub">${o.open} open · ${o.won + o.lost} closed</div>`,
+            F.money(o.openValue), F.money(o.weighted), F.money(o.wonValue),
+          `<span class="${o.winRate >= 40 ? 'delta up' : o.winRate < 25 ? 'delta down' : 'delta flat'}">${F.pct(o.winRate, 0)}</span>`],
         })),
       }),
     }) +
+
+    U.panel({
+      col: 6, ico: 'pulse', title: 'Why we lose',
+      note: 'The reason recorded on every pursuit closed in the last twelve months.',
+      body: (() => {
+        const lost = closed.filter(c => !c.won);
+        const why = {};
+        for (const c of lost) why[c.why] = (why[c.why] || 0) + c.value;
+        const rows = Object.entries(why).map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+        if (!rows.length) return `<div class="empty">Nothing closed lost in the window.</div>`;
+        return C.hbars({ rows, fmt: v => F.money(v) });
+      })(),
+      foot: `${F.money(closed.filter(c => !c.won).reduce((a, c) => a + c.value, 0))} of work closed lost against ${F.money(won.reduce((a, c) => a + c.value, 0))} won.`,
+    }) +
+
+    U.panel({
+      col: 7, ico: 'plan', title: 'When it lands',
+      note: 'Weighted value by the month each pursuit expects to close.',
+      body: (() => {
+        const byMonth = {};
+        for (const r of p.rows) byMonth[r.close] = (byMonth[r.close] || 0) + r.weighted;
+        const months = Object.keys(byMonth).sort();
+        return C.bars({
+          values: months.map(m => byMonth[m]),
+          labels: months.map(m => F.monthName(m)),
+          fmt: v => F.money(v), height: 200,
+        });
+      })(),
+    }) +
+
+    U.panel({
+      col: 5, ico: 'link', title: 'Where it comes from',
+      note: 'Open value by how the pursuit reached us.',
+      body: (() => {
+        const by = {};
+        for (const r of p.rows) by[r.source] = (by[r.source] || 0) + r.value;
+        const parts = Object.entries(by).map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+        return C.donut({ parts, fmt: v => F.money(v) }) + C.donutLegend(parts, v => F.money(v));
+      })(),
+    }) +
+
+    U.panel({
+      col: 12, ico: 'list', title: 'Every pursuit', pad: false,
+      body: U.table({
+        cols: [{ name: 'Opportunity' }, { name: 'Stage' }, { name: 'Owner' }, { name: 'Source' },
+        { name: 'Age', n: true }, { name: 'Value', n: true }, { name: 'Weighted', n: true },
+        { name: 'Expected', n: true }],
+        rows: p.rows.slice().sort((a, b) => b.weighted - a.weighted).map(r => ({
+          cells: [`<b>${esc(r.name)}</b>`, U.statusTag(r.stage, r.stage === 'Committed' ? 'good' : ''),
+          esc(r.owner), esc(r.source),
+          `<span class="${r.age > 120 ? 'delta down' : ''}">${r.age}d</span>`,
+          F.money(r.value), F.money(r.weighted), esc(F.monthName(r.close, true))],
+        })),
+      }),
+    }) +
+
     U.panel({
       col: 12, title: 'Where this comes from',
       body: connectorNote(s, 'crm', 'Pipeline is read from the CRM. It never enters a statement: a pursuit is not a fact.'),
@@ -256,37 +469,136 @@ export function pipeline(ctx) {
 
 /* --------------------------------------------------------------- documents */
 
+/* The Documents browser.
+
+   Matt, 2026-11-02: *"your documents section looks like shit. there are no
+   folders....just documents...it looks horrible and unorganized"*. He is
+   describing a page that could only ever draw a list, because the data behind
+   it was a count and eight filenames. What makes a document system believable
+   is its SHAPE: one filing scheme applied to every piece of work, counts that
+   add up, and the ability to walk into a folder and back out again.
+
+   Where the reader is standing rides on the app, not in the saved deployment:
+   `docsAt` is '' at the root, '<unitId>' inside a unit, '<unitId>/<discipline>'
+   inside a folder. The root of the company's own filing is the literal '~',
+   which no unit id can collide with. */
 export function docs(ctx) {
   const { q, s } = ctx;
   const d = q.data.docs;
+  const ind = s.industry;
+  const folders = d.folders || [];
+  const at = String(ctx.docsAt || '');
+  const [atUnit, atDisc] = at ? at.split('/') : [null, null];
+  const unitName = id => id === '~' ? 'Company'
+    : ((q.units.find(u => u.id === id) || {}).short
+      || (folders.find(f => f.unit === id) || {}).unitName || id);
+
+  const total = folders.reduce((a, f) => a + f.n, 0);
+  const crumbs = [{ label: 'All documents', to: '' }];
+  if (atUnit) crumbs.push({ label: unitName(atUnit), to: atUnit });
+  if (atDisc) crumbs.push({ label: atDisc, to: at });
+
+  /* What to draw: the units at the root, that unit's folders one level in,
+     and a folder's documents at the leaf. */
+  let body = '';
+  let heading = '';
+  if (!atUnit) {
+    const byUnit = new Map();
+    for (const f of folders) {
+      const key = f.unit || '~';
+      const g = byUnit.get(key) || { key, name: f.unitName, n: 0, size: 0, updated: '' };
+      g.n += f.n; g.size += f.size;
+      if (f.updated > g.updated) g.updated = f.updated;
+      byUnit.set(key, g);
+    }
+    const groups = [...byUnit.values()].sort((a, b) =>
+      (a.key === '~' ? -1 : b.key === '~' ? 1 : b.n - a.n));
+    heading = `${groups.length} places, ${F.num(total)} documents`;
+    body = `<div class="fold">${groups.map(g => `
+      <button class="fold-item${g.key === '~' ? ' is-co' : ''}" data-act="docs-open" data-arg="${esc(g.key)}">
+        ${icon(g.key === '~' ? 'ledger' : 'folder', 19)}
+        <span class="fo-name">${esc(g.name)}</span>
+        <span class="fo-meta">${F.num(g.n)} documents · ${sizeOf(g.size)}</span>
+        <span class="fo-when">last filed ${esc(g.updated)}</span>
+      </button>`).join('')}</div>`;
+  } else if (!atDisc) {
+    const mine = folders.filter(f => (f.unit || '~') === atUnit);
+    heading = `${esc(unitName(atUnit))} · ${F.num(mine.reduce((a, f) => a + f.n, 0))} documents`;
+    body = `<div class="fold">${mine.map(f => `
+      <button class="fold-item" data-act="docs-open" data-arg="${esc(atUnit)}/${esc(f.disc)}">
+        ${icon('folder', 19)}
+        <span class="fo-name">${esc(f.disc)}</span>
+        <span class="fo-meta">${F.num(f.n)} documents · ${sizeOf(f.size)}</span>
+        <span class="fo-when">last filed ${esc(f.updated)}</span>
+      </button>`).join('')}</div>`;
+  } else {
+    const f = folders.find(x => (x.unit || '~') === atUnit && x.disc === atDisc);
+    /* The folder's OWN sample, not a filter of the ten most recent filings
+       across the whole company: that matched nothing in all but a few folders,
+       so every folder a reader opened said "0 of them by name". */
+    const shown = (f && f.docs) || [];
+    heading = `${esc(unitName(atUnit))} · ${esc(atDisc)}`;
+    /* ⛔ The page shows the documents it HAS, and says plainly how many more
+       are in the folder. Drawing a thousand invented filenames to fill a list
+       would be the demo lying about its own depth. */
+    body = (shown.length ? `<div class="rows">${shown.map(r => `
+      <div class="row-item">${icon('doc', 17)}
+        <span class="grow"><b>${esc(r.name)}</b>
+          <div class="sub">filed ${esc(r.when)} by ${esc(r.by)} · ${sizeOf(r.size)}</div></span>
+        <span class="btn sm ghost">${icon('link', 14)}Open</span>
+      </div>`).join('')}</div>` : '')
+      + `<div class="empty">${f ? (f.n > shown.length
+        ? `${F.num(f.n - shown.length)} more documents sit in this folder. A connected
+           document store serves the whole folder; the sample set carries ${shown.length}.`
+        : 'That is the whole folder.')
+        : 'Nothing here.'}</div>`;
+  }
+
   return U.pageHead({
     eyebrow: 'Documents',
     title: 'Documents',
-    answer: `<b>${F.num(d.count)}</b> documents indexed, each one readable only by the people who
-      can already read it in the source system. The index carries no copies: it points at the
-      file where it lives.`,
+    answer: `<b>${F.num(total)}</b> documents and <b>${d.sizeGb}GB</b> filed under one scheme:
+      ${d.disciplines.length} folders repeated on every ${esc(ind.unit.one)} and on the company
+      itself. Each row is readable only by the people who can already read it where it lives,
+      and the index holds no copies.`,
   }) + `<div class="grid">` +
     U.panel({
-      col: 6, title: 'Recently filed',
-      body: `<div class="rows">${d.recent.map(r => `
-        <div class="row-item">${icon('doc', 17)}
-          <span class="grow"><b>${esc(r.name)}</b><div class="sub">${esc(r.when)} · ${esc(r.by)}</div></span>
-          <span class="btn sm ghost">${icon('link', 14)}Open</span>
-        </div>`).join('')}</div>`,
+      col: 8, ico: 'folder', title: 'Browse', pad: false,
+      right: `<nav class="crumbs">${crumbs.map((c, i) => i === crumbs.length - 1
+        ? `<span aria-current="page">${esc(c.label)}</span>`
+        : `<button data-act="docs-open" data-arg="${esc(c.to)}">${esc(c.label)}</button>${icon('chevron', 12)}`
+      ).join('')}</nav>`,
+      note: heading,
+      body,
     }) +
     U.panel({
-      col: 6, title: 'How the index works',
+      col: 4, ico: 'clock', title: 'Just filed',
+      body: `<div class="rows">${(d.recent || []).slice(0, 7).map(r => `
+        <div class="row-item">${icon('doc', 17)}
+          <span class="grow"><b>${esc(r.name)}</b>
+            <div class="sub">${esc(r.unitName)} › ${esc(r.disc)} · ${esc(r.by)}</div></span>
+        </div>`).join('')}</div>`,
+      foot: 'Newest first. A filing appears here the moment it lands in its folder.',
+    }) +
+    U.panel({
+      col: 12, ico: 'lock', title: 'How the index works',
       body: `<ol class="steps">
         <li><b>Read, never copy.</b> The index records a pointer and the file stays where it is,
           so storage does not double and nothing is migrated.</li>
+        <li><b>One scheme everywhere.</b> The same ${d.disciplines.length} folders sit on every
+          ${esc(ind.unit.one)}, which is what makes a filing scheme worth having. A company with
+          a different scheme per project has no scheme.</li>
         <li><b>One slice per set of readers.</b> Rows are grouped by who can read them, and a
           viewer is served only the slices they hold permission on.</li>
-        <li><b>Named by convention.</b> A filed document leads with its project, then its date,
-          then its type, so a list sorts into something a person can scan.</li>
         <li><b>The page trims itself.</b> Two people on the same page see different rows, which is
           a permission decision, not a filter.</li>
       </ol>` + connectorNote(s, 'docs', 'Nothing is indexed until a document store is connected.'),
     }) + `</div>`;
+}
+
+function sizeOf(mb) {
+  if (!Number.isFinite(mb)) return '—';
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)}GB` : `${Math.round(mb)}MB`;
 }
 
 function connectorNote(s, cat, fallback) {

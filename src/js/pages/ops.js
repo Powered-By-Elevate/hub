@@ -115,11 +115,22 @@ export function home(ctx) {
     return Number.isFinite(v) ? (v > 1.5 ? v / 100 : v) : null;
   };
 
-  const book = rows.map(r => ({
-    r, size: Number.isFinite(r.f[port.size]) ? r.f[port.size] : 0,
-    bar: read(r, port.bar), mark: read(r, port.mark),
-    flag: flagOf.get(r.id),
-  })).sort((a, b) => b.size - a.size);
+  /* A measure that never approaches 100% needs a scale of its own, or it
+     draws as nothing happening. Retail's bar is conversion: 3% to 24% is a
+     healthy spread for a store, but beside construction's 52% to 98% every
+     retail bar read as a sliver. `barMax` is the ceiling the TRACK is drawn
+     against; the figure printed on the row is always the real one, and the
+     panel says what the scale is rather than leaving a full-looking bar to
+     imply 100%. Raised by the publishing session reading the live page. */
+  const barMax = Number.isFinite(port.barMax) && port.barMax > 0 ? port.barMax : 1;
+  const book = rows.map(r => {
+    const bar = read(r, port.bar);
+    return {
+      r, size: Number.isFinite(r.f[port.size]) ? r.f[port.size] : 0,
+      bar, fill: bar === null ? null : Math.min(1, bar / barMax),
+      mark: read(r, port.mark), flag: flagOf.get(r.id),
+    };
+  }).sort((a, b) => b.size - a.size);
 
   const total = book.reduce((a, x) => a + x.size, 0);
   const done = book.reduce((a, x) => a + x.size * (x.bar || 0), 0);
@@ -134,12 +145,13 @@ export function home(ctx) {
     U.panel({
       col: 12, title: `The whole book`, ico: 'grid',
       note: `Every ${esc(ind.unit.one)} on one scale. The bar is ${esc((port.barLabel || 'progress').toLowerCase())}${
-        port.mark ? `, the tick is ${esc((port.markLabel || '').toLowerCase())}` : ''}.`,
+        port.mark ? `, the tick is ${esc((port.markLabel || '').toLowerCase())}` : ''}${
+        port.barNote ? `, ${esc(port.barNote)}` : ''}.`,
       body: `<div class="book-top">
           <div class="book-bar" role="img" aria-label="${Math.round(done / (total || 1) * 100)}% of the book">
             ${book.map(x => `<span style="flex:${Math.max(x.size, total * 0.004)} 0 0"
               class="${x.flag ? 'bad' : ''}" title="${esc(x.r.short || x.r.name)}: ${fmtSize(x.size)}">
-              <i style="width:${Math.round((x.bar || 0) * 100)}%"></i></span>`).join('')}
+              <i style="width:${Math.round((x.fill || 0) * 100)}%"></i></span>`).join('')}
           </div>
           <div class="book-key">
             <span><b>${fmtSize(total)}</b>${esc(port.sizeLabel || 'total')} across ${book.length} ${esc(ind.unit.many)}</span>
@@ -153,6 +165,7 @@ export function home(ctx) {
       note: `Largest first. Click any row to open its arithmetic.`,
       body: `<div class="pf">${book.map((x, n) => {
         const pct = Math.round((x.bar || 0) * 100);
+        const fill = Math.round((x.fill || 0) * 100);
         return `<div class="pf-row" data-click="unit:${esc(x.r.id)}" tabindex="0">
           <span class="pf-n">${n + 1}</span>
           <span class="pf-name">
@@ -160,8 +173,8 @@ export function home(ctx) {
             <span>${esc([x.r.id, x.r.status, x.r.owner].filter(Boolean).join(' \u00b7 '))}</span>
           </span>
           <span class="pf-bar" title="${esc(port.barLabel || '')}: ${pct}%">
-            <i style="width:${pct}%" class="${x.flag ? 'bad' : ''}"></i>
-            ${Number.isFinite(x.mark) ? `<em style="left:${Math.min(100, Math.round(x.mark * 100))}%"
+            <i style="width:${fill}%" class="${x.flag ? 'bad' : ''}"></i>
+            ${Number.isFinite(x.mark) ? `<em style="left:${Math.min(100, Math.round(x.mark / barMax * 100))}%"
               title="${esc(port.markLabel || '')}"></em>` : ''}
             <b>${pct}%</b>
           </span>
@@ -200,8 +213,15 @@ function opsVerdict(ctx, rows, flagged) {
   const lead = `${esc(ind.headline.label)} is <b>${U.display(k)}</b>`;
   if (!flagged.length) return `${lead}, and every ${esc(ind.unit.one)} is inside its band.`;
   const first = flagged[0];
-  return `${lead}. <b>${esc(first.name)}</b> is the one to look at: ${first.why}` +
-    (flagged.length > 1 ? ` ${flagged.length - 1} other${flagged.length > 2 ? 's' : ''} are flagged.` : '');
+  /* `why` is written as a clause and does not punctuate itself, so the next
+     sentence ran straight on: "against a company 42.8% 2 others are flagged".
+     And the count read "1 other ARE flagged" at exactly two, because the
+     plural was taken off the noun and left on the verb. */
+  const why = /[.!?]$/.test(String(first.why).replace(/<[^>]+>/g, '').trim())
+    ? first.why : `${first.why}.`;
+  const rest = flagged.length - 1;
+  return `${lead}. <b>${esc(first.name)}</b> is the one to look at: ${why}` +
+    (rest > 0 ? ` ${rest} other${rest > 1 ? 's are' : ' is'} flagged.` : '');
 }
 
 function headlineOf(q, r, ind, w) {
@@ -640,7 +660,17 @@ export function detail(ctx) {
   const fmtOf = m => v => m.unit === 'usd' ? F.money(v)
     : m.unit === 'pct' ? F.pct(v, 1) : F.num(v);
 
-  return U.verdict({
+  /* A way back, on the page itself as well as in the tab strip. A drill-down
+     that can only be left by the browser's own back button reads as a place
+     outside the product, which is exactly how Matt described it. */
+  const backTo = ctx.detailFrom || 'ops-home';
+  const backName = (s.pages().find(p => p.id === backTo) || {}).name || 'Operations';
+
+  return `<nav class="backbar">
+      <button class="btn sm ghost" data-act="go" data-arg="${esc(backTo)}">
+        ${icon('arrow', 14)}Back to ${esc(backName)}</button>
+      <span class="bb-where">${esc(ind.unit.one)} · ${esc(entity)}</span>
+    </nav>` + U.verdict({
     title: verdictText.title,
     body: verdictText.body,
     figs: measures.slice(0, 4).map(m => ({
@@ -862,15 +892,15 @@ function unitVerdict(q, u, f, ind) {
    twenty series cannot. */
 
 const GRID = {
-  construction: { key: 'pct', name: 'Percent complete', fmt: v => F.pct(v, 0), good: 'high',
+  construction: { key: 'pct', name: 'Percent complete', fmt: v => F.pct(v, 0), good: 'high', isPct: true,
     says: 'how far through each contract is' },
   education: { key: 'enrolled', name: 'Students enrolled', fmt: v => F.num(v), good: 'high',
     says: 'how full each campus has been' },
   retail: { key: 'sales', name: 'Net sales', fmt: v => F.money(v), good: 'high',
     says: 'how each store has traded' },
-  industrial: { key: 'oee', name: 'OEE', fmt: v => F.pct(v, 0), good: 'high',
+  industrial: { key: 'oee', name: 'OEE', fmt: v => F.pct(v, 0), good: 'high', isPct: true,
     says: 'how effectively each line has run' },
-  logistics: { key: 'onTime', name: 'On time', fmt: v => F.pct(v, 0), good: 'high',
+  logistics: { key: 'onTime', name: 'On time', fmt: v => F.pct(v, 0), good: 'high', isPct: true,
     says: 'how each truck has served' },
   tech: { key: 'arr', name: 'ARR', fmt: v => F.money(v), good: 'high',
     says: 'how each product has grown' },
@@ -901,7 +931,14 @@ export function grid(ctx) {
     const vals = r.values.filter(Number.isFinite);
     const from = vals[0], to = vals[vals.length - 1];
     return { name: r.name, from, to, change: to - from,
-      pct: from ? (to - from) / Math.abs(from) * 100 : NaN };
+      /* ⛔ A percent change OF A PERCENTAGE is meaningless. A contract that
+         went from 1% complete to 53% complete did not improve 5,194%, it
+         advanced 52 points, and that 5,194% is most of why this page could not
+         be understood. A measure that is itself a percentage moves in POINTS.
+         Found by the gate's four-figure-percentage check, which was written
+         for a different bug on another page and caught this one on its first
+         run. */
+      pct: g.isPct ? null : (from ? (to - from) / Math.abs(from) * 100 : NaN) };
   }).sort((a, b) => a.change - b.change);
 
   const worst = movers[0], best = movers[movers.length - 1];
@@ -913,9 +950,12 @@ export function grid(ctx) {
     title: name,
     motif: motif(ind.id, s.data.brand.palette),
     answer: `Twelve months of <b>${esc(g.name.toLowerCase())}</b>, ${esc(g.says)}.
-      <b>${esc(best.name)}</b> improved most (${esc(g.fmt(best.from))} to <b>${esc(g.fmt(best.to))}</b>)
-      and <b>${esc(worst.name)}</b> moved the other way
-      (${esc(g.fmt(worst.from))} to <b>${esc(g.fmt(worst.to))}</b>).
+      <b>${esc(best.name)}</b> improved most (${esc(g.fmt(best.from))} to <b>${esc(g.fmt(best.to))}</b>).
+      ${worst.change < 0
+      ? `<b>${esc(worst.name)}</b> moved the other way
+         (${esc(g.fmt(worst.from))} to <b>${esc(g.fmt(worst.to))}</b>).`
+      : `Nothing went backwards: the least movement was <b>${esc(worst.name)}</b>,
+         which sat at <b>${esc(g.fmt(worst.to))}</b> throughout.`}
       The spread across ${esc(ind.unit.many)} this month is <b>${esc(g.fmt(spread))}</b>.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
     U.panel({
@@ -943,10 +983,15 @@ export function grid(ctx) {
       note: `From ${esc(F.monthName(months[0], true))} to ${esc(F.monthName(months[months.length - 1], true))}.`,
       body: U.table({
         cols: [{ name: ind.unit.key }, { name: 'Then', n: true }, { name: 'Now', n: true },
-        { name: 'Change', n: true }],
+        { name: g.isPct ? 'Change (points)' : 'Change', n: true }],
         rows: movers.slice().reverse().map(m => ({
           cells: [esc(m.name), g.fmt(m.from), g.fmt(m.to),
-          F.deltaTag(m.pct, { invert: g.good !== 'high' })],
+          g.isPct
+            ? `<span class="delta ${Math.abs(m.change) < 0.05 ? 'flat'
+              : (m.change > 0) === (g.good === 'high') ? 'up' : 'down'}">${
+              Math.abs(m.change) < 0.05 ? '—'
+                : `${m.change > 0 ? '↑' : '↓'} ${Math.abs(m.change).toFixed(0)}pt`}</span>`
+            : F.deltaTag(m.pct, { invert: g.good !== 'high' })],
         })),
       }),
     }) + `</div>`;
@@ -1039,39 +1084,122 @@ export function people(ctx) {
   const rows = q.unitRows();
   const found = flags(q, rows, ind);
   const flagged = new Set(found.map(f => f.id));
+  const last = q.view.month;
 
+  /* One scorecard per person, built from the same facts the unit pages read.
+     Matt, 2026-11-02: *"project managers page is increbily bare of any useful
+     information"*. Revenue alone does not judge anyone: a person carrying
+     twice the work at half the margin is the finding, and so is a person whose
+     billing has fallen behind the work they have already done. Both need cost
+     and billing beside the revenue, which is what this adds. */
   const byOwner = {};
   for (const r of rows) {
-    const o = (byOwner[r.owner] ||= { name: r.owner, units: 0, rev: 0, flags: 0, names: [] });
+    const o = (byOwner[r.owner] ||= {
+      name: r.owner, units: 0, rev: 0, cost: 0, contract: 0,
+      billed: 0, earned: 0, flags: 0, names: [], worst: null, pct: [],
+    });
     o.units += 1;
     o.names.push(r.short || r.name);
     o.flags += flagged.has(r.id) ? 1 : 0;
+    /* ⛔ `rev` is the month's revenue, but `cost`, `billed`, `earned` and
+       `contract` are POSITIONS: the figure to date at that month. Summing a
+       position across the window the way revenue is summed printed a house
+       margin of −222% and a job 5,356% complete on the first draw. A position
+       is read at the latest month and nowhere else, and the margin arithmetic
+       here is the same `earned − cost` the drawer uses, so the two cannot
+       disagree about the same person's work. */
     for (const m of w) o.rev += q.fact(r.id, 'rev', m) || 0;
+    o.contract += q.fact(r.id, 'contract', last) || 0;
+    o.billed += q.fact(r.id, 'billed', last) || 0;
+    o.earned += q.fact(r.id, 'earned', last) || 0;
+    o.cost += q.fact(r.id, 'cost', last) || 0;
+    if (flagged.has(r.id) && !o.worst) o.worst = r.short || r.name;
   }
-  const owners = Object.values(byOwner).sort((a, b) => b.rev - a.rev);
+  const owners = Object.values(byOwner).map(o => ({
+    ...o,
+    gm: o.earned ? (o.earned - o.cost) / o.earned * 100 : null,
+    position: o.billed - o.earned,
+    /* Completion is earned against contract, weighted by the money, not an
+       average of each job's own percentage: a $12M job half done and a $200K
+       job finished do not average to three quarters complete. */
+    complete: o.contract ? o.earned / o.contract * 100 : null,
+  })).sort((a, b) => b.rev - a.rev);
+
   if (!owners.length) {
     return U.pageHead({ eyebrow: 'Operations', title: 'Who carries what' }) +
       `<section class="panel"><div class="empty">Nothing is assigned in this scope.</div></section>`;
   }
-  const most = owners[0], least = owners[owners.length - 1];
+
   const name = (ind.pages && ind.pages['ops-people'] && ind.pages['ops-people'].name) || 'Who carries what';
-  const avg = owners.reduce((a, o) => a + o.rev, 0) / owners.length;
+  const totalRev = owners.reduce((a, o) => a + o.rev, 0);
+  const totalEarned = owners.reduce((a, o) => a + o.earned, 0);
+  const totalCost = owners.reduce((a, o) => a + o.cost, 0);
+  const houseGm = totalEarned ? (totalEarned - totalCost) / totalEarned * 100 : 0;
+  const avg = totalRev / owners.length;
+  const most = owners[0], least = owners[owners.length - 1];
+  const withGm = owners.filter(o => Number.isFinite(o.gm));
+  const weakest = withGm.length ? withGm.slice().sort((a, b) => a.gm - b.gm)[0] : null;
+  const behind = owners.filter(o => o.position < 0);
+  const unit1 = esc(ind.unit.one), unitN = esc(ind.unit.many);
 
   return U.pageHead({
     eyebrow: 'Operations',
     title: name,
     motif: motif(ind.id, s.data.brand.palette),
-    answer: `<b>${owners.length}</b> people carry <b>${rows.length}</b> ${esc(ind.unit.many)}
-      between them. <b>${esc(most.name)}</b> carries the most at <b>${F.money(most.rev)}</b>
-      over the window, <b>${esc(least.name)}</b> the least at <b>${F.money(least.rev)}</b>,
-      and the spread between them is <b>${F.ratio(least.rev ? most.rev / least.rev : 0)}</b>.
-      ${found.length ? `<b>${found.length}</b> flagged ${found.length === 1
-        ? esc(ind.unit.one) : esc(ind.unit.many)} sit across
-        <b>${owners.filter(o => o.flags).length}</b> of them.` : ''}`,
+    answer: `<b>${owners.length}</b> people carry <b>${rows.length}</b> ${unitN} and
+      <b>${F.money(totalRev)}</b> between them, at <b>${F.pct(houseGm)}</b> margin.
+      <b>${esc(most.name)}</b> carries the most at <b>${F.money(most.rev)}</b>, which is
+      <b>${F.ratio(least.rev ? most.rev / least.rev : 0)}</b> what ${esc(least.name)} carries.
+      ${weakest && weakest.gm < houseGm - 2
+      ? `<b>${esc(weakest.name)}</b> is the one to look at: <b>${F.pct(weakest.gm)}</b> margin against the house's <b>${F.pct(houseGm)}</b>.`
+      : `Margin is within two points of the house across everyone.`}`,
   }) + U.fresh(q, s) + `<div class="grid">` +
+
     U.panel({
-      col: 7, title: 'Load',
-      note: 'Revenue over the window. The mark is the average, so a bar short of it is carrying less than its share.',
+      col: 12, ico: 'people', title: 'The scorecard', pad: false,
+      note: `Each person's work over the window, then where their ${unitN} stand today. Billing position is what has been billed less what the work has earned, so a negative figure is work done and not yet invoiced.`,
+      body: `<div class="sc">${owners.map(o => {
+        const gmGap = Number.isFinite(o.gm) ? o.gm - houseGm : null;
+        return `<article class="sc-card${o.flags ? ' has-flag' : ''}">
+          <header>
+            <span class="sc-who">${esc(o.name)}</span>
+            <span class="sc-n">${o.units} ${o.units === 1 ? unit1 : unitN}</span>
+          </header>
+          <div class="sc-figs">
+            <span><i>Revenue</i><b>${F.money(o.rev)}</b>
+              <u>${o.rev >= avg ? 'above' : 'below'} the ${F.money(avg)} average</u></span>
+            <span><i>Margin</i><b>${Number.isFinite(o.gm) ? F.pct(o.gm) : '—'}</b>
+              <u>${gmGap === null ? '' : `<span class="delta ${gmGap >= 0 ? 'up' : 'down'}">${gmGap >= 0 ? '+' : ''}${gmGap.toFixed(1)}pt</span> on the house`}</u></span>
+            <span><i>Billing position</i><b class="${o.position < 0 ? 'neg' : ''}">${F.money(o.position)}</b>
+              <u>${o.position < 0 ? 'behind the work' : 'ahead of the work'}</u></span>
+            <span><i>Complete</i><b>${o.complete === null ? '—' : F.pct(o.complete, 0)}</b>
+              <u>${F.money(o.earned)} of ${F.money(o.contract)} earned</u></span>
+          </div>
+          <footer>
+            <span class="sc-names">${esc(o.names.slice(0, 3).join(', '))}${o.names.length > 3 ? ` and ${o.names.length - 3} more` : ''}</span>
+            ${o.flags ? `<span class="tag warn"><i class="dot"></i>${o.flags} flagged${o.worst ? `, ${esc(o.worst)} first` : ''}</span>`
+            : `<span class="tag good"><i class="dot"></i>nothing flagged</span>`}
+          </footer>
+        </article>`;
+      }).join('')}</div>`,
+      foot: `${behind.length} of ${owners.length} are billing behind the work they have done, for ${F.money(Math.abs(behind.reduce((a, o) => a + o.position, 0)))} in all.`,
+    }) +
+
+    U.panel({
+      col: 7, ico: 'bars', title: 'Load against margin',
+      note: 'Across is what they carry, up is the margin it earns. The line is the house margin, so anyone below it is carrying work that pays less than the company average.',
+      body: C.scatter({
+        points: withGm.map(o => ({ x: o.rev, y: o.gm, name: o.name })),
+        xFmt: v => F.money(v), yFmt: v => F.pct(v, 0),
+        xLabel: 'Revenue over the window', yLabel: 'Margin',
+        rule: houseGm, ruleLabel: `house ${houseGm.toFixed(1)}%`, height: 280,
+      }),
+      foot: `House margin is ${F.pct(houseGm)}.`,
+    }) +
+
+    U.panel({
+      col: 5, ico: 'list', title: 'Load',
+      note: 'The mark is the average, so a bar short of it is carrying less than its share.',
       body: C.hbars({
         rows: owners.map(o => ({
           name: o.name, value: o.rev, mark: avg,
@@ -1080,21 +1208,7 @@ export function people(ctx) {
         })),
         fmt: v => F.money(v),
       }),
-      foot: 'Amber marks someone with at least one flagged ' + esc(ind.unit.one) + '.',
-    }) +
-    U.panel({
-      col: 5, title: 'By person', pad: false,
-      body: U.table({
-        cols: [{ name: (ind.unit.owner || 'Owner') }, { name: ind.unit.collection, n: true },
-        { name: 'Revenue', n: true }, { name: 'Flagged', n: true }],
-        rows: owners.map(o => ({
-          cells: [
-            `<b>${esc(o.name)}</b><div class="sub">${esc(o.names.slice(0, 3).join(', '))}${o.names.length > 3 ? ` and ${o.names.length - 3} more` : ''}</div>`,
-            String(o.units), F.money(o.rev),
-            o.flags ? U.statusTag(String(o.flags), 'warn') : '<span class="muted">none</span>',
-          ],
-        })),
-      }),
+      foot: `Amber marks someone with at least one flagged ${unit1}.`,
     }) + `</div>`;
 }
 

@@ -358,7 +358,12 @@ export function spark(values, { width = 62, height = 20, color = null } = {}) {
 /* ---------------------------------------------------------------- scatter */
 
 export function scatter(opts) {
-  const { points = [], height = 260, xFmt = v => v, yFmt = v => v, xLabel = '', yLabel = '' } = opts;
+  const { points = [], height = 260, xFmt = v => v, yFmt = v => v, xLabel = '', yLabel = '',
+    /* `rule` draws a reference line across the plot: the house margin, a
+       target, a break-even. Without it a reader has to hold the comparison
+       figure in their head while scanning the dots, which is the whole job the
+       chart was supposed to do for them. */
+    rule = null, ruleLabel = '' } = opts;
   if (!points.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const padL = 60, padR = 18, padT = 16, padB = 40;
   const iw = W - padL - padR, ih = height - padT - padB;
@@ -377,10 +382,21 @@ export function scatter(opts) {
     svg += `<text x="${X(t).toFixed(1)}" y="${height - 22}" text-anchor="middle">${esc(xFmt(t))}</text>`;
   }
   svg += `</g>`;
+  if (Number.isFinite(rule) && rule >= ylo && rule <= yhi) {
+    svg += `<line class="sc-rule" x1="${padL}" x2="${W - padR}"
+      y1="${Y(rule).toFixed(1)}" y2="${Y(rule).toFixed(1)}"/>`;
+    svg += `<text class="sc-rule-t" x="${W - padR - 4}" y="${(Y(rule) - 6).toFixed(1)}"
+      text-anchor="end">${esc(ruleLabel || yFmt(rule))}</text>`;
+  }
   points.forEach((p, i) => {
+    const who = p.name || p.label || '';
     svg += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${p.r || 6}"
       fill="${p.color || seriesColour(i % 6)}" opacity=".78" stroke="var(--paper)" stroke-width="1.4">
-      <title>${esc(p.name)} · ${esc(xLabel)} ${esc(xFmt(p.x))} · ${esc(yLabel)} ${esc(yFmt(p.y))}</title></circle>`;
+      <title>${esc(who)} · ${esc(xLabel)} ${esc(xFmt(p.x))} · ${esc(yLabel)} ${esc(yFmt(p.y))}</title></circle>`;
+    if (who) {
+      svg += `<text class="sc-pt" x="${X(p.x).toFixed(1)}" y="${(Y(p.y) - 11).toFixed(1)}"
+        text-anchor="middle">${esc(who)}</text>`;
+    }
   });
   svg += `<text x="${W / 2}" y="${height - 5}" text-anchor="middle">${esc(xLabel)}</text>`;
   svg += `<text x="12" y="${padT + ih / 2}" text-anchor="middle" transform="rotate(-90 12 ${padT + ih / 2})">${esc(yLabel)}</text>`;
@@ -457,13 +473,24 @@ export function heatmap(opts) {
     });
   });
   svg += `</svg>`;
-  return svg + `<div class="chart-legend" style="margin-top:12px">
-    <span>${esc(fmt(lo))}</span>
-    ${[0.04, 0.3, 0.5, 0.75, 0.96].map(t =>
-      `<i style="background:var(--accent);opacity:${band(t)};width:22px;height:11px;
-        border-radius:2px;display:inline-block"></i>`).join('')}
-    <span>${esc(fmt(hi))}</span>
-    <span class="muted">${esc(label || 'lower')} to the left, higher to the right</span>
+  /* The key. Matt, 2026-11-02, on this exact grid: *"job progress build makes
+     absolutely no sense and it needs some kind of key to explain what you are
+     trying to state"*. The old key read "percent complete to the left, higher
+     to the right", which describes the swatches and explains nothing about the
+     grid. A key has to say what one cell IS, what the shade means, and what it
+     deliberately does not mean. */
+  return svg + `<div class="hm-key">
+    <div class="hm-ramp">
+      <span>${esc(fmt(lo))}</span>
+      ${[0.04, 0.3, 0.5, 0.75, 0.96].map(t =>
+        `<i style="opacity:${band(t)}"></i>`).join('')}
+      <span>${esc(fmt(hi))}</span>
+    </div>
+    <p>One square is one month's ${esc(label || 'reading')} for that row. The paler the
+      square the lower the reading, the more solid the higher.
+      ${good === 'high' ? '' : 'Lower is the better end here. '}Shade says
+      <b>more or less</b>, never better or worse: this measure carries no target,
+      and a red-to-green grid would claim one.</p>
   </div>`;
 }
 
@@ -479,9 +506,18 @@ function band(score) {
   return steps[i];
 }
 
+/* Trim from the MIDDLE, not the end.
+
+   ⛔ "Stonebridge Logistics Park" and "Stonebridge Logistics Center" both cut
+   to "Stonebridge Logistics…" and the grid showed two different contracts
+   under one label, which is worse than useless: a reader picks the wrong row.
+   The distinguishing part of a name is usually its tail, so both ends survive. */
 function trim(s, n) {
   s = String(s);
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
+  if (s.length <= n) return s;
+  const tail = Math.max(4, Math.floor((n - 1) * 0.38));
+  const head = n - 1 - tail;
+  return s.slice(0, head) + '…' + s.slice(s.length - tail);
 }
 
 /* --------------------------------------------------------- small multiples */
@@ -661,4 +697,35 @@ export function slope(opts) {
   });
   svg += `</svg>`;
   return svg;
+}
+
+/* Joiners and leavers under a headcount line.
+
+   ⛔ It is drawn in the LINE CHART'S OWN GEOMETRY and not as a row of flex
+   divs. The first cut was a flex row, so its columns sat at (i+0.5)/n while
+   the line's points sit at i/(n-1) with a 56-unit left gutter: every bar was
+   a little way from the month it belonged to, and the reader would have read
+   the wrong month's churn against the line above it. Two charts that share an
+   axis have to share the arithmetic that draws the axis. */
+export function churn({ labels = [], up = [], down = [], height = 54 }) {
+  const padL = 56, padR = 14;
+  const iw = W - padL - padR;
+  const peak = Math.max(1, ...up, ...down);
+  const half = (height - 10) / 2;
+  const x = i => padL + (labels.length < 2 ? iw / 2 : iw * i / (labels.length - 1));
+  const bw = Math.max(4, Math.min(18, iw / Math.max(1, labels.length) * 0.52));
+  const mid = height / 2;
+  const bars = labels.map((lab, i) => {
+    const hUp = (up[i] || 0) / peak * half;
+    const hDn = (down[i] || 0) / peak * half;
+    const cx = x(i) - bw / 2;
+    return `<g><title>${lab}: ${up[i] || 0} joined, ${down[i] || 0} left</title>
+      <rect x="${cx.toFixed(1)}" y="${(mid - hUp).toFixed(1)}" width="${bw.toFixed(1)}"
+        height="${Math.max(1, hUp).toFixed(1)}" rx="2" class="ch-up"/>
+      <rect x="${cx.toFixed(1)}" y="${mid.toFixed(1)}" width="${bw.toFixed(1)}"
+        height="${Math.max(1, hDn).toFixed(1)}" rx="2" class="ch-dn"/></g>`;
+  }).join('');
+  return `<svg class="chart churn-svg" viewBox="0 0 ${W} ${height}" preserveAspectRatio="none"
+    role="img" aria-label="People who joined and left each month">
+    ${bars}<line x1="${padL}" x2="${W - padR}" y1="${mid}" y2="${mid}" class="ch-axis"/></svg>`;
 }

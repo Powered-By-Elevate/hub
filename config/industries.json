@@ -489,7 +489,9 @@
             "margin",
             "Margin"
           ]
-        ]
+        ],
+        "barMax": 0.3,
+        "barNote": "drawn against a 30% scale, because a store that converts a quarter of its visitors is doing well"
       }
     },
     {

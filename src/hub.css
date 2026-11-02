@@ -289,12 +289,20 @@ button { font: inherit; color: inherit; cursor: pointer; }
   box-shadow: var(--shadow-sm);
   padding: 13px 16px 12px;
   min-width: 158px; flex: 1 1 158px;
-  position: relative; overflow: hidden;
+  position: relative;
+  /* ⛔ NOT overflow: hidden. The accent bar below is the only thing that
+     needed clipping, and clipping the CARD clipped the figure picker that
+     opens inside it: Matt saw a 20px sliver of a menu instead of a menu.
+     The bar rounds its own left corners instead. */
 }
 .strip-item::after {
   content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--accent); opacity: .85;
+  border-radius: var(--radius) 0 0 var(--radius);
 }
+/* A card with its picker open sits above its neighbours, so the menu is not
+   painted under the card to its right. */
+.strip-item.open, .strip-item.previewing { z-index: 40; }
 .strip-label { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-faint); }
 .strip-value { font-family: var(--font-display); font-size: 25px; line-height: 1.1; margin-top: 5px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
 .strip-value .u { font-size: .62em; color: var(--ink-soft); margin-left: 1px; }
@@ -1296,3 +1304,200 @@ body.presenting .strip[data-current="true"] {
 .cs.signed i { background: var(--accent); opacity: .72; }
 .cs.close i { background: var(--accent); box-shadow: 0 0 0 2px var(--accent-lift); }
 .cs.open i { background: var(--warn-tint); border: 1px dashed var(--warn); }
+
+/* ---------------------------------------------------- the pipeline funnel
+   Matt, 2026-11-02: *"the pipeline section is bare and useless. it needs to
+   actually be built out with useful information"*. A funnel drawn as five
+   horizontal tracks reads the way a reader asks the question: how much is at
+   this stage, and how much fell out between here and the stage before. The
+   drop-off column is the point, so it gets its own place rather than being
+   left for the reader to divide in their head. */
+.fun { display: flex; flex-direction: column; gap: 10px; }
+.fun-row {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr) 128px 58px;
+  align-items: center; gap: 12px;
+}
+.fun-name { font-weight: 620; font-size: 13.5px; line-height: 1.25; }
+.fun-name i, .fun-val i { display: block; font-style: normal; font-size: 11.5px;
+  color: var(--ink-3); font-weight: 500; margin-top: 2px; }
+.fun-track {
+  height: 26px; border-radius: 7px; background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--ring); overflow: hidden;
+}
+.fun-track > i {
+  display: block; height: 100%; border-radius: 7px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-lift));
+}
+.fun-val { text-align: right; font-weight: 640; font-variant-numeric: tabular-nums; font-size: 14px; }
+.fun-drop { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.fun-drop i { font-style: normal; color: var(--ink-3); font-weight: 600; }
+.fun-drop i.down { color: var(--bad); }
+
+/* How long a pursuit has sat. Three bands, and the thresholds are stated on
+   the panel so the colour is never the only thing carrying the meaning. */
+.agepill {
+  font-size: 12px; font-weight: 650; font-variant-numeric: tabular-nums;
+  padding: 3px 9px; border-radius: 999px; background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--ring); color: var(--ink-2); white-space: nowrap;
+}
+.agepill.warn { color: var(--warn); }
+.agepill.bad { color: var(--bad); }
+
+@media (max-width: 760px) {
+  .fun-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .fun-track { grid-column: 1 / -1; order: 3; }
+  .fun-drop { order: 2; }
+}
+
+/* -------------------------------------------- joiners and leavers, People
+   A headcount line that is flat can be a stable team or a team replacing
+   itself every quarter, and those are opposite facts. The churn strip sits
+   under the line so the reader sees which one they are looking at. */
+.churn-svg { display: block; width: 100%; height: 54px; margin-top: 2px; }
+.ch-up { fill: var(--good); opacity: .8; }
+.ch-dn { fill: var(--bad); opacity: .74; }
+.ch-axis { stroke: var(--ring); stroke-width: 1; }
+.ch-key { display: flex; gap: 16px; margin-top: 8px; font-size: 11.5px; color: var(--ink-3); }
+.ch-key span { display: inline-flex; align-items: center; gap: 6px; }
+.ch-key .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.ch-key .sw.in { background: var(--good); }
+.ch-key .sw.out { background: var(--bad); }
+
+/* ------------------------------------------------ the workload scorecard
+   Matt, 2026-11-02: *"project managers page is increbily bare of any useful
+   information"*. One card per person, because a bar chart and a table saying
+   the same thing twice is not two panels of information. Each card carries
+   the four figures that actually judge the work: what they carry, what margin
+   it earns, whether the billing has kept up, and how far along it is. */
+.sc { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 1px;
+  background: var(--ring); border-radius: 0 0 var(--r) var(--r); overflow: hidden; }
+.sc-card { background: var(--paper); padding: 16px 18px 14px; display: flex;
+  flex-direction: column; gap: 12px; }
+.sc-card.has-flag { background: linear-gradient(180deg, color-mix(in srgb, var(--warn) 7%, var(--paper)), var(--paper) 46%); }
+.sc-card > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sc-who { font-weight: 660; font-size: 15px; letter-spacing: -.01em; }
+.sc-n { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.sc-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+.sc-figs > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.sc-figs i { font-style: normal; font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); }
+.sc-figs b { font-size: 17px; font-weight: 640; font-variant-numeric: tabular-nums;
+  letter-spacing: -.015em; }
+.sc-figs b.neg { color: var(--bad); }
+.sc-figs u { text-decoration: none; font-size: 11px; color: var(--ink-3); line-height: 1.3; }
+/* The footer WRAPS. A card holding a long name and a "2 flagged, Stonebridge
+   Logistics Park first" tag squeezed the names column to a single pixel and
+   still pushed the tag past the card's right edge. */
+.sc-card > footer { display: flex; align-items: center; justify-content: space-between;
+  gap: 8px 10px; flex-wrap: wrap; padding-top: 11px; border-top: 1px solid var(--ring); }
+.sc-card > footer .tag { max-width: 100%; white-space: normal; text-align: left; }
+.sc-names { font-size: 11.5px; color: var(--ink-3); overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; flex: 1 1 110px; min-width: 0; }
+
+/* the scatter's reference line and its point labels */
+.sc-rule { stroke: var(--ink-3); stroke-width: 1.2; stroke-dasharray: 5 4; opacity: .7; }
+.sc-rule-t { font-size: 10.5px; fill: var(--ink-3); }
+.sc-pt { font-size: 10.5px; fill: var(--ink-2); font-weight: 560; }
+
+/* ------------------------------------------------------- the heatmap key */
+.hm-key { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--ring); }
+.hm-ramp { display: flex; align-items: center; gap: 5px; font-size: 11.5px;
+  color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.hm-ramp i { width: 24px; height: 12px; border-radius: 2px; display: inline-block;
+  background: var(--accent); }
+.hm-key p { margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-2);
+  max-width: 64ch; }
+.hm-key b { font-weight: 650; }
+
+/* ------------------------------------------------------- the file browser
+   Matt, 2026-11-02: *"your documents section looks like shit. there are no
+   folders....just documents...it looks horrible and unorganized"*. Folders as
+   a grid of real targets, with the count, the size and the date anything last
+   landed, because those three are what tell you whether a folder is alive. */
+.fold { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  gap: 1px; background: var(--ring); border-radius: 0 0 var(--r) var(--r); overflow: hidden; }
+.fold-item {
+  background: var(--paper); border: 0; text-align: left; cursor: pointer;
+  padding: 15px 16px 13px; display: grid; grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto; column-gap: 11px; row-gap: 3px;
+  font: inherit; color: inherit; transition: background .14s ease;
+}
+.fold-item:hover { background: var(--tint); }
+.fold-item:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: -2px; }
+.fold-item svg { grid-row: 1 / 2; color: var(--accent); }
+.fold-item.is-co svg { color: var(--ink-2); }
+.fo-name { font-weight: 625; font-size: 14px; letter-spacing: -.005em; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fo-meta, .fo-when { grid-column: 2; font-size: 11.5px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; }
+.fo-when { color: var(--ink-3); opacity: .82; }
+
+.crumbs { display: flex; align-items: center; gap: 5px; font-size: 12px; flex-wrap: wrap; }
+.crumbs button {
+  background: none; border: 0; padding: 2px 4px; margin: 0; cursor: pointer;
+  font: inherit; color: var(--accent); border-radius: 5px;
+}
+.crumbs button:hover { background: var(--tint); }
+.crumbs svg { color: var(--ink-3); }
+.crumbs [aria-current] { color: var(--ink-2); font-weight: 620; }
+
+@media (max-width: 760px) {
+  .fold { grid-template-columns: 1fr; }
+}
+
+/* ---------------------------------------------- a menu you can read at a glance
+   Matt, 2026-11-02: *"this is what your dropdowns look like...they look like
+   shit"*. Thirty months drawn as thirty identical two-line rows is a wall.
+   One line per month, the year sticky above its months, and the sign-off state
+   as a tag on the right rather than a sentence repeated thirty times. */
+.menu-year {
+  position: sticky; top: -7px; z-index: 1;
+  background: var(--paper);
+  font-size: 10.5px; letter-spacing: .1em; font-weight: 650;
+  color: var(--ink-faint); padding: 9px 10px 5px;
+  border-bottom: 1px solid var(--rule-soft); margin-bottom: 2px;
+}
+.menu-item.tight { padding: 7px 10px; gap: 8px; }
+.menu-item.tight .mi-n { flex: 1 1 auto; }
+.mi-tag {
+  font-size: 10.5px; letter-spacing: .02em; color: var(--ink-faint);
+  background: var(--tint); border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+}
+.mi-tag.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, transparent); }
+.menu-item[aria-selected="true"] .mi-tag { background: var(--paper); }
+
+/* The scrollbar inside a menu, so a long list does not end in a system-grey
+   slab against the paper. */
+.menu { scrollbar-width: thin; scrollbar-color: var(--rule) transparent; scroll-padding-top: 30px; }
+.menu::-webkit-scrollbar { width: 9px; }
+.menu::-webkit-scrollbar-track { background: transparent; }
+.menu::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 99px;
+  border: 3px solid var(--paper); }
+.menu::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+
+/* ------------------------------------------- a drill-down is a place, not a void
+   Matt, 2026-11-02: *"when i click into one of these objects, it takes me to a
+   screen that is just out in the ether with no tab or way to get back and it
+   feels completely separated from everything"*. Two answers: the open unit
+   takes a tab of its own in the strip, with a close on it, and the page itself
+   carries a back control naming where it came from. */
+.backbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin: 4px 0 2px; flex-wrap: wrap;
+}
+.backbar .btn svg { transform: rotate(180deg); }
+.bb-where { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint); }
+
+.tab.open-unit {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding-right: 5px; cursor: default;
+}
+.tab-x {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 19px; height: 19px; margin-left: 3px; padding: 0;
+  border: 0; border-radius: 6px; background: none; color: inherit;
+  opacity: .5; cursor: pointer;
+}
+.tab-x:hover { opacity: 1; background: var(--tint); }
+.tab-x:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: 1px; }

@@ -30,7 +30,8 @@ const PAGES = { ...financePages, ...opsPages, ...miscPages, settings: settingsPa
 
 const app = {
   cfg: null, s: null, q: null, data: {},
-  page: 'home', arg: null, subtab: 'brand', menu: null, sheet: null,
+  page: 'home', arg: null, subtab: 'brand', menu: null, sheet: null, docsAt: '',
+  detailFrom: null,
 };
 
 /* --------------------------------------------------------------- bootstrap */
@@ -111,7 +112,6 @@ function openChooser(firstTime = false) {
     if (id !== app.s.data.industry) {
       app.s.useIndustry(id);
       await useIndustry(id);
-      go('home');
     } else {
       /* Picking the demo that is already loaded still has to be remembered.
          Construction is the default, so a first-time viewer who picks the
@@ -121,6 +121,15 @@ function openChooser(firstTime = false) {
          saving, not changing. */
       app.s.save();
     }
+    /* ⛔ Start here, on EVERY pick, including the company already loaded.
+       Matt, 2026-11-02: *"when i click on a new company type from start here,
+       it doesnt take me to the new start here, it links to the financial
+       dashboard screen...i dont like that flow"*. The navigation used to sit
+       inside the changed-industry branch, so picking the card you were already
+       on dropped you back wherever you had been, usually the dashboard. A card
+       on the front door promises that company's front door, and it should keep
+       that promise whichever card you press. */
+    go('home');
     render();
   }, firstTime ? null : app.s.data.industry);
 }
@@ -147,7 +156,8 @@ function render() {
   document.getElementById('tabs').innerHTML = tabs(pages);
   document.getElementById('bar').innerHTML = bar();
 
-  const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go, strip: stripIds() };
+  const ctx = { q, s, cfg: app.cfg, arg: app.arg, subtab: app.subtab, go,
+    strip: stripIds(), docsAt: app.docsAt, detailFrom: app.detailFrom };
   const host = document.getElementById('page');
   let html = '';
   try {
@@ -212,7 +222,28 @@ function tabs(pages) {
   const mine = pages.filter(p => p.module === open);
   const mod = app.cfg.product.modules[open];
   if (!mine.length) return '';
-  return `<div class="tabs-title">${esc(mod ? mod.name : '')}</div>` +
+  /* An open unit gets a tab of its own, with a close on it.
+
+     Matt, 2026-11-02: *"when i click into one of these objects, it takes me to
+     a screen that is just out in the ether with no tab or way to get back and
+     it feels completely separated from everything"*. He is right: `ops-detail`
+     is a hidden page, so the strip drew Operations' tabs with NONE of them
+     current and no sign of where he actually was. A drill-down is a place, and
+     a place needs a tab. */
+  let open_unit = '';
+  if (app.page === 'ops-detail' && app.arg && app.q) {
+    const u = (app.q.units || []).find(x => x.id === app.arg)
+      || (app.q.allUnits || []).find(x => x.id === app.arg);
+    if (u) {
+      const back = app.detailFrom && app.cfg.product.pages[app.detailFrom]
+        ? app.detailFrom : (mine[0] && mine[0].id);
+      open_unit = `<span class="tab open-unit" aria-current="true">
+        ${esc(u.short || u.name)}
+        <button class="tab-x" data-act="go" data-arg="${esc(back)}"
+          aria-label="Close ${esc(u.short || u.name)}">${icon('close', 12)}</button></span>`;
+    }
+  }
+  return `<div class="tabs-title">${esc(mod ? mod.name : '')}</div>` + open_unit +
     mine.map(p => `<button class="tab" data-act="go" data-arg="${esc(p.id)}"
       aria-current="${p.id === app.page}">${esc(p.name)}</button>`).join('') +
     (open === 'settings' ? '' : `<hr class="r">
@@ -277,6 +308,31 @@ function caret() {
 
 /* ------------------------------------------------------------------ menus */
 
+/* Put a menu where it fits.
+
+   The first cut set `top` to the anchor's bottom, clamped so the menu's whole
+   height stayed on screen. With thirty months in a list that is 570px tall,
+   the clamp dragged the menu UP until it covered the control that opened it
+   and most of the page behind it, which is what made these read as unfinished.
+
+   A menu belongs under its control. If there is not enough room under it, it
+   goes above it; if neither side has room, it takes the larger side and
+   SCROLLS inside itself rather than growing. So the height is set from the
+   space actually available, never from the number of rows. */
+function place(el, anchor) {
+  const box = anchor.getBoundingClientRect();
+  const gap = 6, edge = 10;
+  const below = window.innerHeight - box.bottom - gap - edge;
+  const above = box.top - gap - edge;
+  const down = below >= Math.min(el.scrollHeight, 260) || below >= above;
+  const room = Math.max(140, Math.floor(down ? below : above));
+  el.style.maxHeight = `${Math.min(room, 440)}px`;
+  el.style.top = down ? `${Math.round(box.bottom + gap)}px`
+    : `${Math.round(box.top - gap - Math.min(el.offsetHeight, room))}px`;
+  el.style.left = `${Math.round(Math.max(edge,
+    Math.min(box.left, window.innerWidth - el.offsetWidth - edge)))}px`;
+}
+
 function openMenu(kind, anchor) {
   closeMenu();
   app.menu = kind;
@@ -285,9 +341,7 @@ function openMenu(kind, anchor) {
   el.id = 'menu';
   el.innerHTML = menuBody(kind);
   document.body.appendChild(el);
-  const box = anchor.getBoundingClientRect();
-  el.style.top = `${Math.min(box.bottom + 6, window.innerHeight - el.offsetHeight - 10)}px`;
-  el.style.left = `${Math.min(box.left, window.innerWidth - el.offsetWidth - 10)}px`;
+  place(el, anchor);
   const first = el.querySelector('.menu-item');
   if (first) first.focus();
   document.getElementById('bar').innerHTML = bar();
@@ -363,12 +417,25 @@ function menuBody(kind) {
     }).join('');
   }
   if (kind === 'month') {
-    return `<div class="menu-head">As of</div>` + q.months.slice().reverse().map(m =>
-      `<button class="menu-item" data-act="pick-month" data-arg="${m}"
+    /* Thirty months as thirty identical two-line rows is a wall, not a list:
+       nothing tells you where you are in it, and the sign-off state repeated
+       thirty times is noise on every row but the few that differ. Grouped by
+       year with a heading that sticks while you scroll, one line per month,
+       and the state as a short tag on the right. */
+    const months = q.months.slice().reverse();
+    let out = `<div class="menu-head">As of</div>`;
+    let year = null;
+    for (const m of months) {
+      const y = m.slice(0, 4);
+      if (y !== year) { year = y; out += `<div class="menu-year">${esc(y)}</div>`; }
+      const open = m > q.closed;
+      out += `<button class="menu-item tight" data-act="pick-month" data-arg="${m}"
         aria-selected="${s.data.month === m}">
-        <span>${esc(F.monthName(m, true))}
-        <small>${m > q.closed ? 'tentative, not yet signed off' : 'signed off'}</small></span>
-      </button>`).join('');
+        <span class="mi-n">${esc(F.monthName(m, true).replace(` ${y}`, ''))}</span>
+        <span class="mi-tag${open ? ' warn' : ''}">${open ? 'tentative' : 'signed off'}</span>
+      </button>`;
+    }
+    return out;
   }
   if (kind === 'role') {
     return `<div class="menu-head">View level</div>` + s.data.roles.map(r =>
@@ -418,7 +485,7 @@ async function onClick(ev) {
 
   if (row && !el) {
     const [kind, arg] = row.dataset.click.split(':');
-    if (kind === 'unit') go('ops-detail', arg);
+    if (kind === 'unit') { app.detailFrom = app.page; go('ops-detail', arg); }
     return;
   }
 
@@ -426,7 +493,15 @@ async function onClick(ev) {
   switch (act) {
     case 'go': closeMenu(); closeSheet(); go(arg); break;
     case 'chooser': closeMenu(); closeSheet(); openChooser(); break;
-    case 'menu': openMenu(arg, el); break;
+    /* Clicking the control that opened a menu CLOSES it. Matt: *"when i click
+       this dropdown, reclicking the line doesnt collapse it....and it should"*.
+       It never could: this called openMenu, which closes and immediately
+       reopens, so the menu blinked and stayed. (Measured in the harness as a
+       click that never lands at all, because the open menu covers its own
+       trigger and swallows the pointer.) */
+    case 'menu':
+      if (app.menu === arg) { closeMenu(); document.getElementById('bar').innerHTML = bar(); break; }
+      openMenu(arg, el); break;
     case 'rail-toggle': document.getElementById('rail').classList.toggle('open'); break;
     case 'pick-entity': app.s.data.entity = arg; app.s.save(); closeMenu(); render(); break;
     case 'pick-month': app.s.data.month = arg; app.s.save(); closeMenu(); render(); break;
@@ -438,6 +513,10 @@ async function onClick(ev) {
     }
     case 'try-role': app.s.data.role = arg; app.s.save(); go('fin-dash'); break;
     case 'basis': app.s.data.basis = arg; app.s.save(); render(); break;
+    /* Where the Documents browser is standing. It is view state, not a setting,
+       so it lives on the app rather than in the saved deployment: a client's
+       config file should not remember which folder somebody had open. */
+    case 'docs-open': app.docsAt = arg || ''; render(); break;
     case 'theme': app.s.data.theme = arg; app.s.save().apply(); render(); break;
     case 'theme-toggle':
       app.s.data.theme = app.s.data.theme === 'dark' ? 'light' : 'dark';

@@ -451,6 +451,42 @@ async function main() {
             charts: host.querySelectorAll('svg.chart').length,
             overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
             nan: /NaN|undefined|Infinity/.test(text),
+            /* ⛔ An absurd percentage is the signature of a POSITION summed
+               as if it were a FLOW. `cost`, `billed`, `earned` and `contract`
+               are the figure to date at each month, so adding them across a
+               window the way revenue is added multiplies by the number of
+               months: the first draw of the workload scorecard printed a house
+               margin of −222% and a contract 5,356% complete, and every other
+               check on this page passed.
+
+               ⛔ The bound is on the MEASURE, not on the digits. The first cut
+               of this check was /-?[\d,]{4,}%/, which counts characters: it
+               caught 5,356% and 5,194% and let −222% through, and −222% was
+               one of the two symptoms it was written for. 356% complete is the
+               same bug wearing three digits. Found by the publishing session
+               testing the regex against the figures rather than reading it.
+
+               A CHANGE can honestly be any size: logistics net income going
+               $89K to $269K really is +202%. A LEVEL cannot. Changes are drawn
+               inside a `.delta` tag, so this walks text nodes and skips those,
+               then bounds what is left. Measured across all six industries,
+               every view level and every page, exactly one level in the whole
+               build passes 100%: tech's net retention at 103%, which legitimately
+               does. 125 leaves that alone with room to spare and still catches
+               both of the defects above. */
+            wild: (() => {
+              const walk = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+              const out = [];
+              let n;
+              while ((n = walk.nextNode())) {
+                if (n.parentElement && n.parentElement.closest('.delta')) continue;
+                for (const m of (n.nodeValue || '').matchAll(/(-?[\d,]+(?:\.\d+)?)\s*%/g)) {
+                  const v = Number(m[1].replace(/,/g, ''));
+                  if (Number.isFinite(v) && Math.abs(v) > 125) out.push(m[0]);
+                }
+              }
+              return out.slice(0, 3);
+            })(),
           };
         });
 
@@ -459,6 +495,9 @@ async function main() {
         ok(seen.len > 180, `${ind}/${role}/${p}: has content`, `${seen.len} chars`);
         ok(seen.panels > 0, `${ind}/${role}/${p}: has a panel`);
         ok(!seen.nan, `${ind}/${role}/${p}: no NaN, undefined or Infinity on the page`);
+        ok(seen.wild.length === 0,
+          `${ind}/${role}/${p}: no level past 125% (a position summed as a flow)`,
+          seen.wild.join(', '));
         ok(seen.overflow <= 1, `${ind}/${role}/${p}: no sideways scroll at 1440`, String(seen.overflow));
         ok(errors.length === 0, `${ind}/${role}/${p}: console clean`, errors.slice(0, 2).join(' | '));
 
