@@ -1501,3 +1501,14 @@ body.presenting .strip[data-current="true"] {
 }
 .tab-x:hover { opacity: 1; background: var(--tint); }
 .tab-x:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: 1px; }
+
+/* A small-multiples badge carries the series' LAST VALUE, which is a level,
+   coloured by whether the series rose or fell. It wore `.delta` for those two
+   colours alone, which made `.delta` mean "a change OR a level" and quietly
+   pulled 22 to 48 real percentage levels per page out of the gate's reach on
+   ops-grid, the page that carried the percent-change-of-a-percentage bug.
+   Found by the publishing session reading chart.js rather than the class name.
+   `.delta` now means a change, and only a change. */
+.lastval { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 12.5px; }
+.lastval.up { color: var(--good); }
+.lastval.down { color: var(--bad); }

@@ -254,7 +254,7 @@ export function display(k) {
 function noteOf(k) {
   const bits = [];
   if (Number.isFinite(k.delta)) {
-    bits.push(F.deltaTag(k.delta, { invert: !!k.invert, unit: k.deltaUnit === 'pp' ? '%' : '%' })
+    bits.push(F.deltaTag(k.delta, { invert: !!k.invert, unit: k.deltaUnit || '%' })
       + ` <span class="muted">on prior period</span>`);
   }
   if (k.note) bits.push(`<span class="muted">${esc(k.note)}</span>`);

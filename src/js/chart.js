@@ -545,7 +545,7 @@ export function multiples(opts) {
     const up = last >= first;
     return `<div class="mult" ${r.click ? `data-click="${esc(r.click)}" tabindex="0"` : ''}>
       <div class="mult-head"><b>${esc(trim(r.name, 20))}</b>
-        <span class="${up ? 'delta up' : 'delta down'}">${esc(show(last))}</span></div>
+        <span class="lastval ${up ? 'up' : 'down'}">${esc(show(last))}</span></div>
       <svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"
         style="width:100%;height:44px">
         <polyline points="${pts.join(' ')}" fill="none" stroke="${seriesColour(i % 6)}"
