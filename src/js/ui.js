@@ -20,17 +20,120 @@ export function verdict({ title, body, figs = [] }) {
    figure wears a quiet control that opens the picker for that position. The
    control is only drawn where a slot is given, so a strip inside a page that
    is not the client's to configure stays plain. */
+/* ⚖️ Matt, 2026-11-02, on the settings tab built an hour earlier: *"that just
+   seems like a really roundabout way to do it and it's out of the way. is
+   there a tasteful way to have the KPI picker function integrated into the KPI
+   strip itself? more seamless and real time?"* He is right, so the figure
+   itself is the control.
+
+   The LABEL is the button, because that is the word naming what the figure is
+   and so the thing a person reaches for when they want it to be something
+   else. No gear, no second affordance: a card with a tool on it is a card
+   wearing its own plumbing.
+
+   Every option carries its real value in the markup, so moving through the
+   list swaps the figure in place with no fetch and no repaint: you read the
+   actual number before you choose it. That is what makes it real time rather
+   than a list of names you pick blind and then go and look at. */
 export function strip(items) {
-  return `<div class="strip">${items.map(i => `
-    <div class="strip-item">
-      <div class="strip-label">${esc(i.label)}${Number.isInteger(i.slot)
-        ? `<button class="strip-swap" data-act="menu" data-arg="kpi:${i.slot}"
-            aria-label="Change what this figure shows" title="Change what this figure shows"
-            >${icon('gear', 13)}</button>` : ''}</div>
+  return `<div class="strip">${items.map(i => {
+    const pick = Number.isInteger(i.slot) && i.options && i.options.length > 1;
+    return `<div class="strip-item${pick ? ' pickable' : ''}" ${pick ? `data-slot="${i.slot}"` : ''}>
+      <div class="strip-label">${pick
+      ? `<button class="fig-open" aria-haspopup="listbox" aria-expanded="false">
+           <span>${esc(i.label)}</span>${icon('caret', 11)}</button>`
+      : esc(i.label)}</div>
       <div class="strip-value">${F.figure(i.value)}</div>
-      ${i.note ? `<div class="strip-note">${i.note}</div>` : ''}
+      ${i.note ? `<div class="strip-note" data-own="${esc(i.note)}">${i.note}</div>`
+      : `<div class="strip-note" data-own=""></div>`}
       ${i.spark ? spark(i.spark) : ''}
-    </div>`).join('')}</div>`;
+      ${pick ? `<div class="fig-menu" role="listbox" hidden>${i.options.map(o =>
+        `<button role="option" class="fig-opt" data-id="${esc(o.id)}"
+           data-fig="${esc(F.figure(o.value))}" data-note="${esc(o.note || '')}"
+           aria-selected="${o.id === i.id}">
+           <span class="fo-n">${esc(o.label)}</span>
+           <span class="fo-v">${F.figure(o.value)}</span>
+         </button>`).join('')}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* The strip's own behavior: open on the label, preview on hover or arrow,
+   commit on click, restore on Escape or a click away. It writes nothing and
+   reads nothing beyond the markup above, so the preview cannot disagree with
+   what a commit will produce. */
+export function wireStrip(host, commit) {
+  const own = new WeakMap();
+  const close = (item, restore = true) => {
+    const menu = item.querySelector('.fig-menu');
+    if (!menu || menu.hidden) return;
+    menu.hidden = true;
+    item.classList.remove('open');
+    item.querySelector('.fig-open')?.setAttribute('aria-expanded', 'false');
+    if (restore) show(item, null);
+  };
+  const show = (item, opt) => {
+    const v = item.querySelector('.strip-value');
+    const n = item.querySelector('.strip-note');
+    const mine = own.get(item);
+    if (v) v.innerHTML = opt ? opt.dataset.fig : mine.value;
+    if (n) n.innerHTML = opt ? esc(opt.dataset.note) : mine.note;
+    item.classList.toggle('previewing', !!opt);
+  };
+
+  for (const item of host.querySelectorAll('.strip-item.pickable')) {
+    own.set(item, {
+      value: item.querySelector('.strip-value')?.innerHTML || '',
+      note: item.querySelector('.strip-note')?.innerHTML || '',
+    });
+    const open = item.querySelector('.fig-open');
+    const menu = item.querySelector('.fig-menu');
+    open.addEventListener('click', ev => {
+      ev.stopPropagation();
+      const wasOpen = !menu.hidden;
+      for (const other of host.querySelectorAll('.strip-item.pickable')) close(other);
+      if (wasOpen) return;
+      menu.hidden = false;
+      item.classList.add('open');
+      open.setAttribute('aria-expanded', 'true');
+      (menu.querySelector('[aria-selected="true"]') || menu.firstElementChild)?.focus();
+    });
+    menu.addEventListener('pointerover', ev => {
+      const opt = ev.target.closest('.fig-opt');
+      if (opt) show(item, opt);
+    });
+    menu.addEventListener('focusin', ev => {
+      const opt = ev.target.closest('.fig-opt');
+      if (opt) show(item, opt);
+    });
+    menu.addEventListener('pointerleave', () => show(item, null));
+    menu.addEventListener('click', ev => {
+      const opt = ev.target.closest('.fig-opt');
+      if (!opt) return;
+      ev.stopPropagation();
+      close(item, false);
+      commit(Number(item.dataset.slot), opt.dataset.id);
+    });
+    menu.addEventListener('keydown', ev => {
+      const opts = [...menu.querySelectorAll('.fig-opt')];
+      const at = opts.indexOf(document.activeElement);
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        ev.preventDefault();
+        const next = opts[(at + (ev.key === 'ArrowDown' ? 1 : opts.length - 1)) % opts.length];
+        next?.focus();
+      } else if (ev.key === 'Escape') {
+        ev.preventDefault(); close(item); open.focus();
+      }
+    });
+  }
+  /* one document listener per paint, removed with the markup it belongs to */
+  const away = ev => {
+    if (!host.isConnected) { document.removeEventListener('click', away); return; }
+    for (const item of host.querySelectorAll('.strip-item.pickable')) {
+      if (!item.contains(ev.target)) close(item);
+    }
+  };
+  document.addEventListener('click', away);
 }
 
 /* A panel head wears a tile with its icon, as Core BI's sys-tile does. The
@@ -45,7 +148,7 @@ const TILE_WORDS = [
   [/balance|position|equity|asset|liabilit/i, 'scale'],
   [/margin|profit|gross|ebitda|cascade/i, 'wedge'],
   [/revenue|sales|income|earned|turnover/i, 'bars'],
-  [/cost|expense|overhead|payroll|labour|labor|spend/i, 'ledger'],
+  [/cost|expense|overhead|payroll|labor|labor|spend/i, 'ledger'],
   [/month|year|quarter|season|pattern|trend|cumulative|history/i, 'clock'],
   [/rule|threshold|flag|needs you|watch|exception|control|close|sign.off/i, 'flag'],
   [/people|manager|principal|supervisor|driver|staff|headcount|who carries/i, 'people'],
@@ -53,7 +156,7 @@ const TILE_WORDS = [
   [/document|paperwork|file|pack|statement|report/i, 'doc'],
   [/connect|integration|software|reading|source|feed/i, 'link'],
   [/level|role|permission|access|view/i, 'lock'],
-  [/brand|logo|colour|color|typeface|look/i, 'sun'],
+  [/brand|logo|color|color|typeface|look/i, 'sun'],
   [/grid|portfolio|every |all |list|table/i, 'grid'],
   [/map|state|region|territor|lane|route/i, 'compass'],
 ];

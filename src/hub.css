@@ -1,14 +1,14 @@
 /* ===========================================================================
    Hub — the look.
 
-   Every colour a brand controls arrives as a custom property set on :root by
-   theme.js from the brand kit. Nothing in this file hard-codes a brand colour,
+   Every color a brand controls arrives as a custom property set on :root by
+   theme.js from the brand kit. Nothing in this file hard-codes a brand color,
    which is what makes the whole page reskin in one assignment.
 
    Material matters. A flat page reads as a prototype, so panels sit on a
    navy-tinted shadow over a textured ground, figures are set tight and large
    with their units smaller than their digits, and status is a dot beside a
-   word rather than a coloured box.
+   word rather than a colored box.
    =========================================================================== */
 
 :root {
@@ -197,6 +197,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :root[data-theme="dark"] .tab:hover { background: rgba(255, 255, 255, .06); }
 .tab[aria-current="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
 .tab[disabled] { opacity: .42; cursor: not-allowed; }
+/* a tab that opens a list says so, otherwise it reads as a label */
+.tab.opens { display: flex; align-items: center; gap: 8px; }
+.tab.opens > span { flex: 1 1 auto; }
+.tab.opens svg { flex: 0 0 auto; opacity: .5; transition: opacity .15s ease, transform .2s ease; }
+.tab.opens:hover svg { opacity: .9; }
 
 /* the main column */
 #main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -447,34 +452,191 @@ table.t td .btn { white-space: nowrap; }
 }
 #demo-note button { margin-left: auto; background: none; border: 0; color: inherit; opacity: .7; font-size: 15px; line-height: 1; }
 
-/* settings console */
-.set-grid { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 20px; align-items: start; }
-.set-nav { position: sticky; top: 76px; }
-.set-nav button {
-  display: block; width: 100%; text-align: left;
-  padding: 9px 13px; margin-bottom: 3px;
-  background: none; border: 0; border-radius: var(--radius-sm);
-  font-size: 13.5px; color: var(--ink-soft);
+/* settings console ---------------------------------------------------------
+   One pattern: a row with the setting named on the left and its control on the
+   right, in a column that lines up the length of the page. Matt, 2026-11-02:
+   the old stack of label-over-input fields read as "mom's basement coding
+   layout", and he was right. A form becomes a console when the eye has one
+   place to look for every control. */
+.set-grid { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 22px; align-items: start; }
+
+.set-nav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 76px; }
+.set-nav > button {
+  display: flex; align-items: flex-start; gap: 11px; width: 100%;
+  padding: 10px 12px; border: 0; border-radius: 12px; background: none;
+  text-align: left; color: var(--ink-soft);
+  transition: background .15s ease, color .15s ease;
 }
-.set-nav button[aria-current="true"] { background: var(--paper); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 5px; }
-.field .hint { font-size: 11.5px; color: var(--ink-faint); margin-top: 4px; }
-.field input[type="text"], .field input[type="number"], .field select, .field textarea {
-  width: 100%; padding: 8px 11px; font: inherit; font-size: 13px;
-  color: var(--ink); background: var(--paper);
-  border: 1px solid var(--rule); border-radius: var(--radius-sm);
+.set-nav > button b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.set-nav > button > span > span { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
+.set-nav .sn-i {
+  display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px;
+  border-radius: 9px; background: var(--tint); color: var(--ink-soft);
 }
-.field input[type="color"] { width: 46px; height: 32px; padding: 2px; border: 1px solid var(--rule); border-radius: 7px; background: var(--paper); }
-.swatches { display: flex; flex-wrap: wrap; gap: 12px; }
-.swatch { text-align: center; font-size: 11px; color: var(--ink-faint); }
+.set-nav > button:hover { background: var(--tint); }
+.set-nav > button[aria-current="true"] { background: var(--paper); box-shadow: var(--shadow-sm); }
+.set-nav > button[aria-current="true"] .sn-i { background: var(--accent); color: #fff; }
+.set-reset { margin-top: 16px; padding: 14px 12px 0; border-top: 1px solid var(--rule-soft); }
+.set-reset p { margin: 8px 0 0; font-size: 11.5px; color: var(--ink-faint); line-height: 1.45; }
+
+.srow {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: 18px 26px; align-items: start;
+  padding: 16px 0; border-top: 1px solid var(--rule-soft);
+}
+.panel-body > .srow:first-child { border-top: 0; padding-top: 4px; }
+.srow.full { grid-template-columns: minmax(0, 1fr); }
+.srow-t label, .srow-t b { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.srow-t span { display: block; margin-top: 3px; font-size: 12.5px; line-height: 1.5; color: var(--ink-faint); max-width: 56ch; }
+.srow-c { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.srow.full .srow-c { margin-top: 4px; }
+.srow-c > input[type="text"], .srow-c > select { width: 100%; }
+.srow-c input.narrow { width: 90px; }
+.srow-c input.hex { width: 108px; }
+
+/* every field in the console reads the same, whatever element it is */
+.srow-c input[type="text"], .srow-c select, .row-item select {
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 9px; padding: 8px 10px;
+}
+.srow-c input[type="text"]:focus, .srow-c select:focus {
+  outline: 2px solid var(--accent-lift); outline-offset: 1px; border-color: var(--accent-lift);
+}
+
+/* a switch says what state a thing is in */
+.sw {
+  position: relative; width: 42px; height: 24px; flex: none; align-self: flex-start; padding: 0;
+  border: 0; border-radius: 999px; background: var(--rule); cursor: pointer;
+  transition: background .2s ease;
+}
+.sw i {
+  position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: transform .2s cubic-bezier(.25,1,.5,1);
+}
+.sw[aria-checked="true"] { background: var(--accent); }
+.sw[aria-checked="true"] i { transform: translateX(18px); }
+.sw:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: 2px; }
+
+.colour-set { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.colour-set input[type="color"] { width: 40px; height: 34px; padding: 2px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); }
+.pal { display: flex; gap: 10px; flex-wrap: wrap; }
+.pal-c { display: flex; flex-direction: column; gap: 4px; font-size: 10.5px; cursor: pointer; }
+.pal-c input[type="color"] { width: 76px; height: 38px; padding: 2px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); }
+.pal-c b { font-weight: 600; color: var(--ink-soft); }
+.pal-c span { color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+.mark-preview {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px;
+  background: var(--navy); border-radius: 14px;
+}
+.mark-preview .rail-mark { width: 42px; height: 42px; flex: 0 0 42px; }
+.mark-preview b { display: block; color: #fff; font-family: var(--font-display); font-weight: 600; }
+.mark-preview span { display: block; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: rgba(255,255,255,.6); }
 
 .drop {
-  border: 2px dashed var(--rule); border-radius: var(--radius);
-  padding: 22px; text-align: center; color: var(--ink-faint); font-size: 13px;
-  background: var(--tint);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  padding: 20px 16px; border: 1.5px dashed var(--rule); border-radius: 12px;
+  background: var(--tint); color: var(--ink-faint); font-size: 12.5px; text-align: center;
 }
-.drop.over { border-color: var(--accent); color: var(--accent); }
+.drop img { max-height: 58px; max-width: 100%; }
+.drop label { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
+
+@media (max-width: 900px) {
+  .set-grid { grid-template-columns: minmax(0, 1fr); }
+  .set-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .set-nav > button { width: auto; }
+  .set-nav > button > span > span { display: none; }
+  .srow { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}
+
+/* a view level, as a card rather than a row of a join table */
+.lvl { padding: 18px 0; border-top: 1px solid var(--rule-soft); }
+.panel-body > .lvl:first-child { border-top: 0; padding-top: 4px; }
+.lvl-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.lvl-ord {
+  display: grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px;
+  border-radius: 50%; background: var(--navy); color: #fff;
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.lvl-head > input[type="text"] {
+  flex: 1 1 190px; min-width: 150px; font: inherit; font-size: 14px; font-weight: 600;
+  color: var(--ink); background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 9px; padding: 7px 10px;
+}
+.lvl-head > input:focus { outline: 2px solid var(--accent-lift); outline-offset: 1px; }
+.lvl-move { display: inline-flex; gap: 2px; }
+.lvl-move .btn { padding: 6px 7px; }
+.lvl-move .btn svg { transform: rotate(180deg); }
+.lvl-move .btn.down svg { transform: none; }
+.btn.danger { color: var(--bad); }
+.lvl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 12px; }
+.lvl-f { display: flex; flex-direction: column; gap: 5px; }
+.lvl-f b { font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.lvl-f select {
+  font: inherit; font-size: 13px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--rule); border-radius: 9px; padding: 8px 10px; width: 100%;
+}
+.lvl-pages { margin-top: 12px; }
+.lvl-pages > summary {
+  display: flex; align-items: center; gap: 7px; cursor: pointer; list-style: none;
+  font-size: 13px; color: var(--ink-soft); padding: 7px 0;
+}
+.lvl-pages > summary::-webkit-details-marker { display: none; }
+.lvl-pages > summary b { color: var(--ink); }
+.lvl-pages > summary span { display: inline-flex; transition: transform .2s ease; }
+.lvl-pages[open] > summary span { transform: rotate(180deg); }
+.lvl-plist { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 18px; padding: 6px 0 2px; }
+.lvl-plist > div b { display: block; font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+.lvl-plist > div span { display: block; font-size: 12.5px; color: var(--ink-soft); padding: 1px 0; }
+.lvl-miss { margin: 8px 0 0; font-size: 12px; color: var(--ink-faint); line-height: 1.5; }
+.lvl-people { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--rule-soft); }
+.lvl-people > b { display: block; font-size: 12px; font-weight: 600; color: var(--ink-soft); margin-bottom: 7px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 6px 4px 11px;
+  border-radius: 999px; background: var(--tint); font-size: 12.5px; color: var(--ink);
+}
+.chip button {
+  display: grid; place-items: center; width: 17px; height: 17px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--ink-faint); cursor: pointer;
+}
+.chip button:hover { background: var(--bad-tint); color: var(--bad); }
+.lvl-add { display: flex; gap: 7px; flex-wrap: wrap; }
+.lvl-add input {
+  flex: 1 1 200px; max-width: 280px; font: inherit; font-size: 13px;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 9px; padding: 7px 10px;
+}
+.lvl-add input:focus { outline: 2px solid var(--accent-lift); outline-offset: 1px; }
+
+/* a pack on paper: the only thing on the page while it prints, so the browser
+   saves the document and not a screenshot of the dashboard around it */
+#pack-print { display: none; }
+@media print {
+  body.printing-pack > #shell, body.printing-pack > #deco { display: none !important; }
+  body.printing-pack #pack-print { display: block; padding: 0; color: #111; }
+  #pack-print header { display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 20px; padding-bottom: 12px; border-bottom: 2px solid #111; }
+  #pack-print h1 { font-family: var(--font-display); font-size: 23px; margin: 0; }
+  #pack-print header p { margin: 4px 0 0; font-size: 12px; color: #555; }
+  #pack-print .pp-mark { font-family: var(--font-display); font-weight: 700; font-size: 17px;
+    border: 2px solid #111; border-radius: 8px; padding: 5px 9px; }
+  #pack-print .pp-note { margin: 12px 0 20px; font-size: 11.5px; color: #555; }
+  #pack-print h2 { font-family: var(--font-display); font-size: 15px; margin: 22px 0 7px;
+    break-after: avoid; }
+  #pack-print h2 small { font-weight: 400; font-size: 11.5px; color: #666; }
+  #pack-print table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+  #pack-print th { text-align: left; border-bottom: 1px solid #111; padding: 5px 4px;
+    font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+  #pack-print td { padding: 5px 4px; border-bottom: 1px solid #e4e4e4; }
+  #pack-print .n { text-align: right; font-variant-numeric: tabular-nums; }
+  #pack-print tr { break-inside: avoid; }
+  #pack-print footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc;
+    font-size: 10.5px; color: #666; }
+  @page { margin: 16mm; }
+}
 
 /* connector cards */
 .cat { margin-bottom: 26px; }
@@ -482,7 +644,7 @@ table.t td .btn { white-space: nowrap; }
 .cat-head h3 { font-size: 16px; }
 .cat-head .tag { margin-left: auto; }
 .cat p.blurb { margin: 0 0 12px; font-size: 13px; color: var(--ink-faint); max-width: 76ch; }
-.conns { display: grid; gap: 11px; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
+.conns { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); }
 .conn {
   background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius);
   padding: 13px 14px; box-shadow: var(--shadow-sm);
@@ -501,11 +663,17 @@ table.t td .btn { white-space: nowrap; }
 .conn-name { font-weight: 600; font-size: 13.5px; line-height: 1.2; }
 .conn-meta { font-size: 11px; color: var(--ink-faint); }
 .conn-note { font-size: 12px; color: var(--ink-soft); line-height: 1.45; }
-.conn-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 4px; }
+.conn-foot {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin-top: auto; padding-top: 8px;
+}
 .conn-foot .btn { margin-left: auto; }
+/* a pill never breaks its own words: "We recommend" was setting as two lines
+   inside a chip built for one */
+.tag, .conn-foot .btn { white-space: nowrap; }
 .status-live { color: var(--good); }
 .status-built { color: var(--warn); }
-.status-catalogued { color: var(--ink-faint); }
+.status-cataloged { color: var(--ink-faint); }
 
 /* the connect sheet */
 #sheet-wrap {
@@ -568,8 +736,29 @@ table.t td .btn { white-space: nowrap; }
 .door b { font-size: 14.5px; }
 .door span { font-size: 12.5px; color: var(--ink-faint); line-height: 1.45; }
 
+/* a numbered slot in the headline-figures tab */
+.slot-n {
+  display: grid; place-items: center; flex: 0 0 26px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--tint); color: var(--ink-soft);
+  font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.slot-v {
+  flex: 0 0 auto; font-family: var(--font-display); font-size: 17px;
+  font-variant-numeric: tabular-nums; color: var(--ink);
+}
+/* the field styling lived only inside table.t, so a select anywhere else fell
+   back to the browser's own and read as unfinished next to the house's inputs */
+.row-item select {
+  width: 100%; max-width: 340px;
+  font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule);
+  border-radius: 8px; padding: 6px 9px;
+}
+.row-item select:focus { outline: 2px solid var(--accent-lift); outline-offset: 1px; }
+
 /* the connection wall: a mark and a name per connector, wrapping, so a long
-   catalogue reads as one object rather than a column of status rows */
+   catalog reads as one object rather than a column of status rows */
 .conn-wall { display: flex; flex-wrap: wrap; gap: 7px; }
 .conn-chip {
   display: inline-flex; align-items: center; gap: 7px;
@@ -579,7 +768,7 @@ table.t td .btn { white-space: nowrap; }
 }
 .conn-chip .conn-logo { width: 20px; height: 20px; font-size: 9px; border-radius: 6px; }
 /* live is the only state that earns a colour: the others are honest about
-   being catalogue entries and a wall of green would say otherwise */
+   being catalog entries and a wall of green would say otherwise */
 .conn-chip.live { border-color: color-mix(in srgb, var(--good) 40%, transparent);
   background: var(--good-tint); }
 .lede { margin: 0 0 14px; font-size: 15px; line-height: 1.55; color: var(--ink-soft); max-width: 86ch; }

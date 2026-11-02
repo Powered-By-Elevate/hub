@@ -51,9 +51,9 @@ class Rand:
         self.s = (self.s * 48271) % 0x7FFFFFFF
         return self.s / 0x7FFFFFFF
 
-    def around(self, centre: float, spread: float) -> float:
-        """centre, plus or minus up to spread (as a fraction of centre)."""
-        return centre * (1 + (self.next() * 2 - 1) * spread)
+    def around(self, center: float, spread: float) -> float:
+        """center, plus or minus up to spread (as a fraction of center)."""
+        return center * (1 + (self.next() * 2 - 1) * spread)
 
     def pick(self, items):
         return items[int(self.next() * len(items)) % len(items)]
@@ -283,7 +283,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
 
             for line, amount in (
                 ("rev", rev), ("cor", cor), ("gp", gp),
-                ("labour", oh_split[0]), ("facility", oh_split[1]), ("equip", oh_split[2]),
+                ("labor", oh_split[0]), ("facility", oh_split[1]), ("equip", oh_split[2]),
                 ("sales", oh_split[3]), ("admin", oh_split[4]), ("oh", oh_total),
                 ("ebitda", ebitda), ("dep", dep), ("int", interest), ("other", other), ("ni", ni),
             ):
@@ -316,7 +316,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
         ar_total = round2(rev_total * model["dso"] / 30.4)
         inv_total = round2(rev_total * inv_rate)
         ap_total = round2(rev_total * (1 - model["gm"]) * model["dpo"] / 30.4)
-        accr_total = round2(sum(r["v"] for r in pl_rows if r["l"] == "labour" and r["m"] == month) * 0.42)
+        accr_total = round2(sum(r["v"] for r in pl_rows if r["l"] == "labor" and r["m"] == month) * 0.42)
         oca_total = round2(rev_total * 0.06)
         ooa_total = round2(rev_total * 0.09)
         ocl_total = round2(rev_total * 0.05)

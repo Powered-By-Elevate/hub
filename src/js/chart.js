@@ -4,8 +4,8 @@
    panel, every mark carries a <title> so a hover always says what it is, and
    line charts additionally take a cursor guideline wired by wire().
 
-   Series colours come from the validated dataviz palette on :root, never from
-   a brand accent, because a brand colour has no contrast guarantee. */
+   Series colors come from the validated dataviz palette on :root, never from
+   a brand accent, because a brand color has no contrast guarantee. */
 
 import { esc, hash } from './icons.js';
 
@@ -82,7 +82,7 @@ export function line(opts) {
   }
 
   series.forEach((s, si) => {
-    const c = s.colour || seriesColour(si);
+    const c = s.color || seriesColour(si);
     const pts = s.values.map((v, i) => Number.isFinite(v) ? `${x(i).toFixed(1)},${y(v).toFixed(1)}` : null)
       .filter(Boolean);
     if (!pts.length) return;
@@ -110,7 +110,7 @@ export function line(opts) {
 
 function legendOf(series) {
   return `<div class="chart-legend">` + series.map((s, i) =>
-    `<span><i style="background:${s.colour || seriesColour(i)}${s.dash ? ';opacity:.6' : ''}"></i>${esc(s.name)}</span>`
+    `<span><i style="background:${s.color || seriesColour(i)}${s.dash ? ';opacity:.6' : ''}"></i>${esc(s.name)}</span>`
   ).join('') + `</div>`;
 }
 
@@ -118,9 +118,9 @@ function legendOf(series) {
 
 export function bars(opts) {
   const {
-    values = [], labels = [], height = 220, fmt = v => v, colour = null,
+    values = [], labels = [], height = 220, fmt = v => v, color = null,
     target = null, overlay = null, overlayName = 'Budget', name = 'Actual',
-    negativeOk = true, negColour = 'var(--bad)',
+    negativeOk = true, negColor = 'var(--bad)',
   } = opts;
   if (!values.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const padL = 56, padR = 14, padT = 14, padB = 26;
@@ -132,7 +132,7 @@ export function bars(opts) {
   if (hi === lo) hi = lo + 1;
   const bw = iw / values.length;
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
-  const c = colour || seriesColour(0);
+  const c = color || seriesColour(0);
 
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
@@ -149,7 +149,7 @@ export function bars(opts) {
     const w = bw * 0.64;
     const top = Math.min(y(v), y(0)), h = Math.max(1.5, Math.abs(y(v) - y(0)));
     svg += `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
-      fill="${v < 0 ? negColour : c}" rx="2"><title>${esc(name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
+      fill="${v < 0 ? negColor : c}" rx="2"><title>${esc(name)} · ${esc(labels[i] || '')}: ${esc(fmt(v))}</title></rect>`;
     if (overlay && Number.isFinite(overlay[i])) {
       svg += `<line x1="${(bx - w * 0.1).toFixed(1)}" x2="${(bx + w * 1.1).toFixed(1)}"
         y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"
@@ -215,7 +215,7 @@ export function stack(opts) {
 /* ------------------------------------------------------------------ donut */
 
 export function donut(opts) {
-  const { parts = [], size = 190, fmt = v => v, centre = null, centreLabel = '' } = opts;
+  const { parts = [], size = 190, fmt = v => v, center = null, centerLabel = '' } = opts;
   const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0);
   if (total <= 0) return `<div class="empty">Nothing to draw yet.</div>`;
   const r = size / 2 - 10, ir = r * 0.62, cx = size / 2, cy = size / 2;
@@ -232,12 +232,12 @@ export function donut(opts) {
     const xi0 = cx + ir * Math.cos(a0), yi0 = cy + ir * Math.sin(a0);
     svg += `<path d="M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 ${big} 1 ${x1.toFixed(1)},${y1.toFixed(1)}
       L${xi1.toFixed(1)},${yi1.toFixed(1)} A${ir},${ir} 0 ${big} 0 ${xi0.toFixed(1)},${yi0.toFixed(1)} Z"
-      fill="${p.colour || seriesColour(i)}"><title>${esc(p.name)}: ${esc(fmt(p.value))} (${(frac * 100).toFixed(1)}%)</title></path>`;
+      fill="${p.color || seriesColour(i)}"><title>${esc(p.name)}: ${esc(fmt(p.value))} (${(frac * 100).toFixed(1)}%)</title></path>`;
     a0 = a1;
   });
-  if (centre !== null) {
-    svg += `<text x="${cx}" y="${cy - 2}" text-anchor="middle" class="readout" style="font-size:17px">${esc(centre)}</text>`;
-    svg += `<text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:10px">${esc(centreLabel)}</text>`;
+  if (center !== null) {
+    svg += `<text x="${cx}" y="${cy - 2}" text-anchor="middle" class="readout" style="font-size:17px">${esc(center)}</text>`;
+    svg += `<text x="${cx}" y="${cy + 14}" text-anchor="middle" style="font-size:10px">${esc(centerLabel)}</text>`;
   }
   svg += `</svg>`;
   return svg;
@@ -247,7 +247,7 @@ export function donutLegend(parts, fmt = v => v) {
   const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0) || 1;
   return `<div class="rows">` + parts.map((p, i) => `
     <div class="row-item" style="padding:7px 10px">
-      <i class="dot" style="background:${p.colour || seriesColour(i)};width:9px;height:9px;flex:0 0 9px"></i>
+      <i class="dot" style="background:${p.color || seriesColour(i)};width:9px;height:9px;flex:0 0 9px"></i>
       <span class="grow">${esc(p.name)}</span>
       <b class="nowrap">${esc(fmt(p.value))}</b>
       <span class="muted nowrap" style="min-width:46px;text-align:right">${(p.value / total * 100).toFixed(1)}%</span>
@@ -313,7 +313,7 @@ export function hbars(opts) {
       <span class="grow nowrap" style="max-width:40%;overflow:hidden;text-overflow:ellipsis"
         title="${esc(r.name)}">${esc(r.name)}</span>
       <span class="bar-cell" style="flex:1;height:${height}px">
-        <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.colour || seriesColour(r.band ?? 0))}"></i>
+        <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.color || seriesColour(r.band ?? 0))}"></i>
         ${r.mark !== undefined ? `<u style="left:${(Math.abs(r.mark) / hi * 100).toFixed(1)}%"></u>` : ''}
       </span>
       <b class="nowrap" style="min-width:74px;text-align:right">${esc(fmt(r.value))}</b>
@@ -342,14 +342,14 @@ export function bullet(opts) {
 
 /* ------------------------------------------------------------------ spark */
 
-export function spark(values, { width = 62, height = 20, colour = null } = {}) {
+export function spark(values, { width = 62, height = 20, color = null } = {}) {
   const v = values.filter(Number.isFinite);
   if (v.length < 2) return '';
   const lo = Math.min(...v), hi = Math.max(...v);
   const span = hi - lo || 1;
   const pts = v.map((d, i) => `${(i / (v.length - 1) * width).toFixed(1)},${(height - (d - lo) / span * height).toFixed(1)}`);
   const up = v[v.length - 1] >= v[0];
-  const c = colour || (up ? 'var(--good)' : 'var(--bad)');
+  const c = color || (up ? 'var(--good)' : 'var(--bad)');
   return `<svg class="strip-spark" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" aria-hidden="true">
     <polyline points="${pts.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6" stroke-linejoin="round"/>
   </svg>`;
@@ -379,7 +379,7 @@ export function scatter(opts) {
   svg += `</g>`;
   points.forEach((p, i) => {
     svg += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${p.r || 6}"
-      fill="${p.colour || seriesColour(i % 6)}" opacity=".78" stroke="var(--paper)" stroke-width="1.4">
+      fill="${p.color || seriesColour(i % 6)}" opacity=".78" stroke="var(--paper)" stroke-width="1.4">
       <title>${esc(p.name)} · ${esc(xLabel)} ${esc(xFmt(p.x))} · ${esc(yLabel)} ${esc(yFmt(p.y))}</title></circle>`;
   });
   svg += `<text x="${W / 2}" y="${height - 5}" text-anchor="middle">${esc(xLabel)}</text>`;
@@ -467,10 +467,10 @@ export function heatmap(opts) {
   </div>`;
 }
 
-/* A five-step ramp in the brand's own colour, not a red-to-green one.
+/* A five-step ramp in the brand's own color, not a red-to-green one.
 
    A heatmap of a LEVEL says more or less, not good or bad: a contract that is
-   20% complete is not failing, and colouring it red says it is. Red and green
+   20% complete is not failing, and coloring it red says it is. Red and green
    are for a measure with a target, which these grids do not carry. Five steps
    rather than a smooth gradient, so a reader can name the step a cell is in. */
 function band(score) {
@@ -597,17 +597,17 @@ export function dial(opts) {
   const a0 = Math.PI * 0.86, a1 = Math.PI * 2.14;          /* open at the bottom */
   const at = v => a0 + (Math.max(min, Math.min(max, v)) - min) / (max - min) * (a1 - a0);
   const pt = (a, rad) => `${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`;
-  const arc = (from, to, rad, w, colour, op = 1) => {
+  const arc = (from, to, rad, w, color, op = 1) => {
     const big = (to - from) > Math.PI ? 1 : 0;
     return `<path d="M${pt(from, rad)} A${rad},${rad} 0 ${big} 1 ${pt(to, rad)}"
-      fill="none" stroke="${colour}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
+      fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
   };
 
   let svg = `<svg class="chart dial" viewBox="0 0 ${size} ${size}"
     style="width:100%;max-width:${size}px;height:auto" role="img">`;
   svg += arc(a0, a1, r, 13, 'var(--rule-soft)');
   for (const b of bands) {
-    svg += arc(at(b.from), at(b.to), r, 13, b.colour || 'var(--rule)', .9);
+    svg += arc(at(b.from), at(b.to), r, 13, b.color || 'var(--rule)', .9);
   }
   svg += arc(a0, at(value), r, 13, 'var(--accent)');
   const tip = at(value);
@@ -648,7 +648,7 @@ export function slope(opts) {
   rows.forEach((r, i) => {
     if (!Number.isFinite(r.from) || !Number.isFinite(r.to)) return;
     const up = r.to >= r.from;
-    const c = r.colour || (up ? 'var(--good)' : 'var(--bad)');
+    const c = r.color || (up ? 'var(--good)' : 'var(--bad)');
     svg += `<line x1="${x0}" y1="${y(r.from).toFixed(1)}" x2="${x1}" y2="${y(r.to).toFixed(1)}"
       stroke="${c}" stroke-width="2.2" opacity=".85"
       ><title>${esc(r.name)}: ${esc(fmt(r.from))} to ${esc(fmt(r.to))}</title></line>`;

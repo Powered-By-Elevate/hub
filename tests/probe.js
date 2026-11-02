@@ -228,46 +228,85 @@ async function main() {
   ok(thin.length === 0, 'a chart axis never leaves a third of the plot empty',
     thin.map(a => `${a.v} on ${a.max} = ${Math.round(a.fill * 100)}%`).join('; '));
 
-  /* The strip is the client's: every figure offers a picker, the picker offers
-     only metrics this industry resolves, and the choice persists.
-     ⚠️ Start here is where the strip lives, and the block above leaves the app
-     on ops-watch, so this has to go home first. */
+  /* --- the figure picks itself, in place (2026-11-02) ----------------------- */
+
   await page.evaluate("location.hash = '#/home'");
   await page.waitForTimeout(700);
-  const picker = await page.evaluate(() => {
-    const swaps = document.querySelectorAll('#page .strip-swap');
-    return { figures: document.querySelectorAll('#page .strip-item').length, swaps: swaps.length };
-  });
-  ok(picker.swaps === picker.figures && picker.figures > 0,
-    'every figure in the strip can be swapped by the client',
-    `${picker.swaps} of ${picker.figures}`);
 
-  await page.evaluate(() => document.querySelectorAll('#page .strip-swap')[1].click());
-  await page.waitForTimeout(260);
-  const offered = await page.evaluate(() => {
-    const items = [...document.querySelectorAll('#menu .menu-item')];
-    return { count: items.length, dashes: items.filter(i => /—|–/.test(i.textContent)).length };
+  const inPlace = await page.evaluate(() => {
+    const items = [...document.querySelectorAll('#page .strip-item')];
+    const pickable = items.filter(i => i.classList.contains('pickable'));
+    return {
+      figures: items.length,
+      pickable: pickable.length,
+      gears: document.querySelectorAll('#page .strip-swap').length,
+      opts: pickable[0]?.querySelectorAll('.fig-opt').length || 0,
+      withValues: [...(pickable[0]?.querySelectorAll('.fig-opt .fo-v') || [])]
+        .every(n => n.textContent.trim().length > 0),
+    };
   });
-  ok(offered.count > 0, 'the picker offers the metrics this industry resolves', String(offered.count));
-  ok(offered.dashes === 0, 'the picker never offers a metric that would read as a dash',
-    String(offered.dashes));
+  ok(inPlace.pickable === inPlace.figures && inPlace.figures > 0,
+    'every figure on the strip picks itself', `${inPlace.pickable} of ${inPlace.figures}`);
+  ok(inPlace.gears === 0, 'no separate control is bolted to the card', String(inPlace.gears));
+  ok(inPlace.opts > 1, 'the list offers this industry’s metrics', String(inPlace.opts));
+  ok(inPlace.withValues, 'every option carries its own live value, so a choice is never blind');
 
-  const swapped = await page.evaluate(() => {
-    const before = [...document.querySelectorAll('#page .strip-label')].map(n => n.textContent.trim());
-    const items = [...document.querySelectorAll('#menu .menu-item')];
-    items[items.length - 1].click();
-    return before;
+  /* ⛔ Hovering an option shows that metric IN THE CARD, and leaving restores
+     exactly what is saved. The restore is the half that broke first: F.figure
+     returns markup, and a textContent round trip put the raw tags on screen. */
+  const preview = await page.evaluate(() => {
+    const item = document.querySelector('#page .strip-item.pickable');
+    const was = item.querySelector('.strip-value').innerHTML;
+    item.querySelector('.fig-open').click();
+    const opts = item.querySelectorAll('.fig-opt');
+    const last = opts[opts.length - 1];
+    last.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }));
+    const during = item.querySelector('.strip-value').innerHTML;
+    item.querySelector('.fig-menu').dispatchEvent(new PointerEvent('pointerleave', { bubbles: true }));
+    const after = item.querySelector('.strip-value').innerHTML;
+    item.querySelector('.fig-menu').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    return { was, during, after, want: last.dataset.fig, tags: /&lt;|&gt;/.test(after) };
   });
-  await page.waitForTimeout(400);
-  const nowLabels = await page.evaluate(() =>
-    [...document.querySelectorAll('#page .strip-label')].map(n => n.textContent.trim()));
-  ok(JSON.stringify(swapped) !== JSON.stringify(nowLabels),
-    'picking a different metric changes the figure shown');
-  const kept = await page.evaluate(() => {
-    try { return (JSON.parse(localStorage.getItem('hub.settings.v2') || '{}').kpiStrip || []).length; }
-    catch (e) { return 0; }
-  });
-  ok(kept > 0, 'the strip choice is saved with the rest of the configuration', String(kept));
+  ok(preview.during === preview.want, 'hovering a metric shows its real figure in the card',
+    `${preview.during} vs ${preview.want}`);
+  ok(preview.after === preview.was, 'leaving the list restores the figure that is saved',
+    `${preview.after} vs ${preview.was}`);
+  ok(!preview.tags, 'the restored figure is markup, not escaped tags on screen', preview.after);
+
+  /* --- the settings console (2026-11-02) ------------------------------------ */
+
+  await page.evaluate("location.hash = '#/settings'");
+  await page.waitForTimeout(600);
+  const console0 = await page.evaluate(() => ({
+    navItems: document.querySelectorAll('.set-nav > button').length,
+    navIcons: document.querySelectorAll('.set-nav .sn-i svg').length,
+    navWhy: [...document.querySelectorAll('.set-nav > button > span > span')]
+      .filter(n => n.textContent.trim()).length,
+    rows: document.querySelectorAll('.srow').length,
+    rowsNamed: [...document.querySelectorAll('.srow')]
+      .filter(r => r.querySelector('.srow-t')?.textContent.trim()).length,
+  }));
+  ok(console0.navItems === 5, 'the console has its five sections', String(console0.navItems));
+  ok(console0.navIcons === console0.navItems, 'each section wears its icon',
+    `${console0.navIcons} of ${console0.navItems}`);
+  ok(console0.navWhy === console0.navItems, 'each section says what it is for',
+    `${console0.navWhy} of ${console0.navItems}`);
+  ok(console0.rows > 0 && console0.rowsNamed === console0.rows,
+    'every setting is a named row, not a bare field', `${console0.rowsNamed} of ${console0.rows}`);
+
+  /* ⛔ .srow-c is a column flex container, so a flex shorthand there sets the
+     HEIGHT: the first switches came out as 42px circles. Measured, not eyeballed. */
+  await page.evaluate(() =>
+    document.querySelector('[data-act="settab"][data-arg="modules"]').click());
+  await page.waitForTimeout(500);
+  const switches = await page.evaluate(() => [...document.querySelectorAll('.sw')].map(n => {
+    const r = n.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }));
+  ok(switches.length > 0 && switches.every(x => x.w === 42 && x.h === 24),
+    'a module switch is a switch, not a circle',
+    switches.map(x => `${x.w}x${x.h}`).join(' '));
 
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');

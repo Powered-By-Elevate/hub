@@ -113,7 +113,7 @@
     },
     "people-home": {
       "module": "people",
-      "name": "People & labour",
+      "name": "People & labor",
       "rank": 70,
       "icon": "people"
     },
@@ -185,7 +185,7 @@
         "formula": "rev-cor"
       },
       {
-        "id": "labour",
+        "id": "labor",
         "name": "Payroll & benefits",
         "kind": "cost"
       },
@@ -213,7 +213,7 @@
         "id": "oh",
         "name": "Total overhead",
         "kind": "computed",
-        "formula": "labour+facility+equip+sales+admin"
+        "formula": "labor+facility+equip+sales+admin"
       },
       {
         "id": "ebitda",

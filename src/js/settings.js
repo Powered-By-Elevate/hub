@@ -1,7 +1,7 @@
 /* The configuration a client owns, and the one function that applies it.
 
    Everything a company changes about a Hub without a build lives in this
-   object: its name, its logo, its colours, its typefaces, which software is
+   object: its name, its logo, its colors, its typefaces, which software is
    connected, which modules are on, and what the view levels are called. It
    persists to this browser and exports as a JSON file, which is the file a
    real deployment is built from. That is the CMS: one object, one apply(). */
@@ -237,7 +237,7 @@ export class Settings {
   }
 }
 
-/* ----------------------------------------------------------------- colour */
+/* ----------------------------------------------------------------- color */
 
 export function mix(a, b, t) {
   const A = rgb(a), B = rgb(b);
@@ -269,7 +269,7 @@ export function contrast(a, b) {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-/* Derive a usable palette from one brand colour. A client who hands over a
+/* Derive a usable palette from one brand color. A client who hands over a
    single hex still gets a complete, readable set rather than a guess. */
 export function paletteFrom(accent) {
   const white = '#ffffff';

@@ -107,7 +107,7 @@ function world(c, brand, isCurrent) {
       <span class="w-tag">${esc(c.tagline)}</span>
       <span class="w-foot">
         <span class="w-unit">${esc(c.units)} ${esc(c.many)}</span>
-        ${spark(c.spark, { width: 54, height: 18, colour: p.accent })}
+        ${spark(c.spark, { width: 54, height: 18, color: p.accent })}
       </span>
     </span>
     <span class="w-go">${isCurrent ? 'Open again' : 'Open this demo'} ${icon('arrow', 15)}</span>

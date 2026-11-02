@@ -60,6 +60,9 @@ async function boot() {
   document.addEventListener('change', onChange);
   document.addEventListener('input', onInput);
   document.addEventListener('keydown', ev => {
+    if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.person) {
+      ev.preventDefault(); addPerson(ev.target.dataset.person); return;
+    }
     if (ev.target.matches('input, textarea, select')) return;
     if (Present.key(ev)) { ev.preventDefault(); return; }
     if (ev.key === 'Escape') { closeMenu(); closeSheet(); }
@@ -156,6 +159,7 @@ function render() {
   }
   host.innerHTML = (s.data.showDemoNote ? demoNote() : '') + html;
   C.wire(host);
+  U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
   World.arm(host);
   if (Present.isOn()) Present.collect();
   host.scrollIntoView({ block: 'start' });
@@ -213,8 +217,9 @@ function tabs(pages) {
       aria-current="${p.id === app.page}">${esc(p.name)}</button>`).join('') +
     (open === 'settings' ? '' : `<hr class="r">
       <div class="tabs-title">Period</div>
-      <button class="tab" data-act="menu" data-arg="month" aria-current="false">
-        ${esc(F.monthName(app.s.data.month, true))}</button>`);
+      <button class="tab opens" data-act="menu" data-arg="month" aria-haspopup="listbox"
+        aria-current="false"><span>${esc(F.monthName(app.s.data.month, true))}</span>
+        ${icon('caret', 13)}</button>`);
 }
 
 function bar() {
@@ -292,6 +297,33 @@ function openMenu(kind, anchor) {
    list is the default, and an id the current industry cannot resolve is
    dropped rather than rendered as a dash: switching industries leaves stale
    ids behind, and a strip of dashes reads as a broken build. */
+/* Put a metric in a slot. ⛔ If it already sits in another slot the two SWAP
+   rather than the metric appearing twice: a strip showing the same figure in
+   two places is a worse strip than the one the client started with, and
+   nothing about "pick what goes here" implies "and lose what you had". Both
+   routes into this choice, the strip's own picker and the settings console,
+   go through here so they cannot behave differently. */
+function placeKpi(slot, id) {
+  const next = stripIds();
+  const already = next.indexOf(id);
+  if (already > -1 && already !== slot) next[already] = next[slot];
+  next[slot] = id;
+  app.s.data.kpiStrip = next;
+  app.s.save();
+}
+
+/* Put a person at a level. Shared by the Add button and the Enter key, so the
+   two cannot behave differently. */
+function addPerson(roleId) {
+  const box = document.querySelector(`[data-person="${roleId}"]`);
+  const who = (box?.value || '').trim();
+  if (!who) { box?.focus(); return; }
+  const r = app.s.data.roles.find(x => x.id === roleId);
+  if (!r) return;
+  r.people = [...(r.people || []), who];
+  app.s.save(); render();
+}
+
 function stripIds() {
   const q = app.q, ok = new Set(q.kpiIds());
   const want = (app.s.data.kpiStrip || []).filter(id => ok.has(id));
@@ -314,7 +346,7 @@ function menuBody(kind) {
       return `<button class="menu-item" data-act="pick-kpi" data-arg="${slot}:${esc(id)}"
         aria-selected="${chosen[slot] === id}">
         <span>${esc(k.label)}<small>${esc(U.display(k))}${
-        elsewhere > -1 && elsewhere !== slot ? ` · already in slot ${elsewhere + 1}` : ''}</small></span>
+        elsewhere > -1 && elsewhere !== slot ? ` · swaps with slot ${elsewhere + 1}` : ''}</small></span>
       </button>`;
     }).join('');
   }
@@ -401,10 +433,8 @@ async function onClick(ev) {
     case 'pick-role': app.s.data.role = arg; app.s.save(); closeMenu(); render(); break;
     case 'pick-kpi': {
       const [slot, id] = arg.split(':');
-      const next = stripIds();
-      next[Number(slot)] = id;
-      app.s.data.kpiStrip = next;
-      app.s.save(); closeMenu(); render(); break;
+      placeKpi(Number(slot), id);
+      closeMenu(); render(); break;
     }
     case 'try-role': app.s.data.role = arg; app.s.save(); go('fin-dash'); break;
     case 'basis': app.s.data.basis = arg; app.s.save(); render(); break;
@@ -417,6 +447,45 @@ async function onClick(ev) {
     case 'present-next': Present.next(); break;
     case 'present-prev': Present.prev(); break;
     case 'present-exit': Present.exit(); break;
+    case 'level-add': {
+      /* A new level starts between the two least senior, because a level
+         someone adds is nearly always a narrower one, and it must not land
+         above the owner by accident. */
+      const rs = app.s.data.roles.slice().sort((a, b) => b.rank - a.rank);
+      const low = rs[rs.length - 1], above = rs[rs.length - 2] || low;
+      app.s.data.roles.push({
+        id: `level-${Date.now().toString(36)}`,
+        name: 'New level', titles: [],
+        rank: Math.max(1, Math.round((low.rank + above.rank) / 2)),
+        scope: low.scope, money: low.money, people: [],
+      });
+      app.s.save(); render(); break;
+    }
+    case 'level-del': {
+      app.s.data.roles = app.s.data.roles.filter(r => r.id !== arg);
+      if (app.s.data.role === arg) app.s.data.role = app.s.data.roles[0].id;
+      app.s.save(); render(); break;
+    }
+    case 'level-up':
+    case 'level-down': {
+      /* Seniority is the ORDER, so moving a level swaps its rank with its
+         neighbour's. The number exists for the engine and is never shown. */
+      const rs = app.s.data.roles.slice().sort((a, b) => b.rank - a.rank);
+      const at = rs.findIndex(r => r.id === arg);
+      const to = at + (act === 'level-up' ? -1 : 1);
+      if (at < 0 || to < 0 || to >= rs.length) break;
+      const a = rs[at], b = rs[to];
+      const keep = a.rank; a.rank = b.rank; b.rank = keep;
+      app.s.save(); render(); break;
+    }
+    case 'person-add': addPerson(arg); break;
+    case 'person-del': {
+      const [rid, idx] = arg.split(':');
+      const r = app.s.data.roles.find(x => x.id === rid);
+      if (r && r.people) { r.people.splice(Number(idx), 1); app.s.save(); render(); }
+      break;
+    }
+    case 'print-pack': printPack(arg); break;
     case 'hide-note': app.s.data.showDemoNote = false; app.s.save(); render(); break;
     case 'industry':
       app.s.useIndustry(arg);
@@ -514,6 +583,13 @@ function onChange(ev) {
     }
     return;
   }
+  if (bind.startsWith('kpi.')) {
+    /* A slot in the Start here strip, set from the settings console. The same
+       store the strip's own picker writes, so the two cannot disagree. */
+    placeKpi(Number(bind.split('.')[1]), el.value);
+    render();
+    return;
+  }
   if (bind.startsWith('role.')) {
     const [, id, field] = bind.split('.');
     const role = app.s.roleById(id);
@@ -590,6 +666,67 @@ function exportQuarters() {
       rev, gp, rev ? (gp / rev * 100).toFixed(2) : '', q.sum('ebitda', win), q.sum('ni', win)]);
   }
   download(`${F.slug(app.s.data.company)}-quarters.csv`, csv(rows), 'text/csv');
+}
+
+/* ⛔ Matt, 2026-11-02: *"your statement and packs section is printing csv's
+   instead of PDF's"*. It was, and the page called them packs, which is a thing
+   you hand to a bank. A static page cannot write a real PDF without pulling in
+   a library, but it can PRINT one, which is how Core BI does it: a paper
+   layout the browser renders and the reader saves as PDF.
+
+   So the pack now has two honest doors. "Print or save as PDF" builds the
+   paper layout and prints it. "Figures as CSV" is named for what it is, for
+   the reader who wants the numbers in a spreadsheet rather than a document. */
+function printPack(id) {
+  const q = app.q, s = app.s, cfg = app.cfg;
+  const w = q.window();
+  const rev = q.sum('rev', w) || 1;
+  const titles = {
+    monthly: 'Monthly reporting pack', owner: 'Owner report',
+    lender: 'Lender package', board: 'Board summary',
+  };
+  const money = v => F.money(v);
+  const plRows = cfg.product.statement.pl.map(l => {
+    const v = q.sum(l.id, w);
+    return `<tr><td>${esc(l.name)}</td><td class="n">${money(v)}</td>
+      <td class="n">${(v / rev * 100).toFixed(1)}%</td></tr>`;
+  }).join('');
+  const bsRows = cfg.product.statement.bs.map(l =>
+    `<tr><td>${esc(l.name)}</td><td class="n">${money(q.bal(l.id))}</td></tr>`).join('');
+
+  const sheet = document.createElement('div');
+  sheet.id = 'pack-print';
+  sheet.innerHTML = `
+    <header>
+      <div>
+        <h1>${esc(titles[id] || 'Pack')}</h1>
+        <p>${esc(s.data.company)} &middot; ${esc(F.monthName(q.view.month, true))}
+          &middot; ${esc(s.data.basis.toUpperCase())}</p>
+      </div>
+      <span class="pp-mark">${esc(s.data.brand.mono || '')}</span>
+    </header>
+    <p class="pp-note">Signed off through ${esc(F.monthName(q.closed, true))}.
+      ${q.view.month > q.closed
+      ? 'This pack includes a month that is not yet signed off, and says so on every figure.'
+      : 'Every figure in this pack comes from signed-off months.'}</p>
+    <h2>Profit &amp; loss</h2>
+    <table><thead><tr><th>Line</th><th class="n">Amount</th><th class="n">Of revenue</th></tr></thead>
+      <tbody>${plRows}</tbody></table>
+    <h2>Balance sheet <small>as of ${esc(F.monthName(q.view.month, true))}</small></h2>
+    <table><thead><tr><th>Line</th><th class="n">Amount</th></tr></thead>
+      <tbody>${bsRows}</tbody></table>
+    <footer>Generated from the same facts the pages read, so a pack and a page cannot disagree.</footer>`;
+  document.body.appendChild(sheet);
+  document.body.classList.add('printing-pack');
+  const done = () => {
+    document.body.classList.remove('printing-pack');
+    sheet.remove();
+    window.removeEventListener('afterprint', done);
+  };
+  window.addEventListener('afterprint', done);
+  window.print();
+  /* a browser that never fires afterprint must not leave the sheet behind */
+  setTimeout(() => { if (sheet.isConnected) done(); }, 60000);
 }
 
 function exportPack(id) {

@@ -68,7 +68,7 @@ node tests/probe.js --quick  # one industry
 node tests/probe.js --shots  # also write screenshots to tests/shots
 ```
 
-5,363 checks. Every page of every level of every industry is opened, and the
+5,370 checks. Every page of every level of every industry is opened, and the
 probe asserts that it drew without throwing, that the console is clean, that
 nothing reads `NaN` or `undefined`, that there is no sideways scroll at 1440 or
 390, that the statements tie, that every KPI resolves to a real number, and

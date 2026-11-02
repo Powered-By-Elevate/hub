@@ -84,16 +84,16 @@ export function dash(ctx) {
           ? [{ name: 'Direct cost', value: q.cost(w) }, { name: 'Everything else', value: Math.max(0, gp) }]
           : [
             { name: 'Cost of revenue', value: q.sum('cor', w) },
-            { name: 'Payroll & benefits', value: q.sum('labour', w) },
+            { name: 'Payroll & benefits', value: q.sum('labor', w) },
             { name: 'Facilities', value: q.sum('facility', w) },
             { name: 'Equipment', value: q.sum('equip', w) },
             { name: 'Sales & marketing', value: q.sum('sales', w) },
             { name: 'General & admin', value: q.sum('admin', w) },
           ];
         const kept = Math.max(0, rev - parts.reduce((a, p) => a + p.value, 0));
-        parts.push({ name: 'Kept', value: kept, colour: 'var(--good)' });
+        parts.push({ name: 'Kept', value: kept, color: 'var(--good)' });
         return `<div style="display:flex;justify-content:center;margin-bottom:12px">
-          ${C.donut({ parts, fmt: v => F.money(v), centre: F.pct(rev ? kept / rev * 100 : 0), centreLabel: 'kept' })}
+          ${C.donut({ parts, fmt: v => F.money(v), center: F.pct(rev ? kept / rev * 100 : 0), centerLabel: 'kept' })}
         </div>${C.donutLegend(parts, v => F.money(v))}`;
       })(),
     }),
@@ -248,7 +248,7 @@ export function pl(ctx) {
     const delta = p ? (v - p) / Math.abs(p) * 100 : NaN;
     const isTotal = ['gp', 'ebitda', 'ni', 'oh'].includes(l.id);
     return {
-      cls: isTotal ? 'total' : (['labour', 'facility', 'equip', 'sales', 'admin'].includes(l.id) ? 'sub' : ''),
+      cls: isTotal ? 'total' : (['labor', 'facility', 'equip', 'sales', 'admin'].includes(l.id) ? 'sub' : ''),
       cells: [
         esc(l.name),
         F.money(v),
@@ -259,7 +259,7 @@ export function pl(ctx) {
     };
   });
 
-  const overheadKeys = ['labour', 'facility', 'equip', 'sales', 'admin'];
+  const overheadKeys = ['labor', 'facility', 'equip', 'sales', 'admin'];
   const last12 = q.months.slice(-12);
 
   return U.pageHead({
@@ -349,7 +349,7 @@ export function margin(ctx) {
       body: C.hbars({
         rows: rows.map(r => ({
           name: r.u.short || r.u.name, value: r.gm, mark: avg,
-          colour: r.gm < avg * 0.6 ? 'var(--bad)' : (r.gm < avg ? 'var(--warn)' : 'var(--good)'),
+          color: r.gm < avg * 0.6 ? 'var(--bad)' : (r.gm < avg ? 'var(--warn)' : 'var(--good)'),
           note: F.money(r.rev),
         })),
         fmt: v => F.pct(v, 1), max: Math.max(...rows.map(r => Math.abs(r.gm)), avg) * 1.05,
@@ -560,7 +560,7 @@ export function balance(ctx) {
       note: 'Both columns on one scale. A balance sheet balances, and this is what that looks like.',
       body: (() => {
         /* Grouped, not line by line. Fourteen segments across two columns
-           repeat the six-colour palette, so cash and payables came out the
+           repeat the six-color palette, so cash and payables came out the
            same blue, and most bars were too thin to label. Five groups are
            readable and the detail is in the tables below. */
         const group = (side, g) => by(side).filter(l => l.group === g)
@@ -591,17 +591,17 @@ export function balance(ctx) {
       body: `<div class="dials">
         ${C.dial({
           value: cur, min: 0, max: 4, label: 'Current ratio',
-          bands: [{ from: 0, to: 1, colour: 'var(--bad)' }, { from: 1, to: 1.5, colour: 'var(--warn)' }],
+          bands: [{ from: 0, to: 1, color: 'var(--bad)' }, { from: 1, to: 1.5, color: 'var(--warn)' }],
           note: 'Current assets over current liabilities. Under 1 is a squeeze.',
         })}
         ${C.dial({
           value: qk, min: 0, max: 3, label: 'Quick ratio',
-          bands: [{ from: 0, to: 0.8, colour: 'var(--bad)' }, { from: 0.8, to: 1, colour: 'var(--warn)' }],
+          bands: [{ from: 0, to: 0.8, color: 'var(--bad)' }, { from: 0.8, to: 1, color: 'var(--warn)' }],
           note: 'Without inventory or work in hand.',
         })}
         ${C.dial({
           value: de, min: 0, max: 4, label: 'Debt to equity',
-          bands: [{ from: 2, to: 3, colour: 'var(--warn)' }, { from: 3, to: 4, colour: 'var(--bad)' }],
+          bands: [{ from: 2, to: 3, color: 'var(--warn)' }, { from: 3, to: 4, color: 'var(--bad)' }],
           note: 'Borrowed against owned. Higher is more leveraged.',
         })}
       </div>`,
@@ -677,7 +677,8 @@ export function statements(ctx) {
     }) +
     packs.map(p => U.panel({
       col: 6, title: p.name, note: p.what,
-      right: U.btn('Generate', { act: 'export-pack', arg: p.id, kind: 'primary', ico: 'download', sm: true }),
+      right: U.btn('Print or save as PDF', { act: 'print-pack', arg: p.id, kind: 'primary', ico: 'print', sm: true })
+        + U.btn('Figures as CSV', { act: 'export-pack', arg: p.id, sm: true, ico: 'download' }),
       body: `<div class="rows">${p.holds.map(h =>
         `<div class="row-item" style="padding:8px 12px">${icon('check', 15)}
           <span class="grow">${esc(h)}</span></div>`).join('')}</div>`,

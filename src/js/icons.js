@@ -43,6 +43,7 @@ const P = {
   bolt: 'M13 3 5 14h5l-1 7 8-11h-5l1-7Z',
   link: 'M9.5 14.5 14.5 9.5M11 7l1.5-1.5a4.2 4.2 0 0 1 6 6L17 13m-4 4-1.5 1.5a4.2 4.2 0 0 1-6-6L7 11',
   plus: 'M12 5v14M5 12h14',
+  caret: 'M6 9l6 6 6-6',
   flag: 'M6 3v18M6 4h11l-2 4 2 4H6',
   clock: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm0 4v5l4 2',
   shield: 'M12 3 5 6v6c0 4 3 7.3 7 9 4-1.7 7-5 7-9V6l-7-3Z',
@@ -72,7 +73,7 @@ const SHAPES = {
   beam: 'M12 1 22 12 12 23 2 12 12 1Z',
 };
 
-/* A monogram mark in the brand's own colour. Replaced by an uploaded lockup. */
+/* A monogram mark in the brand's own color. Replaced by an uploaded lockup. */
 export function brandMark(brand, size = 34) {
   const shape = SHAPES[brand.shape] || SHAPES.square;
   const a = brand.palette.accent;
@@ -89,7 +90,7 @@ export function brandMark(brand, size = 34) {
   </svg>`;
 }
 
-/* A connector tile. Deterministic hue from the id, so the catalogue is stable
+/* A connector tile. Deterministic hue from the id, so the catalog is stable
    and nobody has to ship eighty vendor logos (and their trademarks). */
 export function connTile(conn) {
   const h = Math.abs(hash(conn.id)) % 360;

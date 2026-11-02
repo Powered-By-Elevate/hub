@@ -59,7 +59,16 @@ export function start(ctx) {
   </section>` +
     U.strip(kpis.map((id, slot) => {
       const k = q.kpi(id);
-      return { label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '', slot };
+      /* every option carries its own live value, so hovering one shows the
+         real figure in place rather than a name to be checked afterwards */
+      const options = q.kpiIds().map(oid => {
+        const ok = q.kpi(oid);
+        return { id: oid, label: ok.label, value: U.display(ok), note: ok.note || '' };
+      });
+      return {
+        id, slot, options,
+        label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '',
+      };
     })) +
     `<div class="grid">` +
     U.panel({
@@ -100,7 +109,7 @@ export function start(ctx) {
     }) +
     /* ⚖️ Same day: *"i appreciate the connections section but ... it looks like
        clutter"*. It was a list of rows with a status tag each, which reads as
-       a monitoring panel and is not one: this is the catalogue of what the
+       a monitoring panel and is not one: this is the catalog of what the
        build is wired to, and the detail belongs in Settings. Here it is a wall
        of marks and one sentence, which says the same thing in a glance. */
     U.panel({
@@ -113,7 +122,7 @@ export function start(ctx) {
         : `<div class="empty">Nothing is connected yet. Settings &rsaquo; Integrations.</div>`,
       foot: connected.length
         ? `<b>${live.length} of ${connected.length}</b> have been run against a real company’s
-           data in production. The rest are adapters built or catalogued, and the page says
+           data in production. The rest are adapters built or cataloged, and the page says
            which on every figure that depends on one.`
         : '',
     }) + `</div>`;
@@ -147,7 +156,7 @@ function doorWhy(id, ind) {
     'ops-home': `How the ${ind.unit.many} are running`,
     'ops-units': `Every ${ind.unit.one}, with the money on it`,
     'ops-second': 'The operational read behind the revenue',
-    'people-home': 'Headcount, labour cost and turnover',
+    'people-home': 'Headcount, labor cost and turnover',
     'pipeline-home': 'What is coming, and what it is worth weighted',
     'docs-home': 'The paperwork behind the figures',
   }[id] || '';
@@ -159,7 +168,7 @@ function greeting() {
 }
 
 export function statusWord(status) {
-  return { live: 'Live', built: 'Adapter built', catalogued: 'Available' }[status] || status;
+  return { live: 'Live', built: 'Adapter built', cataloged: 'Available' }[status] || status;
 }
 
 /* ------------------------------------------------------------------ people */
@@ -168,14 +177,14 @@ export function people(ctx) {
   const { q, s } = ctx;
   const p = q.data.people;
   const w = q.window();
-  const labour = q.sum('labour', w);
+  const labor = q.sum('labor', w);
   const rev = q.sum('rev', w) || 1;
 
   return U.pageHead({
     eyebrow: 'People',
-    title: 'People & labour',
+    title: 'People & labor',
     answer: `<b>${F.num(p.headcount)}</b> people, with payroll and benefits at
-      <b>${F.money(labour)}</b> over the window, or <b>${F.pct(labour / rev * 100)}</b> of revenue.
+      <b>${F.money(labor)}</b> over the window, or <b>${F.pct(labor / rev * 100)}</b> of revenue.
       Turnover is running at <b>${F.pct(p.turnover)}</b> a year, and
       <b>${F.num(p.open)}</b> roles are open.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
@@ -189,18 +198,18 @@ export function people(ctx) {
     }) +
     U.panel({
       col: 7, title: 'Payroll against revenue',
-      note: 'The question is whether labour grows with the work or ahead of it.',
+      note: 'The question is whether labor grows with the work or ahead of it.',
       body: C.line({
         series: [
           { name: 'Revenue', values: q.series('rev', q.months.slice(-18)) },
-          { name: 'Payroll & benefits', values: q.series('labour', q.months.slice(-18)) },
+          { name: 'Payroll & benefits', values: q.series('labor', q.months.slice(-18)) },
         ],
         labels: q.months.slice(-18).map(m => F.monthName(m)), fmt: v => F.money(v), height: 250,
       }),
     }) +
     U.panel({
       col: 12, title: 'Where this comes from',
-      body: connectorNote(s, 'people', 'Headcount and labour cost arrive from the payroll system. Until one is connected these figures are the sample set.'),
+      body: connectorNote(s, 'people', 'Headcount and labor cost arrive from the payroll system. Until one is connected these figures are the sample set.'),
     }) + `</div>`;
 }
 

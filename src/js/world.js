@@ -1,4 +1,4 @@
-/* The world's behaviour (world.css carries its look).
+/* The world's behavior (world.css carries its look).
 
    Three things, and each one is written so it cannot move content:
 

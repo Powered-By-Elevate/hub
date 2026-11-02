@@ -345,7 +345,7 @@ function enrolment(ctx) {
       rows: rows.map(r => ({
         name: r.short, value: r.f.enrolled || 0, mark: r.f.capacity,
         note: F.pct(r.f.capacity ? r.f.enrolled / r.f.capacity * 100 : 0, 0),
-        colour: (r.f.enrolled / (r.f.capacity || 1)) < 0.85 ? 'var(--warn)' : 'var(--accent)',
+        color: (r.f.enrolled / (r.f.capacity || 1)) < 0.85 ? 'var(--warn)' : 'var(--accent)',
       })),
       fmt: v => F.num(v), max: Math.max(...rows.map(r => r.f.capacity || 0)),
     }),
@@ -434,7 +434,7 @@ function throughput(ctx) {
     body: C.hbars({
       rows: rows.map(r => ({
         name: r.short, value: r.f.oee || 0, mark: 80, note: r.plant,
-        colour: (r.f.oee || 0) < 62 ? 'var(--bad)' : ((r.f.oee || 0) < 75 ? 'var(--warn)' : 'var(--good)'),
+        color: (r.f.oee || 0) < 62 ? 'var(--bad)' : ((r.f.oee || 0) < 75 ? 'var(--warn)' : 'var(--good)'),
       })).sort((a, b) => a.value - b.value),
       fmt: v => F.pct(v, 1), max: 100,
     }),
@@ -484,7 +484,7 @@ function lanes(ctx) {
   const laneRows = Object.entries(byLane).map(([name, v]) => ({
     name, value: v.miles ? v.rev / v.miles : 0,
     note: `${F.num(v.loads)} loads`,
-    colour: (v.miles ? v.rev / v.miles : 0) < 2.1 ? 'var(--warn)' : 'var(--accent)',
+    color: (v.miles ? v.rev / v.miles : 0) < 2.1 ? 'var(--warn)' : 'var(--accent)',
   })).sort((a, b) => b.value - a.value);
 
   return U.panel({
@@ -643,7 +643,7 @@ export function detail(ctx) {
         rows: q.unitRows().map(r => ({
           name: r.short || r.name,
           value: r.f.rev || 0,
-          colour: r.id === u.id ? 'var(--accent)' : 'var(--rule)',
+          color: r.id === u.id ? 'var(--accent)' : 'var(--rule)',
           note: r.id === u.id ? 'this one' : '',
         })).sort((a, b) => b.value - a.value),
         fmt: v => F.money(v),
@@ -876,7 +876,7 @@ export function grid(ctx) {
       }),
       foot: `${rows.length} ${esc(ind.unit.many)} over ${months.length} months to
         ${esc(F.monthName(months[months.length - 1], true))},
-        ${F.num(rows.length * months.length)} readings. Colour says more or less, not better
+        ${F.num(rows.length * months.length)} readings. Color says more or less, not better
         or worse: these measures carry no target.`,
     }) +
     U.panel({
@@ -1025,7 +1025,7 @@ export function people(ctx) {
         rows: owners.map(o => ({
           name: o.name, value: o.rev, mark: avg,
           note: `${o.units} ${o.units === 1 ? ind.unit.one : ind.unit.many}`,
-          colour: o.flags ? 'var(--warn)' : 'var(--accent)',
+          color: o.flags ? 'var(--warn)' : 'var(--accent)',
         })),
         fmt: v => F.money(v),
       }),
@@ -1110,7 +1110,7 @@ export function season(ctx) {
         fmt: v => F.pct(v, 0), height: 230,
         /* A quiet month is the calendar, not a failure. Red here would say
            February went wrong, and February goes like this every year. */
-        colour: 'var(--accent)', negColour: 'var(--accent-lift)',
+        color: 'var(--accent)', negColor: 'var(--accent-lift)',
       }),
       foot: `This is why a pace read as a share of the year gone can mislead: by
         ${esc(peak)} a seasonal business is further through its year than the calendar says.`,

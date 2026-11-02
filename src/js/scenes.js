@@ -1,10 +1,10 @@
 /* A drawn world per industry.
 
-   Colour alone does not make a dashboard feel built for a company: six
+   Color alone does not make a dashboard feel built for a company: six
    industries in six palettes still read as one template. These are flat,
    layered scenes drawn from the brand's own palette, so a trucking company
    gets a road and a skyline and a school gets a campus, and both are
-   unmistakably in their own colours.
+   unmistakably in their own colors.
 
    Everything is geometry, so there are no image files, nothing to load, and a
    scene costs nothing at any size. Each takes the palette and returns an SVG
@@ -214,7 +214,7 @@ const SCENES = {
 };
 
 /* a block of windows, the one piece every one of these needs */
-function grid(x, y, w, h, cols, rows, colour, opacity) {
+function grid(x, y, w, h, cols, rows, color, opacity) {
   const gx = w / cols, gy = h / rows;
   let out = '';
   for (let c = 0; c < cols; c++) {
@@ -223,7 +223,7 @@ function grid(x, y, w, h, cols, rows, colour, opacity) {
       out += `<rect x="${(x + c * gx + gx * 0.18).toFixed(1)}"
         y="${(y + r * gy + gy * 0.18).toFixed(1)}"
         width="${(gx * 0.64).toFixed(1)}" height="${(gy * 0.64).toFixed(1)}"
-        fill="${colour}" opacity="${(opacity * (lit ? 1.6 : 0.6)).toFixed(2)}"/>`;
+        fill="${color}" opacity="${(opacity * (lit ? 1.6 : 0.6)).toFixed(2)}"/>`;
     }
   }
   return out;

@@ -14,13 +14,46 @@ import { esc, icon, brandMark, connTile } from './icons.js';
 import { paletteFrom, contrast, mix } from './settings.js';
 import { statusWord } from './pages/misc.js';
 
+/* ⚖️ Matt, 2026-11-02: *"i would also love for the settings pages to be
+   intentionally built out in a very user friendly and pleasing to the eye kind
+   of layout. right now it's very mom's basement coding layout"*.
+
+   He is right, and the cause was structural rather than cosmetic: every tab
+   was a stack of label-over-input fields in two ragged columns, which is what
+   a form looks like when nobody decided what it should look like.
+
+   The console is now one pattern: a SETTINGS ROW with the name and a plain
+   sentence on the left and the control on the right, in a column that lines up
+   down the whole page. It gives a scannable left edge, one place for the eye
+   to find every control, and it makes a long tab read as a document rather
+   than a pile. Anything that genuinely needs the width (a palette, a drop
+   zone, a table) takes it with `full`. */
 const TABS = [
-  { id: 'brand', name: 'Brand & identity' },
-  { id: 'conns', name: 'Integrations' },
-  { id: 'levels', name: 'View levels' },
-  { id: 'modules', name: 'Modules & pages' },
-  { id: 'deploy', name: 'Configuration file' },
+  { id: 'brand', name: 'Brand & identity', ico: 'sun', why: 'Name, logo, color, type' },
+  { id: 'conns', name: 'Integrations', ico: 'link', why: 'What the figures are read from' },
+  { id: 'levels', name: 'View levels', ico: 'lock', why: 'Who sees what, and whether in money' },
+  { id: 'modules', name: 'Modules & pages', ico: 'grid', why: 'Which places exist at all' },
+  { id: 'deploy', name: 'Configuration file', ico: 'doc', why: 'Export what a deployment is built from' },
 ];
+
+/* One setting: what it is, what it does, and the control that changes it. */
+function srow({ name, hint = '', control, full = false, id = '' }) {
+  return `<div class="srow${full ? ' full' : ''}">
+    <div class="srow-t">
+      ${id ? `<label for="${esc(id)}">${esc(name)}</label>` : `<b>${esc(name)}</b>`}
+      ${hint ? `<span>${hint}</span>` : ''}
+    </div>
+    <div class="srow-c">${control}</div>
+  </div>`;
+}
+
+/* A switch reads as a state. A button labelled "Switch off" reads as a thing
+   that might be doing something else, and the reader has to work out whether
+   the label is the state or the action. */
+function toggle(on, act, arg, label) {
+  return `<button class="sw" role="switch" aria-checked="${!!on}" aria-label="${esc(label)}"
+    data-act="${esc(act)}" data-arg="${esc(arg)}"><i></i></button>`;
+}
 
 export const FONT_PAIRS = [
   { name: 'Newsreader + IBM Plex Sans', display: '"Newsreader", Georgia, serif', body: '"IBM Plex Sans", -apple-system, sans-serif', google: 'Newsreader:ital,wght@0,400;0,600;0,700;1,400|IBM+Plex+Sans:wght@400;500;600;700' },
@@ -49,9 +82,14 @@ export function settings(ctx) {
       dashboard follows; export it and the same dashboard is built for a real deployment.`,
   }) + `<div class="set-grid">
     <nav class="set-nav">${TABS.map(t =>
-    `<button data-act="settab" data-arg="${t.id}" aria-current="${t.id === tab}">${esc(t.name)}</button>`).join('')}
-      <hr class="r">
-      <button data-act="reset-settings" style="color:var(--bad)">Reset to the sample</button>
+    `<button data-act="settab" data-arg="${t.id}" aria-current="${t.id === tab}">
+       <span class="sn-i">${icon(t.ico, 16)}</span>
+       <span><b>${esc(t.name)}</b><span>${esc(t.why)}</span></span>
+     </button>`).join('')}
+      <div class="set-reset">
+        ${U.btn('Reset to the sample', { act: 'reset-settings', sm: true })}
+        <p>Puts every setting on this page back to the demo it shipped with.</p>
+      </div>
     </nav>
     <div>${body}</div>
   </div>`;
@@ -60,109 +98,90 @@ export function settings(ctx) {
 /* ------------------------------------------------------------------- brand */
 
 function brandTab(ctx) {
-  const { s, cfg } = ctx;
+  const { s } = ctx;
   const d = s.data;
   const p = d.brand.palette;
   const onWhite = contrast(p.accent, '#ffffff');
   const pair = FONT_PAIRS.find(f => f.display === d.brand.type.display);
 
   return U.panel({
-    title: 'Identity',
-    note: 'The company name, the mark and the two typefaces. A client’s own logo replaces the drawn monogram the moment it is uploaded.',
-    body: `<div class="grid" style="gap:20px">
-      <div class="col-6">
-        <div class="field">
-          <label for="f-company">Company name</label>
-          <input id="f-company" type="text" value="${esc(d.company)}" data-bind="company">
-          <div class="hint">Shown in the rail, the window title and every pack.</div>
-        </div>
-        <div class="field">
-          <label for="f-mono">Monogram</label>
-          <input id="f-mono" type="text" maxlength="3" value="${esc(d.brand.mono)}" data-bind="brand.mono"
-            style="width:88px">
-          <div class="hint">Used until a logo is uploaded.</div>
-        </div>
-        <div class="field">
-          <label>Typefaces</label>
-          <select data-bind="fontpair">
-            ${FONT_PAIRS.map((f, i) =>
-    `<option value="${i}" ${pair === f ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}
-          </select>
-          <div class="hint">Display face for headings and figures, body face for everything else.
-            A client’s own faces go in here by name once they are licensed.</div>
-        </div>
-        <div class="field">
-          <label>Theme</label>
-          <div class="basis">
-            <button data-act="theme" data-arg="light" aria-pressed="${d.theme === 'light'}">Light</button>
-            <button data-act="theme" data-arg="dark" aria-pressed="${d.theme === 'dark'}">Dark</button>
-          </div>
-          <div class="hint">Both are checked for contrast. Chart colours change between them on purpose.</div>
-        </div>
-      </div>
-      <div class="col-6">
-        <div class="field">
-          <label>Logo</label>
-          <div class="drop" id="logo-drop">
-            ${d.brand.logo
-      ? `<img src="${esc(d.brand.logo)}" alt="" style="max-height:62px;max-width:100%">
-                 <div style="margin-top:9px">${U.btn('Remove', { act: 'logo-clear', sm: true })}</div>`
-      : `${icon('download', 22)}<div style="margin-top:7px">Drop a PNG or SVG here, or
-                 <label style="color:var(--accent);cursor:pointer;text-decoration:underline">choose a file
-                 <input type="file" id="logo-file" accept="image/*" hidden></label></div>
-                 <div class="hint">Stays in this browser. A real deployment takes the file itself.</div>`}
-          </div>
-        </div>
-        <div class="field">
-          <label>Current mark</label>
-          <div style="display:flex;align-items:center;gap:14px;padding:12px;background:var(--navy);border-radius:12px">
-            <span class="rail-mark" style="width:42px;height:42px;flex:0 0 42px">
-              ${d.brand.logo ? `<img src="${esc(d.brand.logo)}" alt="">` : brandMark(d.brand, 42)}</span>
-            <div style="color:#fff">
-              <div style="font-family:var(--font-display);font-weight:600">${esc(d.company)}</div>
-              <div style="font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.6">
-                ${esc(d.productName)}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`,
+    title: 'Identity', ico: 'compass',
+    note: 'What this Hub is called and what it wears.',
+    body:
+      srow({
+        id: 'f-company', name: 'Company name',
+        hint: 'Shown in the rail, the window title and every pack.',
+        control: `<input id="f-company" type="text" value="${esc(d.company)}" data-bind="company">`,
+      }) +
+      srow({
+        id: 'f-mono', name: 'Monogram',
+        hint: 'Stands in for a logo until one is uploaded. Two or three letters.',
+        control: `<input id="f-mono" type="text" maxlength="3" value="${esc(d.brand.mono)}"
+          data-bind="brand.mono" class="narrow">`,
+      }) +
+      srow({
+        name: 'Logo',
+        hint: `A client’s own logo replaces the monogram the moment it lands. It stays in this
+          browser: a real deployment takes the file itself.`,
+        control: `<div class="drop" id="logo-drop">${d.brand.logo
+          ? `<img src="${esc(d.brand.logo)}" alt="">
+             <div>${U.btn('Remove', { act: 'logo-clear', sm: true })}</div>`
+          : `${icon('download', 20)}<div>Drop a PNG or SVG, or
+             <label>choose a file<input type="file" id="logo-file" accept="image/*" hidden></label></div>`}
+        </div>`,
+      }) +
+      srow({
+        name: 'Typefaces',
+        hint: `A display face for headings and figures, a body face for everything else. A client’s
+          own faces go in here by name once they are licensed.`,
+        control: `<select data-bind="fontpair">${FONT_PAIRS.map((f, i) =>
+          `<option value="${i}" ${pair === f ? 'selected' : ''}>${esc(f.name)}</option>`).join('')}</select>`,
+      }) +
+      srow({
+        name: 'Theme',
+        hint: 'Both are checked for contrast. Chart colors change between them on purpose.',
+        control: `<div class="basis">
+          <button data-act="theme" data-arg="light" aria-pressed="${d.theme === 'light'}">Light</button>
+          <button data-act="theme" data-arg="dark" aria-pressed="${d.theme === 'dark'}">Dark</button>
+        </div>`,
+      }) +
+      srow({
+        name: 'How it reads', full: true,
+        hint: 'The mark as the rail draws it, from everything above.',
+        control: `<div class="mark-preview">
+          <span class="rail-mark">${d.brand.logo
+          ? `<img src="${esc(d.brand.logo)}" alt="">` : brandMark(d.brand, 42)}</span>
+          <div><b>${esc(d.company)}</b><span>${esc(d.productName)}</span></div>
+        </div>`,
+      }),
   }) + U.panel({
-    title: 'Colour',
-    note: 'Set one brand colour and the rest is derived to stay readable, or set each by hand. Chart colours are deliberately not brand colours: a brand hex carries no contrast guarantee, so the series palette is fixed and validated.',
-    body: `<div class="field">
-        <label for="f-accent">Brand colour</label>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    title: 'Color', ico: 'sun',
+    note: `Set one brand color and the rest derives to stay readable, or set each by hand.
+      ⛔ Chart colors are deliberately not brand colors: a brand hex carries no contrast
+      guarantee, so the series palette is fixed and validated.`,
+    body:
+      srow({
+        id: 'f-accent', name: 'Brand color',
+        hint: 'Everything else on this page can be derived from this one value.',
+        control: `<div class="color-set">
           <input id="f-accent" type="color" value="${esc(p.accent)}" data-bind="accent-pick">
-          <input type="text" value="${esc(p.accent)}" data-bind="accent-hex" style="width:112px">
-          ${U.btn('Derive the rest', { act: 'derive', kind: 'primary', sm: true, ico: 'bolt' })}
-          <span class="tag ${onWhite >= 4.5 ? 'good' : 'warn'}"><i class="dot"></i>
-            ${onWhite.toFixed(1)}:1 on white${onWhite >= 4.5 ? '' : ' — text on this needs care'}</span>
-        </div>
-      </div>
-      <div class="swatches" style="margin:16px 0 4px">
-        ${['accent', 'accentDeep', 'accentLift', 'tint', 'navy'].map(k => `
-          <div class="swatch">
+          <input type="text" value="${esc(p.accent)}" data-bind="accent-hex" class="hex">
+          ${U.btn('Derive the rest', { act: 'derive', kind: 'primary', ico: 'bolt', sm: true })}
+          <span class="tag ${onWhite >= 4.5 ? 'good' : onWhite >= 3 ? 'warn' : 'bad'}">
+            <i class="dot"></i>${onWhite.toFixed(1)}:1 on white</span>
+        </div>`,
+      }) +
+      srow({
+        name: 'The derived set', full: true,
+        hint: 'Each one can be set by hand. The dashboard follows immediately.',
+        control: `<div class="pal">${['accent', 'accentDeep', 'accentLift', 'tint', 'navy']
+          .map(k => `<label class="pal-c">
             <input type="color" value="${esc(p[k])}" data-bind="pal.${k}">
-            <div>${esc(k)}</div>
-            <div style="font-family:ui-monospace,monospace;font-size:10px">${esc(p[k])}</div>
-          </div>`).join('')}
-      </div>
-      <hr class="r">
-      <div class="field">
-        <label>Start from a sample brand</label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${Object.entries(cfg.brands.brands).map(([key, b]) => `
-            <button class="btn sm" data-act="usebrand" data-arg="${esc(key)}"
-              style="border-color:${b.palette.accent}">
-              <i class="dot" style="background:${b.palette.accent};width:9px;height:9px"></i>${esc(b.name)}
-            </button>`).join('')}
-        </div>
-      </div>`,
+            <b>${esc(k)}</b><span>${esc(p[k].toUpperCase())}</span>
+          </label>`).join('')}</div>`,
+      }),
   });
 }
-
-/* ------------------------------------------------------------ integrations */
 
 function connsTab(ctx) {
   const { s, cfg } = ctx;
@@ -211,7 +230,7 @@ function connsTab(ctx) {
 }
 
 function sortConns(a, b) {
-  const rank = { live: 0, built: 1, catalogued: 2 };
+  const rank = { live: 0, built: 1, cataloged: 2 };
   if (rank[a.status] !== rank[b.status]) return rank[a.status] - rank[b.status];
   if (!!b.recommend !== !!a.recommend) return b.recommend ? 1 : -1;
   return a.name.localeCompare(b.name);
@@ -265,7 +284,7 @@ export function connectSheet(c, s) {
         background:var(--warn-tint);color:var(--warn);border-radius:9px">
         ${c.status === 'built'
       ? 'The adapter for this one is written and tested against fixtures. Pointing it at a live tenant is configuration, not development.'
-      : 'This one is catalogued: the API and the auth route are confirmed, the adapter is not written yet. Connecting it here switches the sample data on so you can see the shape it would take.'}
+      : 'This one is cataloged: the API and the auth route are confirmed, the adapter is not written yet. Connecting it here switches the sample data on so you can see the shape it would take.'}
       </p>` : ''}
     </div>
     <div class="sheet-foot">
@@ -328,53 +347,124 @@ function scopesFor(c) {
 
 /* ------------------------------------------------------------- view levels */
 
+/* ⚖️ Matt, 2026-11-02: *"this is the most confusing setup ive ever seen. i
+   dont see how to add new users to levels, i dont see how to add new levels,
+   what the fuck does rank mean, what does money mean, what is pages and why is
+   there a try it button. the what each level reaches section is incredibly
+   confusing as well"*.
+
+   Every one of those is the same fault: the table WAS the data model. `rank`
+   is an integer the engine sorts on, `scope` and `money` are field names, and
+   "What each level reaches" was a join table printed on a page. None of it is
+   something a person setting up their company should have to learn.
+
+   ⛔ **Rank is gone from the interface.** A level's seniority is its POSITION
+   in the list, and moving it up or down rewrites the number underneath. Nobody
+   needs to know a number exists.
+
+   ⛔ **Scope and money are sentences**, taken from the config's own
+   descriptions rather than their keys.
+
+   ⛔ **The matrix is gone.** What a level reaches now sits inside that level,
+   where the question is actually asked, behind a disclosure.
+
+   And the two things that were missing entirely, which is why he could not
+   find them: a level can be ADDED, and people can be put IN one. */
 function levelsTab(ctx) {
   const { s, cfg } = ctx;
-  const roles = s.data.roles;
+  const roles = s.data.roles.slice().sort((a, b) => b.rank - a.rank);
   const pageCat = cfg.product.pages;
 
   return U.panel({
-    title: 'View levels',
-    note: 'A page is offered to a level when the page’s rank is at or below the level’s. Move a rank and the rail changes for everyone at that level. Rename them to your own titles: these are starting points, not a fixed hierarchy.',
-    body: U.table({
-      cols: [{ name: 'Level', w: '20%' }, { name: 'Example titles', w: '26%' },
-      { name: 'Rank', n: true, w: '9%' }, { name: 'Scope', w: '13%' }, { name: 'Money', w: '14%' },
-      { name: 'Pages', n: true, w: '8%' }, { name: '', w: '10%' }],
-      rows: roles.map((r) => {
-        const count = countPages(s, r);
-        return {
-          cells: [
-            `<input type="text" value="${esc(r.name)}" data-bind="role.${r.id}.name" style="width:100%;min-width:136px">`,
-            `<span class="muted small titles" title="${esc((r.titles || []).join(', '))}"
-              >${esc((r.titles || []).join(', '))}</span>`,
-            `<input type="number" min="0" max="100" value="${r.rank}" data-bind="role.${r.id}.rank"
-              style="width:62px;text-align:right">`,
-            `<select data-bind="role.${r.id}.scope">${Object.entries(cfg.roles.scopes).map(([k, v]) =>
-              `<option value="${k}" ${r.scope === k ? 'selected' : ''} title="${esc(v)}">${esc(k)}</option>`).join('')}</select>`,
-            `<select data-bind="role.${r.id}.money">${Object.entries(cfg.roles.money).map(([k, v]) =>
-              `<option value="${k}" ${r.money === k ? 'selected' : ''} title="${esc(v)}">${esc(k)}</option>`).join('')}</select>`,
-            `<b>${count}</b>`,
-            `<button class="btn sm ghost" data-act="try-role" data-arg="${esc(r.id)}">Try it</button>`,
-          ],
-        };
-      }),
-    }),
-    foot: `Scope decides how much of the company a level sees, money decides whether currency is
-      shown at all, and rank decides which pages are offered. The three are independent on purpose:
-      a supervisor can see every page for their own crew with no money on any of them.`,
-  }) + U.panel({
-    title: 'What each level reaches',
-    note: 'The page catalogue and the rank each page needs.',
-    body: U.table({
-      cols: [{ name: 'Page' }, { name: 'Module' }, { name: 'Rank needed', n: true }, { name: 'Levels that reach it' }],
-      rows: Object.entries(pageCat).filter(([k, p]) => !k.startsWith('$') && !p.hidden).map(([id, p]) => ({
-        cells: [esc(p.name), esc(cfg.product.modules[p.module].name), String(p.rank),
-        `<span class="muted small">${esc(s.data.roles.filter(r =>
-          (r.allow || []).includes(id) || (p.rank <= r.rank && !(r.deny || []).includes(id)))
-          .map(r => r.name).join(', ') || 'nobody')}</span>`],
-      })),
-    }),
+    title: 'Who sees what', ico: 'people',
+    note: `A level is a job title. Everyone in it sees the same pages, the same much of the
+      company, and money at the same detail. The order is the seniority: a level sees everything
+      the ones below it see, and more.`,
+    right: U.btn('Add a level', { act: 'level-add', kind: 'primary', ico: 'plus', sm: true }),
+    body: roles.map((r, n) => {
+      const reach = pagesFor(s, r, cfg);
+      const people = r.people || [];
+      return `<div class="lvl" data-role="${esc(r.id)}">
+        <div class="lvl-head">
+          <span class="lvl-ord">${n + 1}</span>
+          <input type="text" value="${esc(r.name)}" data-bind="role.${r.id}.name"
+            aria-label="What this level is called">
+          <span class="lvl-move">
+            <button class="btn sm ghost" data-act="level-up" data-arg="${esc(r.id)}"
+              ${n === 0 ? 'disabled' : ''} aria-label="More senior">${icon('caret', 13)}</button>
+            <button class="btn sm ghost down" data-act="level-down" data-arg="${esc(r.id)}"
+              ${n === roles.length - 1 ? 'disabled' : ''} aria-label="Less senior">${icon('caret', 13)}</button>
+          </span>
+          ${U.btn('See the dashboard as this level', { act: 'try-role', arg: r.id, sm: true, ico: 'zoom' })}
+          ${roles.length > 2 ? `<button class="btn sm ghost danger" data-act="level-del"
+            data-arg="${esc(r.id)}" aria-label="Remove this level">${icon('close', 13)}</button>` : ''}
+        </div>
+
+        <div class="lvl-grid">
+          <label class="lvl-f">
+            <b>How much of the company they see</b>
+            <select data-bind="role.${r.id}.scope">${Object.entries(cfg.roles.scopes).map(([k, v]) =>
+        `<option value="${k}" ${r.scope === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+          </label>
+          <label class="lvl-f">
+            <b>How much money they see</b>
+            <select data-bind="role.${r.id}.money">${Object.entries(cfg.roles.money).map(([k, v]) =>
+        `<option value="${k}" ${r.money === k ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select>
+          </label>
+        </div>
+
+        <details class="lvl-pages">
+          <summary><b>${reach.length}</b> of ${reach.total} pages${reach.length === reach.total
+        ? ' — everything' : ''}<span>${icon('caret', 12)}</span></summary>
+          <div class="lvl-plist">${reach.byModule.map(([mod, names]) =>
+          `<div><b>${esc(mod)}</b>${names.map(nm => `<span>${esc(nm)}</span>`).join('')}</div>`).join('')}</div>
+          ${reach.missing.length ? `<p class="lvl-miss">Not offered at this level:
+            ${reach.missing.map(nm => esc(nm)).join(', ')}.</p>` : ''}
+        </details>
+
+        <div class="lvl-people">
+          <b>Who is at this level</b>
+          ${people.length
+          ? `<div class="chips">${people.map((who, idx) =>
+            `<span class="chip">${esc(who)}<button data-act="person-del"
+               data-arg="${esc(r.id)}:${idx}" aria-label="Remove ${esc(who)}">${icon('close', 11)}</button></span>`).join('')}</div>`
+          : `<p class="muted small">Nobody yet. ${(r.titles || []).length
+            ? `Usually ${esc((r.titles || []).slice(0, 3).join(', '))}.` : ''}</p>`}
+          <div class="lvl-add">
+            <input type="text" data-person="${esc(r.id)}" placeholder="Name or email"
+              aria-label="Add someone to ${esc(r.name)}">
+            ${U.btn('Add', { act: 'person-add', arg: r.id, sm: true })}
+          </div>
+        </div>
+      </div>`;
+    }).join(''),
+    foot: `How much of the company and how much money are independent on purpose: a site
+      supervisor can see every operational page for their own crew with no currency anywhere on
+      them. A real deployment reads the people from the company\u2019s own directory, so this list
+      is the shape of it rather than the list itself.`,
   });
+}
+
+/* Which pages a level reaches, grouped by module, and which it does not. */
+function pagesFor(s, role, cfg) {
+  const saved = s.data.role;
+  s.data.role = role.id;
+  const mine = s.pages();
+  s.data.role = saved;
+  const all = Object.entries(cfg.product.pages)
+    .filter(([k, p]) => !k.startsWith('$') && !p.hidden);
+  const got = new Set(mine.map(p => p.id));
+  const byMod = new Map();
+  for (const p of mine) {
+    const m = cfg.product.modules[p.module]?.name || p.module;
+    if (!byMod.has(m)) byMod.set(m, []);
+    byMod.get(m).push(p.name);
+  }
+  return {
+    length: mine.length, total: all.length,
+    byModule: [...byMod.entries()],
+    missing: all.filter(([id]) => !got.has(id)).map(([, p]) => p.name),
+  };
 }
 
 function countPages(s, role) {
@@ -392,22 +482,23 @@ function modulesTab(ctx) {
   const mods = cfg.product.modules;
   const pages = cfg.product.pages;
   return U.panel({
-    title: 'Modules',
-    note: 'Switch a module off and it leaves the rail for everyone. The financial module is the product; the rest are there when a company wants them.',
-    body: `<div class="rows">${Object.entries(mods).filter(([k]) => !k.startsWith('$'))
+    title: 'Modules', ico: 'grid',
+    note: `Switch one off and it leaves the rail for everyone. The financial module is the
+      product; the rest are there when a company wants them.`,
+    body: Object.entries(mods).filter(([k]) => !k.startsWith('$'))
       .sort((a, b) => a[1].order - b[1].order).map(([id, m]) => {
-      const list = Object.entries(pages).filter(([k, p]) => !k.startsWith('$') && p.module === id && !p.hidden);
+      const list = Object.entries(pages)
+        .filter(([k, pg]) => !k.startsWith('$') && pg.module === id && !pg.hidden);
       const on = s.data.modules[id] !== false;
       const locked = id === 'finance' || id === 'settings';
-      return `<div class="row-item">
-        <span class="tag ${on ? 'good' : ''}"><i class="dot"></i>${on ? 'On' : 'Off'}</span>
-        <span class="grow"><b>${esc(m.name)}</b>
-          <div class="sub">${list.map(([, p]) => esc(p.name)).join(' · ') || 'no pages'}</div></span>
-        ${locked
-        ? `<span class="muted small">always on</span>`
-        : U.btn(on ? 'Switch off' : 'Switch on', { act: 'module', arg: id, sm: true })}
-      </div>`;
-    }).join('')}</div>`,
+      return srow({
+        name: m.name,
+        hint: list.map(([, pg]) => esc(pg.name)).join(' · ') || 'no pages',
+        control: locked
+          ? `<span class="muted small">Always on</span>`
+          : toggle(on, 'module', id, `Switch ${m.name} ${on ? 'off' : 'on'}`),
+      });
+    }).join(''),
   });
 }
 

@@ -31,7 +31,7 @@
     {
       "id": "inventory",
       "name": "Inventory & operations",
-      "blurb": "Stock, throughput, equipment, utilisation. Turns a cost line into a cost per unit.",
+      "blurb": "Stock, throughput, equipment, utilization. Turns a cost line into a cost per unit.",
       "required": false,
       "icon": "box"
     },
@@ -45,7 +45,7 @@
     {
       "id": "people",
       "name": "HR & payroll",
-      "blurb": "Headcount, labour cost, who holds which role. Drives the view levels.",
+      "blurb": "Headcount, labor cost, who holds which role. Drives the view levels.",
       "required": false,
       "icon": "people"
     },
@@ -105,7 +105,7 @@
       "cat": "finance",
       "auth": "OAuth 1.0a token-based (TBA)",
       "api": "SuiteTalk REST + SuiteQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -121,7 +121,7 @@
       "cat": "finance",
       "auth": "OAuth 2.0",
       "api": "REST (Accounting API)",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "retail",
@@ -136,7 +136,7 @@
       "cat": "finance",
       "auth": "API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "tech"
@@ -149,7 +149,7 @@
       "cat": "finance",
       "auth": "ODBC / on-premise",
       "api": "ODBC, file export",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -162,7 +162,7 @@
       "cat": "finance",
       "auth": "SQL / API gateway",
       "api": "SQL views, REST gateway",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -175,7 +175,7 @@
       "cat": "finance",
       "auth": "ODBC / API",
       "api": "ODBC, REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -188,7 +188,7 @@
       "cat": "finance",
       "auth": "OAuth 2.0 (Entra)",
       "api": "OData v4 + REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "industrial",
@@ -203,7 +203,7 @@
       "cat": "finance",
       "auth": "Restricted API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -217,7 +217,7 @@
       "cat": "finance",
       "auth": "OAuth 2.0 (client credentials)",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -234,7 +234,7 @@
       "cat": "finance",
       "auth": "API key + session",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -249,7 +249,7 @@
       "cat": "finance",
       "auth": "OAuth 2.0 + Link token",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "tech",
@@ -280,7 +280,7 @@
       "cat": "projects",
       "auth": "OAuth 2.0 (APS, 3-legged or 2-legged)",
       "api": "Data Management + Cost Management REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -293,7 +293,7 @@
       "cat": "projects",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -306,7 +306,7 @@
       "cat": "projects",
       "auth": "API token",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -319,7 +319,7 @@
       "cat": "projects",
       "auth": "OAuth 2.0",
       "api": "Markups API",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction"
@@ -332,7 +332,7 @@
       "cat": "projects",
       "auth": "OAuth 2.0 / API token",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -349,12 +349,12 @@
       "cat": "projects",
       "auth": "OAuth 2.0 (Atlassian) / API token",
       "api": "REST v3 + JQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech"
       ],
-      "note": "For an engineering organisation this is the system of record for delivery, and JQL makes the queries honest."
+      "note": "For an engineering organization this is the system of record for delivery, and JQL makes the queries honest."
     },
     {
       "id": "ms-project",
@@ -362,7 +362,7 @@
       "cat": "projects",
       "auth": "OAuth 2.0 (Entra)",
       "api": "Graph + Dataverse",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -395,7 +395,7 @@
       "cat": "tasks",
       "auth": "OAuth 2.0 / PAT",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -411,7 +411,7 @@
       "cat": "tasks",
       "auth": "OAuth 2.0 / API token",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -437,7 +437,7 @@
         "tech",
         "retail"
       ],
-      "note": "Running live. The right answer whenever a company is already on Microsoft 365, because it needs no new licence."
+      "note": "Running live. The right answer whenever a company is already on Microsoft 365, because it needs no new license."
     },
     {
       "id": "motion",
@@ -445,7 +445,7 @@
       "cat": "tasks",
       "auth": "API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "tech",
@@ -459,7 +459,7 @@
       "cat": "tasks",
       "auth": "OAuth 2.0 / API key",
       "api": "GraphQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech"
@@ -472,7 +472,7 @@
       "cat": "tasks",
       "auth": "OAuth 2.0 (internal integration)",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "tech",
@@ -487,7 +487,7 @@
       "cat": "tasks",
       "auth": "API key + token / OAuth 1.0a",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -520,7 +520,7 @@
       "cat": "docs",
       "auth": "OAuth 2.0 / service account",
       "api": "Drive v3",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "education",
@@ -535,7 +535,7 @@
       "cat": "docs",
       "auth": "OAuth 2.0",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -550,7 +550,7 @@
       "cat": "docs",
       "auth": "OAuth 2.0 / JWT app",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education",
@@ -565,7 +565,7 @@
       "cat": "docs",
       "auth": "OAuth 2.0",
       "api": "REST v1",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -579,7 +579,7 @@
       "cat": "docs",
       "auth": "OAuth 2.0",
       "api": "REST v3",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
@@ -629,7 +629,7 @@
       "cat": "comms",
       "auth": "OAuth 2.0 (bot token)",
       "api": "Web API + Events",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -644,7 +644,7 @@
       "cat": "comms",
       "auth": "OAuth 2.0 / domain-wide delegation",
       "api": "Gmail + Calendar v3",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "education",
@@ -659,7 +659,7 @@
       "cat": "comms",
       "auth": "Account SID + auth token",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "logistics",
@@ -674,7 +674,7 @@
       "cat": "comms",
       "auth": "OAuth 2.0 (server-to-server)",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education",
@@ -705,7 +705,7 @@
       "cat": "people",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -720,7 +720,7 @@
       "cat": "people",
       "auth": "OAuth 2.0 / API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -734,14 +734,14 @@
       "cat": "people",
       "auth": "OAuth 2.0 (client credentials)",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "construction",
         "industrial",
         "education"
       ],
-      "note": "Common in the trades. Labour cost by job is the figure worth pulling."
+      "note": "Common in the trades. Labor cost by job is the figure worth pulling."
     },
     {
       "id": "bamboohr",
@@ -749,7 +749,7 @@
       "cat": "people",
       "auth": "API key",
       "api": "REST v1",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "tech",
@@ -764,7 +764,7 @@
       "cat": "people",
       "auth": "OAuth 2.0 / ISU",
       "api": "REST + RaaS reports",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education",
@@ -779,7 +779,7 @@
       "cat": "crm",
       "auth": "OAuth 2.0 (JWT bearer)",
       "api": "REST + SOQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -795,7 +795,7 @@
       "cat": "crm",
       "auth": "OAuth 2.0 / private app token",
       "api": "REST v3",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech",
@@ -826,7 +826,7 @@
       "cat": "crm",
       "auth": "API token / OAuth 2.0",
       "api": "REST v1",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -841,7 +841,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0 (custom app)",
       "api": "Admin GraphQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "retail"
@@ -854,7 +854,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "retail"
@@ -867,7 +867,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail"
@@ -880,12 +880,12 @@
       "cat": "systems",
       "auth": "OAuth 2.0 (client credentials)",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail"
       ],
-      "note": "Restaurant. Labour and food cost against sales, by daypart."
+      "note": "Restaurant. Labor and food cost against sales, by daypart."
     },
     {
       "id": "powerschool",
@@ -893,7 +893,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0 (plugin)",
       "api": "PowerQuery REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "education"
@@ -906,7 +906,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0 / OneRoster",
       "api": "REST + OneRoster 1.1",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education"
@@ -919,7 +919,7 @@
       "cat": "systems",
       "auth": "API key / OneRoster",
       "api": "REST + OneRoster",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education"
@@ -932,7 +932,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0 (SKY)",
       "api": "SKY API REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "education"
@@ -945,7 +945,7 @@
       "cat": "systems",
       "auth": "API key / OAuth 2.0",
       "api": "REST (Data Sources)",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "industrial"
@@ -958,7 +958,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0 / API key",
       "api": "REST v2",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "industrial"
@@ -971,7 +971,7 @@
       "cat": "systems",
       "auth": "API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "industrial",
@@ -985,7 +985,7 @@
       "cat": "systems",
       "auth": "API key",
       "api": "REST + tables",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "industrial"
@@ -998,7 +998,7 @@
       "cat": "systems",
       "auth": "API key / on-premise service",
       "api": "REST, SQL",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "logistics"
@@ -1011,7 +1011,7 @@
       "cat": "systems",
       "auth": "API key / OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "logistics"
@@ -1024,7 +1024,7 @@
       "cat": "systems",
       "auth": "API token (OAuth 2.0 for apps)",
       "api": "REST v1 + webhooks",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "logistics",
@@ -1039,7 +1039,7 @@
       "cat": "systems",
       "auth": "API key / OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "logistics"
@@ -1052,7 +1052,7 @@
       "cat": "systems",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "logistics",
@@ -1066,7 +1066,7 @@
       "cat": "systems",
       "auth": "Restricted API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "tech"
@@ -1079,7 +1079,7 @@
       "cat": "inventory",
       "auth": "API key / plugin",
       "api": "REST, JSON over TCP",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "industrial",
@@ -1093,7 +1093,7 @@
       "cat": "inventory",
       "auth": "API key",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -1107,7 +1107,7 @@
       "cat": "inventory",
       "auth": "OAuth 1.0a (TBA)",
       "api": "SuiteTalk REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -1122,7 +1122,7 @@
       "cat": "inventory",
       "auth": "API token",
       "api": "REST v1",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": true,
       "industries": [
         "logistics",
@@ -1136,7 +1136,7 @@
       "cat": "inventory",
       "auth": "OAuth 2.0",
       "api": "REST",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "retail",
@@ -1150,7 +1150,7 @@
       "cat": "inventory",
       "auth": "API key / session",
       "api": "XML-RPC, JSON-RPC",
-      "status": "catalogued",
+      "status": "cataloged",
       "recommend": false,
       "industries": [
         "industrial",
