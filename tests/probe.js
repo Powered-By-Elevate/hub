@@ -318,6 +318,62 @@ async function main() {
       'the brand ink clears every painted sky stop and every measured pixel',
       paintMiss.slice(0, 3).join('; '));
 
+    /* ⛔ AND THE CONDITION THAT MAKES CHECKING THE STOPS SUFFICIENT.
+
+       The claim is that clearing all three stops clears every blend between
+       them, so scroll position cannot matter. That is true only if the ink's
+       luminance lies OUTSIDE the interval the stops span: an ink inside it
+       would meet a blend equal to itself at some offset and read 1:1 with all
+       three stops still clearing. The comment in `color.js` used to state the
+       conclusion without the condition, which the publishing session caught.
+
+       So the gate asserts the condition, and sweeps the blends as well. The
+       condition is the cheap structural guarantee; the sweep is the witness
+       that the guarantee is doing what it claims. */
+    const insideRange = [], blendMiss = [];
+    const blend = (a, b, t) => {
+      const h = z => [1, 3, 5].map(i => parseInt(z.substr(i, 2), 16));
+      const p = h(a), q = h(b);
+      return '#' + p.map((v, i) => Math.round(v + (q[i] - v) * t).toString(16).padStart(2, '0')).join('');
+    };
+    for (const theme of ['light', 'dark']) {
+      for (const [id, b] of Object.entries(brands)) {
+        const v = C.brandVars(b.palette, theme);
+        const lums = v.stops.map(C.luminance);
+        const lo = Math.min(...lums), hi = Math.max(...lums);
+        for (const tok of ['--accent-ink', '--good-ink', '--warn-ink', '--bad-ink']) {
+          const li = C.luminance(v[tok]);
+          if (li > lo && li < hi) insideRange.push(`${theme}/${id} ${tok}`);
+          for (const [a, c] of [[v.stops[0], v.stops[1]], [v.stops[1], v.stops[2]]]) {
+            for (let t = 0; t <= 1.0001; t += 0.05) {
+              const r = C.contrast(v[tok], blend(a, c, t));
+              if (r + 0.005 < 4.5) blendMiss.push(`${theme}/${id} ${tok} ${r.toFixed(2)}:1`);
+            }
+          }
+        }
+      }
+    }
+    ok(insideRange.length === 0,
+      'no derived ink sits inside its gradient range, which is what makes the stops sufficient',
+      insideRange.slice(0, 3).join('; '));
+    ok(blendMiss.length === 0, 'every blend along the gradient reads, at every scroll offset',
+      blendMiss.slice(0, 3).join('; '));
+
+    /* the semantics land on paper more than anywhere else, and paper was not
+       in their surface list: they passed by the luck of their direction */
+    const paperMiss = [];
+    for (const theme of ['light', 'dark']) {
+      for (const [id, b] of Object.entries(brands)) {
+        const v = C.brandVars(b.palette, theme);
+        for (const tok of ['--good-ink', '--warn-ink', '--bad-ink']) {
+          const r = C.contrast(v[tok], C.SURFACE[theme].paper);
+          if (r + 0.005 < 4.5) paperMiss.push(`${theme}/${id} ${tok} ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    ok(paperMiss.length === 0, 'the semantic inks read on paper, which is where most of them sit',
+      paperMiss.join('; '));
+
     /* text on a runtime brand FILL: five rules put white on --navy and three on
        --accent, and both are the client's colours */
     const fillMiss = [];

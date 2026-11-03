@@ -53,7 +53,14 @@ export function readable(ink, surface, need = 4.5) {
   const target = luminance(surface) > 0.18 ? [0, 0, 0] : [255, 255, 255];
   const from = hex(ink);
   let best = toHex(target);
-  for (let t = 0.04; t <= 1.0001; t += 0.04) {
+  /* ⚠️ THE STEP SIZE IS WHY AN INK OVERSHOOTS, and it had no stated reason.
+     At 0.04 the first step past the bound could land well beyond it: the
+     publishing session measured 47 of 84 derived inks overshooting past 5.0
+     when they only needed 4.6. Every step away from the brand colour is brand
+     fidelity spent, so the step is 0.01, which costs 4x the iterations of a
+     loop that runs at most a hundred times per brand per theme and keeps the
+     ink closer to the colour the client chose. */
+  for (let t = 0.01; t <= 1.0001; t += 0.01) {
     const c = toHex(from.map((v, i) => v + (target[i] - v) * t));
     if (contrast(c, surface) >= need) { best = c; break; }
   }
@@ -155,19 +162,46 @@ export const SEMANTIC = {
      on a 180deg gradient, stops at 0, 46vh and 100vh
 
    So the surfaces go in the list and the margin goes away. Every stop is
-   derived here, which is position-independent: a page scrolled to any offset
-   sits on some blend of them, and clearing all three clears every blend. The
-   publishing session's closed-form derivation matched the real pixels to
-   within one channel step on all six brands.
+   derived here, and the closed form matched the real pixels to within one
+   channel step on all six brands in both themes, with zero drift after a
+   1400px scroll (`background-attachment: fixed` with `background-size: 100%
+   100vh` anchors the gradient to the viewport, measured rather than inferred).
 
-   ⚠️ A small margin survives for ONE measured reason, named so it is not read
-   as a guess: targeting exactly 4.5 lands on the boundary, and 8-bit
-   quantisation plus anti-aliasing then reads back 4.49. The `.drop` body text
-   did exactly that. 4.6 is the smallest value that clears after rounding. */
+   ⚠️ CLEARING ALL THREE STOPS CLEARS EVERY BLEND BETWEEN THEM, BUT ONLY ON A
+   CONDITION THIS COMMENT USED TO OMIT: the ink's luminance must lie OUTSIDE
+   the interval the stops span. An ink inside that interval would meet a blend
+   equal to itself at some offset and read 1:1 while all three stops still
+   cleared. Measured: 0 of 84 derived inks lie inside their stop range, and
+   sweeping 101 blends per ink across both gradient segments the worst contrast
+   anywhere is 4.64. The gate asserts the condition rather than the conclusion.
+
+   ⚠️ A small margin survives for ONE measured reason: targeting exactly 4.5
+   lands on the boundary, and 8-bit quantisation plus anti-aliasing then reads
+   back 4.49, which the `.drop` body text did. The measured quantisation gap is
+   about 0.015.
+
+   Two corrections to what this comment used to claim, both measured by the
+   publishing session:
+
+   - It said 4.6 is "the smallest value that clears after rounding". It is not:
+     4.55 clears with room (tightest 4.557 against 4.505 at the boundary). 4.6
+     is safe and cheap, and chosen for headroom rather than for being minimal.
+   - It read as a general margin. **Its entire effect is on the tint loop.**
+     Targets of 4.50, 4.52, 4.55 and 4.58 produce identical derived inks,
+     because `readable()`'s step overshoots the bound regardless, so the only
+     place the number changes an outcome is the loop below, which is also the
+     only place the 4.49 came from. */
 export const ROUNDING = 4.6;
 
-/* The three gradient stops the body actually paints, from the palette. */
-export function sky(palette, theme) {
+/* The three gradient stops the body actually paints.
+
+   ⚠️ `tint` is a PARAMETER, not `palette.tint`. The light stops are mixed from
+   `var(--tint)` on the page, and `brandVars` may move that value, so reading
+   the palette here would be two mechanisms answering one question: they agree
+   today only because the tint loop never runs in light (closest margin 0.25).
+   Callers that have the derived tint pass it; the default keeps the function
+   usable on a bare palette. */
+export function sky(palette, theme, tint = palette.tint) {
   if (theme === 'dark') {
     return [
       mix(palette.navy, '#0a1322', 0.56),
@@ -175,17 +209,17 @@ export function sky(palette, theme) {
       mix(palette.navy, '#08101c', 0.84),
     ];
   }
-  return [mix(palette.tint, '#ffffff', 0.66), mix(palette.tint, '#ffffff', 0.24), palette.tint];
+  return [mix(tint, '#ffffff', 0.66), mix(tint, '#ffffff', 0.24), tint];
 }
 
 export function brandVars(palette, theme) {
   const s = SURFACE[theme], k = INK[theme], sem = SEMANTIC[theme];
-  /* what the body paints, plus the tab column, which is the one ground token
-     that really is painted (`--ground-deep`) */
-  const grounds = [...sky(palette, theme), s.groundDeep];
   /* ⛔ The tint has to let the FAINT ink read on it, because the panel foot
      sits there. In dark it is the navy lightened, so it is pushed back toward
-     the panel until faint clears rather than being left where it looked nice. */
+     the panel until faint clears rather than being left where it looked nice.
+
+     ⚠️ Settled BEFORE the grounds, because the light sky stops are mixed from
+     the final tint and not from the palette's. */
   let tint = theme === 'dark' ? mix(palette.navy, '#ffffff', 0.1) : palette.tint;
   /* ⚠️ ROUNDING, not 4.5: the loop used to exit at the first value its own
      arithmetic called 4.5, and the painted result read back 4.49 on one brand.
@@ -193,15 +227,22 @@ export function brandVars(palette, theme) {
   for (let i = 0; i < 24 && contrast(k.faint, tint) < ROUNDING; i++) {
     tint = mix(tint, theme === 'dark' ? '#000000' : '#ffffff', 0.08);
   }
+  /* what the body paints, plus the tab column, which is the one ground token
+     that really is painted (`--ground-deep`), plus paper for the semantics */
+  const grounds = [...sky(palette, theme, tint), s.groundDeep];
+  const semSurf = [...grounds, s.paper];
   const want = [
     ['--accent-ink', worst(palette.accent, grounds, ROUNDING), grounds, ROUNDING],
     ['--accent-ink-deep', readable(palette.accent, s.groundDeep, ROUNDING), [s.groundDeep], ROUNDING],
     ['--accent-on-tint', readable(palette.accent, tint, ROUNDING), [tint], ROUNDING],
-    /* the semantics can land on the tint, the grounds, or a total row, so they
-       clear every one of those */
-    ['--good-ink', worst(sem.good, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
-    ['--warn-ink', worst(sem.warn, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
-    ['--bad-ink', worst(sem.bad, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
+    /* ⚠️ PAPER IS IN THIS LIST, and it was not. A delta sits on paper more
+       often than anywhere else, and `--good-ink` passed there at 5.85:1 by the
+       luck of its direction (paper is the lightest light surface and the ink is
+       dark) rather than by construction. Passing by luck is the state a surface
+       list exists to replace. */
+    ['--good-ink', worst(sem.good, [...semSurf, tint], ROUNDING), [...semSurf, tint], ROUNDING],
+    ['--warn-ink', worst(sem.warn, [...semSurf, tint], ROUNDING), [...semSurf, tint], ROUNDING],
+    ['--bad-ink', worst(sem.bad, [...semSurf, tint], ROUNDING), [...semSurf, tint], ROUNDING],
   ];
   /* the postcondition, carried with the result rather than assumed */
   const missed = [];
@@ -220,7 +261,8 @@ export function brandVars(palette, theme) {
     '--on-bad': onFill(sem.bad),
     '--on-good': onFill(sem.good),
     '--on-warn': onFill(sem.warn),
-    /* non-custom-property key: the gate reads it, setProperty ignores it */
+    /* non-custom-property keys: the gate reads them, setProperty ignores them */
     missed,
+    stops: sky(palette, theme, tint),
   };
 }
