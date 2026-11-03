@@ -139,6 +139,18 @@ async function main() {
     };
     const INKS = ['ink', 'ink-soft', 'ink-faint'];
     const SURFACES = ['paper', 'ground', 'ground-deep'];
+    /* ⛔ AND THE PAIRINGS THE STYLESHEET ACTUALLY MAKES, BY NAME.
+
+       The cross product above covers the inks that can land anywhere. It does
+       not cover a colour used on one specific surface, and that is where the
+       build's last failure hid: `.tag.warn` wore the raw `--warn` on
+       `--warn-tint` at 4.45:1, a fourth surface family that is neither paper,
+       ground, ground-deep nor `--tint`, so nothing looked at it. Naming the
+       pairing is the only way to check it, because the pairing is a decision
+       in the stylesheet rather than a property of either colour. */
+    const PAIRS = [
+      ['good-on-tint', 'good-tint'], ['warn-on-tint', 'warn-tint'], ['bad-on-tint', 'bad-tint'],
+    ];
     const themes = {
       light: tokens(block(':root') || ''),
       dark: tokens(block(':root[data-theme="dark"]') || ''),
@@ -153,6 +165,11 @@ async function main() {
              10.5px to 13px somewhere in this build, so small is the case. */
           if (r + 0.005 < 4.5) fails.push(`${name} --${ink} on --${surf} ${r.toFixed(2)}:1`);
         }
+      }
+      for (const [ink, surf] of PAIRS) {
+        if (!t[ink] || !t[surf]) { fails.push(`${name} --${ink} or --${surf} missing`); continue; }
+        const r = ratio(t[ink], t[surf]);
+        if (r + 0.005 < 4.5) fails.push(`${name} --${ink} on --${surf} ${r.toFixed(2)}:1`);
       }
     }
     ok(Object.keys(themes.light).length > 5, 'the light theme tokens parse',

@@ -143,11 +143,33 @@ export const SEMANTIC = {
    one level subtler: that colour was absent from the stylesheet, this one is
    present and overpainted.
 
-   The fix is a MARGIN rather than another surface in the list, because the
-   painted ground moves with the pointer light and has no single value to add.
+   ⚠️ THE FIRST VERSION OF THIS COMMENT GAVE A REASON THAT IS FALSE, and the
+   publishing session measured it. It said the margin was chosen over adding
+   the painted colour to the surface list because the ground "moves with the
+   pointer light and has no single value to add". It does not move. With the
+   light armed and the pointer directly over the text, the band under the
+   eyebrow reads rgb(12,25,44) to five decimal places of luminance, the same as
+   with the pointer far away. A surface in the list would have worked.
+
+   The margin's real virtue is a different one: ONE NUMBER COVERS ALL SIX
+   BRAND GROUNDS, whose painted luminance spans 0.0074 to 0.0099, where a
+   surface list would need the painted value of each. That is a good reason and
+   it is not the one that was written down. Third time this build has carried a
+   decision that was right with a justification that was wrong, which is the
+   pattern worth naming: the comment is what the next person reads, so a reason
+   nobody measured is a liability even when the code is correct.
+
    4.9 clears the measured paint for every brand in the config (lakeshore 4.75,
    fieldfinch 4.72, graniteridge 4.54) and costs nothing over 4.7, which
-   produces the identical ink for both of the brands that missed. */
+   produces the identical ink for both of the brands that missed. 108 samples
+   across six industries and every page with an eyebrow: 0 below 4.5, worst
+   4.75.
+
+   ⚠️ It is also applied to the three inks that land on `--tint`, where nothing
+   is painted over at all: the panel is opaque and the pixel inside a tint
+   plate is exactly the computed `--tint`. That is one number instead of two
+   for no measurable cost, not a second finding, and it is said here so the
+   margin is not read as evidence of a problem on the tint. */
 export const PAINTED = 4.9;
 
 export function brandVars(palette, theme) {

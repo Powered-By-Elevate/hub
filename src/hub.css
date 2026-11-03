@@ -59,6 +59,21 @@
   --good-tint: #e7f3ec;
   --warn-tint: #fbf2e2;
   --bad-tint: #fbeaea;
+  /* ⛔ A FOURTH SURFACE FAMILY, AND THE SEMANTIC COLOURS READ ON IT OR NOT.
+
+     `.tag.good/.warn/.bad` wore the raw semantic colour on its own tint, and
+     the publishing session measured light `.tag.warn` at 4.45:1, below AA,
+     with `.tag.good` scraping at 4.51. These tints are not paper, ground,
+     ground-deep or `--tint`, so neither the token check nor the brand
+     derivation looked at them: this is the agepill fix's twin, on the
+     component beside it, found two rounds later.
+
+     Same rule as everywhere else: the fill keeps the semantic colour and the
+     ink gets its own. Static values, because both sides are stylesheet tokens
+     rather than brand-derived, and the gate asserts the pairing by name. */
+  --good-on-tint: #187349;
+  --warn-on-tint: #8e5d11;
+  --bad-on-tint: #ad2f32;
 
   --shadow-sm: 0 1px 2px rgba(19, 38, 68, .06), 0 2px 6px rgba(19, 38, 68, .05);
   --shadow: 0 2px 4px rgba(19, 38, 68, .06), 0 8px 24px rgba(19, 38, 68, .08);
@@ -89,6 +104,10 @@
   --good-tint: #152a20;
   --warn-tint: #2c2416;
   --bad-tint: #2e1a1b;
+  /* dark already cleared on its own tints, so these are the raw values */
+  --good-on-tint: #4cc08a;
+  --warn-on-tint: #d8a443;
+  --bad-on-tint: #e2706f;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, .3);
   --shadow: 0 2px 6px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .3);
   --shadow-lg: 0 6px 16px rgba(0, 0, 0, .45), 0 28px 64px rgba(0, 0, 0, .5);
@@ -111,7 +130,11 @@ body {
 
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 
-/* every text use of the brand goes through the derived ink, never --accent */
+/* Every text use of the brand goes through the derived ink, never --accent.
+   ⚠️ This rule currently governs NOTHING: there is no `<a>` element anywhere
+   in the build, in any industry or theme (measured). It stays because the
+   first link someone adds should be readable without them thinking about it,
+   and it is recorded as dead so nobody counts it as a fix. */
 a { color: var(--accent-ink, var(--accent)); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
@@ -370,9 +393,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
   background: var(--tint); color: var(--ink-soft);
   border: 1px solid var(--rule);
 }
-.tag.good { background: var(--good-tint); color: var(--good); border-color: transparent; }
-.tag.warn { background: var(--warn-tint); color: var(--warn); border-color: transparent; }
-.tag.bad { background: var(--bad-tint); color: var(--bad); border-color: transparent; }
+.tag.good { background: var(--good-tint); color: var(--good-on-tint); border-color: transparent; }
+.tag.warn { background: var(--warn-tint); color: var(--warn-on-tint); border-color: transparent; }
+.tag.bad { background: var(--bad-tint); color: var(--bad-on-tint); border-color: transparent; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: 0 0 7px; }
 
 /* tables */
@@ -481,7 +504,7 @@ table.t td .btn { white-space: nowrap; }
 #demo-note {
   display: flex; align-items: center; gap: 10px;
   margin: 0 0 16px; padding: 9px 14px;
-  background: var(--warn-tint); color: var(--warn);
+  background: var(--warn-tint); color: var(--warn-on-tint);
   border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 500;
 }
 #demo-note button { margin-left: auto; background: none; border: 0; color: inherit; opacity: .7; font-size: 15px; line-height: 1; }
@@ -575,7 +598,11 @@ table.t td .btn { white-space: nowrap; }
   background: var(--tint); color: var(--ink-faint); font-size: 12.5px; text-align: center;
 }
 .drop img { max-height: 58px; max-width: 100%; }
-.drop label { color: var(--accent-ink, var(--accent)); cursor: pointer; text-decoration: underline; }
+/* ⚠️ --accent-ON-TINT, not --accent-ink: `.drop` has `background: var(--tint)`,
+   and the ink derived against the grounds read 4.16 to 4.42:1 on it in dark.
+   Two industries passed only by the luck of their own hues. The variable for
+   this surface already existed; the first fix reached for the wrong one. */
+.drop label { color: var(--accent-on-tint, var(--accent)); cursor: pointer; text-decoration: underline; }
 .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
 
 @media (max-width: 900px) {
@@ -838,7 +865,15 @@ table.t td .btn { white-space: nowrap; }
   transition: transform .13s ease, box-shadow .16s ease;
 }
 .door:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.door-ico { width: 30px; height: 30px; border-radius: 8px; background: var(--tint); display: grid; place-items: center; color: var(--accent-on-tint, var(--accent)); margin-bottom: 4px; }
+/* ⚠️ NO COLOUR HERE, because this element never wore one from this rule.
+   `.door span { color: var(--ink-faint) }` is (0,1,1) against this rule's
+   (0,1,0), so the faint ink has always won and the accent declaration that
+   used to sit here was dead before anyone tried to fix it. It reads 4.6 to
+   4.97:1 on its plate, which passes, so the fix was to delete the dead
+   declaration rather than to out-specify a rule that is giving the right
+   answer. A grep finds a rule; only the rendered page shows it reaches
+   anything. */
+.door-ico { width: 30px; height: 30px; border-radius: 8px; background: var(--tint); display: grid; place-items: center; margin-bottom: 4px; }
 .door b { font-size: 14.5px; }
 .door span { font-size: 12.5px; color: var(--ink-faint); line-height: 1.45; }
 
