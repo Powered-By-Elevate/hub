@@ -1180,6 +1180,62 @@ async function main() {
         ok(unearned.length === 0, `${ind}/${role}/${p}: no negative tick without negative data`,
           unearned.slice(0, 2).join(', '));
 
+        /* ⛔ AN AXIS'S LABELS READ AS EVENLY SPACED AS ITS GRIDLINES ARE.
+
+           Gridlines are drawn at a constant step, so the labels on them have to
+           read at a constant step too. Two ways they stopped: a step of 2.5
+           people printed by a whole-number formatter gave 410, 413, 415, 418,
+           420, 423, 425 on evenly spaced lines, reading 3, 2, 3, 2 up the side;
+           and a clean $250K step whose snapped top tick is $1.25M printed $1.0M
+           then $1.3M, reading 300 where every other gap read 250. Nothing in
+           either is false, which is why nothing caught them: 412.5 does round
+           to 413.
+
+           Five axes of 107 read unevenly before `readsEvenly()`, which rejects
+           a step whose rendered labels disagree with its own spacing. The test
+           is on the TEXT, because the defect exists only in the rendering: the
+           same 2.5 step on a dollar axis prints $2.5M and reads perfectly, so a
+           blanket ban on half-steps would be wrong. */
+        const uneven = await page.evaluate(() => {
+          const out = [];
+          const val = str => {
+            const t = String(str).trim();
+            if (!t) return null;
+            const mul = /[kK]$/.test(t) ? 1e3 : /[mM]$/.test(t) ? 1e6 : /[bB]$/.test(t) ? 1e9 : 1;
+            const n = parseFloat(t.replace(/[^0-9.+-]/g, ''));
+            if (!Number.isFinite(n)) return null;
+            return (/^[-−(]/.test(t) && n > 0 ? -n : n) * mul;
+          };
+          for (const svg of document.querySelectorAll('#page svg.chart')) {
+            const lines = [...svg.querySelectorAll('.axis line')]
+              .filter(l => l.getBoundingClientRect().height < 2);
+            if (lines.length < 3) continue;
+            const texts = [...svg.querySelectorAll('.axis text')];
+            const rows = [];
+            for (const l of lines) {
+              const ly = l.getBoundingClientRect().top;
+              const t = texts.find(x => {
+                const b = x.getBoundingClientRect();
+                return Math.abs(b.top + b.height / 2 - ly) < 7;
+              });
+              if (t) rows.push({ y: ly, v: val(t.textContent) });
+            }
+            if (rows.length < 3 || rows.some(r => r.v === null)) continue;
+            rows.sort((a, b) => a.y - b.y);
+            const d = [];
+            for (let i = 1; i < rows.length; i++) d.push(rows[i - 1].v - rows[i].v);
+            const big = Math.max(...d.map(Math.abs));
+            if (!(big > 0)) continue;
+            if (!d.every(x => Math.abs(Math.abs(x) - big) <= big * 0.02)) {
+              const pn = svg.closest('.panel'), h = pn && pn.querySelector('h3');
+              out.push(`${(h ? h.textContent.trim() : '?').slice(0, 26)} [${rows.map(r => r.v).join(', ')}]`);
+            }
+          }
+          return out;
+        });
+        ok(uneven.length === 0, `${ind}/${role}/${p}: axis labels read evenly spaced`,
+          uneven.slice(0, 2).join(', '));
+
         /* ⛔ THE CASCADE'S CUT NEVER PAINTS OVER ITS KEPT BAR.
 
            Two rules fought: `.casc-keep` has a declared 3px rendering floor so

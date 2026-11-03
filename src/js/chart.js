@@ -43,7 +43,43 @@ export function niceMax(v) {
    short plot that printed two labels 8px apart on education's headcount chart.
    A caller that knows its plot height passes `room`, and the target is capped
    so no two labels land closer than 26px. */
-function ticks(min, max, count = 4, room = null) {
+/* ⛔ A STEP HAS TO SURVIVE THE FORMATTER.
+
+   Found by the publishing session on education's headcount chart, which the
+   niceScale fix improved and then spoiled in a smaller way: the range 410 to
+   425 takes a step of 2.5, so the real ticks are 410, 412.5, 415, 417.5 and
+   the formatter, which prints whole people, renders them 410, 413, 415, 418.
+   Evenly spaced gridlines then read 3, 2, 3, 2 up the side. Nothing printed is
+   false (412.5 does round to 413) and 2.5 of a person is not a quantity.
+
+   So a candidate step is rejected when the labels it produces do not read as
+   evenly spaced. The test is on the RENDERED text, because the defect only
+   exists in the rendering: the same 2.5 step on a dollar axis prints $2.5M and
+   reads perfectly, so a blanket ban on half-steps would be wrong. */
+function labelValue(str) {
+  const t = String(str).trim();
+  if (!t) return null;
+  const mul = /[kK]$/.test(t) ? 1e3 : /[mM]$/.test(t) ? 1e6 : /[bB]$/.test(t) ? 1e9 : 1;
+  const n = parseFloat(t.replace(/[^0-9.+-]/g, ''));
+  if (!Number.isFinite(n)) return null;
+  /* a leading bracket is the accountant's minus */
+  const neg = /^[-−(]/.test(t);
+  return (neg && n > 0 ? -n : n) * mul;
+}
+
+function readsEvenly(list, fmt) {
+  if (typeof fmt !== 'function' || list.length < 3) return true;
+  const vals = list.map(v => labelValue(fmt(v)));
+  /* a label this cannot read is not a label this may judge */
+  if (vals.some(v => v === null)) return true;
+  const d = [];
+  for (let i = 1; i < vals.length; i++) d.push(vals[i] - vals[i - 1]);
+  const big = Math.max(...d.map(Math.abs));
+  if (!(big > 0)) return true;
+  return d.every(x => Math.abs(Math.abs(x) - big) <= big * 0.001);
+}
+
+function ticks(min, max, count = 4, room = null, fmt = null) {
   /* ⚠️ THE LIMIT BINDS ON THE TICKS PRODUCED, NOT ON THE TARGET.
 
      Capping `count` alone does nothing, because the step comes from a ladder:
@@ -68,6 +104,11 @@ function ticks(min, max, count = 4, room = null) {
       const cand = x * m;
       const n = span / cand;
       if (n < 2 || n > Math.min(9, most)) continue;
+      const trial = [];
+      for (let v = Math.ceil(min / cand) * cand; v <= max + cand * 1e-6; v += cand) {
+        trial.push(Math.abs(v) < cand * 1e-6 ? 0 : v);
+      }
+      if (!readsEvenly(trial, fmt)) continue;
       const score = Math.abs(n - count);
       if (score < bestScore) { bestScore = score; step = cand; }
     }
@@ -113,10 +154,10 @@ function ticks(min, max, count = 4, room = null) {
    ⚠️ That is a worse defect than the ugly axis it came from, and it was mine:
    the fix for one number introduced it. So the range is settled FROM the step
    rather than beside it. One function returns both and they cannot drift. */
-export function niceScale(lo, hi, count = 4, room = null) {
+export function niceScale(lo, hi, count = 4, room = null, fmt = null) {
   if (!(hi > lo)) { hi = (hi || 0) + 1; lo = Math.min(0, lo); }
   /* a first pass to learn the step the span wants */
-  const probe = ticks(lo, hi, count, room);
+  const probe = ticks(lo, hi, count, room, fmt);
   const step = probe.length > 1 ? Math.abs(probe[1] - probe[0]) : (hi - lo) / count;
   /* then snap the RANGE outward to whole steps, so the extremes are ticks.
 
@@ -135,13 +176,52 @@ export function niceScale(lo, hi, count = 4, room = null) {
      industries, and "The year so far" on every home page among them. Zero
      after. The bracket this function exists to fix still holds: lo=-200K,
      hi=480K still gives -200K to 600K. */
-  const snapLo = Math.floor(lo / step + 1e-9) * step;
-  const snapHi = Math.ceil(hi / step - 1e-9) * step;
-  const out = [];
-  for (let v = snapLo; v <= snapHi + step * 1e-6; v += step) {
-    out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+  /* ⚠️ AND THE FORMATTER HAS TO SURVIVE THE SNAP TOO.
+
+     `ticks()` rejects a step whose labels do not read evenly, but it judges
+     the range it was GIVEN, and this function then widens that range and
+     regenerates the ticks, which can add a tick the probe never contained.
+     Industrial's "Overhead by kind" is the case: the step is a clean $250K,
+     the snap adds a top tick at $1.25M, and the money formatter prints one
+     decimal of a million, so the axis reads $0, $250K, $500K, $750K, $1.0M,
+     $1.3M and the last gap reads 300 where every other reads 250. Measured
+     after the first cut of this rule had already fixed the other four. So the
+     test is applied again to the FINAL list, and a failure asks for fewer
+     ticks until the labels agree. */
+  const build = st => {
+    const sLo = Math.floor(lo / st + 1e-9) * st;
+    const sHi = Math.ceil(hi / st - 1e-9) * st;
+    const list = [];
+    for (let v = sLo; v <= sHi + st * 1e-6; v += st) {
+      list.push(Math.abs(v) < st * 1e-6 ? 0 : v);
+    }
+    return { lo: sLo, hi: sHi, ticks: list.length > 1 ? list : [sLo, sHi] };
+  };
+  let r = build(step);
+  if (!readsEvenly(r.ticks, fmt)) {
+    for (let c = count - 1; c >= 2; c--) {
+      const alt = ticks(lo, hi, c, room, fmt);
+      if (alt.length < 2) continue;
+      const cand = build(Math.abs(alt[1] - alt[0]));
+      if (readsEvenly(cand.ticks, fmt)) { r = cand; break; }
+    }
   }
-  return { lo: snapLo, hi: snapHi, ticks: out.length > 1 ? out : [snapLo, snapHi] };
+  /* ⚠️ AND WHEN EVERY STEP THE LADDER OFFERS STILL COLLAPSES, GO COARSER THAN
+     THE LADDER WILL. `ticks()` will not return fewer than two intervals, so a
+     narrow axis measured in whole units has no legal step at all: construction's
+     "Completion spread" runs 0 to about 1.4 contracts, every candidate step is
+     a fraction of a contract, and a whole-number formatter printed eight
+     gridlines reading 1, 1, 1, 1, 0, 0, 0, 0. An axis of 0, 1, 2 with three
+     ticks is right there and the ladder's own floor was what hid it. So the
+     last resort multiplies the step until the labels agree, accepting as few
+     as two ticks, which is what a count that spans one unit deserves. */
+  if (!readsEvenly(r.ticks, fmt)) {
+    for (const m of [2, 2.5, 4, 5, 10, 20, 50, 100]) {
+      const cand = build(step * m);
+      if (cand.ticks.length >= 2 && readsEvenly(cand.ticks, fmt)) { r = cand; break; }
+    }
+  }
+  return r;
 }
 
 /* ------------------------------------------------------------------- line */
@@ -164,7 +244,7 @@ export function line(opts) {
      at $255K printed $255K, $191K, $128K and $64K up the side. `niceScale`
      settles the range and its ticks together, so the top gridline is always
      the top of the plot and no mark can sit above every line. */
-  const sc = niceScale(lo, hi, 4, ih);
+  const sc = niceScale(lo, hi, 4, ih, fmt);
   lo = sc.lo; hi = sc.hi;
   const axisTicks = sc.ticks;
   const x = i => padL + (labels.length < 2 ? iw / 2 : iw * i / (labels.length - 1));
@@ -257,7 +337,7 @@ export function bars(opts) {
   /* the range and the gridlines from one source, so the top gridline is the
      top of the plot: see niceScale() */
   const bsc = niceScale(negativeOk ? Math.min(0, Math.min(...all)) : 0,
-    Math.max(...all, 0), 4, ih);
+    Math.max(...all, 0), 4, ih, fmt);
   let hi = bsc.hi, lo = bsc.lo;
   if (hi === lo) hi = lo + 1;
   const barTicks = bsc.ticks;
@@ -357,7 +437,7 @@ export function stack(opts) {
   const padL = 56, padR = 14, padT = 14, padB = 26;
   const iw = W - padL - padR, ih = height - padT - padB;
   const totals = rows.map(r => keys.reduce((a, k) => a + Math.max(0, r[k] || 0), 0));
-  const ssc = niceScale(0, Math.max(...totals, 1), 4, ih);
+  const ssc = niceScale(0, Math.max(...totals, 1), 4, ih, fmt);
   const hi = ssc.hi;
   const bw = iw / rows.length;
   const y = v => padT + ih - v / hi * ih;
@@ -462,7 +542,7 @@ export function waterfall(opts) {
     else { tops.push({ from: acc, to: acc + it.value }); acc += it.value; }
   }
   const all = tops.flatMap(t => [t.from, t.to]);
-  const wsc = niceScale(Math.min(0, ...all), Math.max(...all, 0), 4, ih);
+  const wsc = niceScale(Math.min(0, ...all), Math.max(...all, 0), 4, ih, fmt);
   const hi = wsc.hi, lo = wsc.lo;
   const bw = iw / items.length;
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
@@ -668,7 +748,7 @@ export function scatter(opts) {
      construction's "Load against margin", the worst case anywhere in the
      build. */
   const yMin = Math.min(0, ...ys), yMax = Math.max(...ys);
-  let ysc = niceScale(yMin, yMax, 4, ih);
+  let ysc = niceScale(yMin, yMax, 4, ih, yFmt);
   /* ⛔ PADDING CANNOT FIX A DISC ON THE TOP GRIDLINE, because padding moves the
      gridline and the dot down together. The first attempt reserved maxR in
      padT and the overflow stayed at 14px, unchanged to the pixel. The room has
@@ -678,9 +758,9 @@ export function scatter(opts) {
   for (let i = 0; i < 3; i++) {
     const span = ysc.hi - ysc.lo || 1;
     if (yMax + maxR / ih * span <= ysc.hi) break;
-    ysc = niceScale(yMin, yMax + maxR / ih * span, 4, ih);
+    ysc = niceScale(yMin, yMax + maxR / ih * span, 4, ih, yFmt);
   }
-  const xsc = niceScale(Math.min(0, ...xs), Math.max(...xs), 4, iw / 2);
+  const xsc = niceScale(Math.min(0, ...xs), Math.max(...xs), 4, iw / 2, xFmt);
   const xhi = xsc.hi, yhi = ysc.hi;
   const xlo = xsc.lo, ylo = ysc.lo;
   const X = v => padL + (v - xlo) / (xhi - xlo || 1) * iw;
