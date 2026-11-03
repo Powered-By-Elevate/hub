@@ -280,21 +280,57 @@ async function main() {
     ok(unsat.length === 0, 'the derivation satisfies every surface it was asked for',
       unsat.slice(0, 3).join('; '));
 
-    /* ⛔ AND IT CLEARS THE SURFACE THE WORLD ACTUALLY PAINTS.
+    /* ⛔ AND IT CLEARS EVERY STOP THE BODY ACTUALLY PAINTS.
 
-       `world.css` lays a lit ground over `--ground`, so the declared surface
-       is not the one text sits on. Measured under the page eyebrow in dark:
-       rgb(12, 25, 44) against the token's rgb(14, 20, 28). Deriving to exactly
-       4.5 against the token left two brands at 4.32:1 on the paint. The margin
-       is in `color.js` as PAINTED; this is the check that it is enough. */
+       ⚠️ This check used to compare against the single constant `#0c192c`,
+       which the publishing session then identified as not a sample at all: it
+       is LAKESHORE's painted ground at the eyebrow's y, derived, being used to
+       test all six brands. It passed only because the six grounds are close,
+       and it was the wrong surface for five of them.
+
+       The body paints a three-stop gradient from the palette, so the surfaces
+       are computable and `sky()` returns them. Checking all three is
+       position-independent: a page at any scroll offset sits on some blend of
+       the stops, so clearing every stop clears every blend. The measured
+       pixels, which the publishing session read from the real page, fall
+       between the lightest and middle stop on every brand, so the stops bound
+       reality rather than approximating it. */
     const paintMiss = [];
-    for (const [id, b] of Object.entries(brands)) {
-      const v = C.brandVars(b.palette, 'dark');
-      const r = C.contrast(v['--accent-ink'], '#0c192c');
-      if (r + 0.005 < 4.5) paintMiss.push(`${id} ${r.toFixed(2)}:1`);
+    const MEASURED = {
+      graniteridge: '#0e1b21', lakeshore: '#0c192c', fieldfinch: '#18161e',
+      carbide: '#14161b', ridgeline: '#0c1a27', northlight: '#101329',
+    };
+    for (const theme of ['light', 'dark']) {
+      for (const [id, b] of Object.entries(brands)) {
+        const v = C.brandVars(b.palette, theme);
+        for (const stop of C.sky(b.palette, theme)) {
+          const r = C.contrast(v['--accent-ink'], stop);
+          if (r + 0.005 < 4.5) paintMiss.push(`${theme}/${id} on ${stop} ${r.toFixed(2)}:1`);
+        }
+        /* and against the pixel actually read off the page, where we have one */
+        if (theme === 'dark' && MEASURED[id]) {
+          const r = C.contrast(v['--accent-ink'], MEASURED[id]);
+          if (r + 0.005 < 4.5) paintMiss.push(`${id} on the MEASURED pixel ${r.toFixed(2)}:1`);
+        }
+      }
     }
-    ok(paintMiss.length === 0, 'the brand ink clears the ground the world paints, not just the token',
-      paintMiss.join('; '));
+    ok(paintMiss.length === 0,
+      'the brand ink clears every painted sky stop and every measured pixel',
+      paintMiss.slice(0, 3).join('; '));
+
+    /* text on a runtime brand FILL: five rules put white on --navy and three on
+       --accent, and both are the client's colours */
+    const fillMiss = [];
+    for (const theme of ['light', 'dark']) {
+      for (const [id, b] of Object.entries(brands)) {
+        const v = C.brandVars(b.palette, theme);
+        for (const [ink, fill] of [['--on-accent', b.palette.accent], ['--on-navy', b.palette.navy]]) {
+          const r = C.contrast(v[ink], fill);
+          if (r + 0.005 < 4.5) fillMiss.push(`${theme}/${id} ${ink} ${r.toFixed(2)}:1`);
+        }
+      }
+    }
+    ok(fillMiss.length === 0, 'text on a brand fill reads on every brand', fillMiss.join('; '));
   }
 
   /* the front door: a first-time viewer lands here before any extract loads */

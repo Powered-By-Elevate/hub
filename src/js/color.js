@@ -128,66 +128,80 @@ export const SEMANTIC = {
 
 /* Everything `Settings.apply()` sets that depends on the brand. One function,
    so the gate can assert the same values the page will wear. */
-/* ⛔ THE DECLARED SURFACE IS NOT THE PAINTED ONE.
+/* ⛔ THE BODY NEVER PAINTS `--ground` AT ALL, SO DERIVE AGAINST WHAT IT DOES.
 
-   `world.css` lays a lit ground over `--ground`, so even a surface the
-   stylesheet DOES declare is not the surface text sits on. Measured by the
-   publishing session under the page eyebrow in dark:
+   Three rounds of getting this wrong, each time less wrong, and the publishing
+   session measured the mechanism every time:
 
-     --ground token         rgb(14, 20, 28)   what the derivation sees
-     body actually paints   rgb( 9, 19, 33)   the world's lit ground
-     under the eyebrow      rgb(12, 25, 44)   plus the gradient and the light
+   1. Derived against `--ground`, which left two brands at 4.32:1 on the paint.
+   2. Added a margin and wrote that the painted ground "moves with the pointer
+      light and has no single value to add". It does not move: with the light
+      armed and the pointer over the text it reads the same luminance to five
+      decimal places.
+   3. The comment still said `world.css` "lays a lit ground over `--ground`".
+      It does not lay anything over it. `hub.css` sets `body { background:
+      var(--ground) }` and `world.css` sets `body { background: var(--sky-2)
+      linear-gradient(...) }` on the same selector at the same specificity,
+      loading second. ⛔ The body is OVERRIDDEN, not overpainted, and
+      `--ground` is never painted on it. The eyebrow sat on neither of the two
+      surfaces it was derived against.
 
-   Deriving to exactly 4.5 against the token left lakeshore and fieldfinch at
-   4.32:1 on the paint, a miss of about 0.2 on 32 instances. This is `--tint`
-   one level subtler: that colour was absent from the stylesheet, this one is
-   present and overpainted.
+   And the claim that the paint has no single value was false twice over,
+   because the sky is a pure function of the brand:
 
-   ⚠️ THE FIRST VERSION OF THIS COMMENT GAVE A REASON THAT IS FALSE, and the
-   publishing session measured it. It said the margin was chosen over adding
-   the painted colour to the surface list because the ground "moves with the
-   pointer light and has no single value to add". It does not move. With the
-   light armed and the pointer directly over the text, the band under the
-   eyebrow reads rgb(12,25,44) to five decimal places of luminance, the same as
-   with the pointer far away. A surface in the list would have worked.
+     --sky-0  color-mix(--navy 44%, #0a1322)     dark
+     --sky-1  color-mix(--navy 28%, #091120)
+     --sky-2  color-mix(--navy 16%, #08101c)     light mixes --tint toward #fff
+     on a 180deg gradient, stops at 0, 46vh and 100vh
 
-   The margin's real virtue is a different one: ONE NUMBER COVERS ALL SIX
-   BRAND GROUNDS, whose painted luminance spans 0.0074 to 0.0099, where a
-   surface list would need the painted value of each. That is a good reason and
-   it is not the one that was written down. Third time this build has carried a
-   decision that was right with a justification that was wrong, which is the
-   pattern worth naming: the comment is what the next person reads, so a reason
-   nobody measured is a liability even when the code is correct.
+   So the surfaces go in the list and the margin goes away. Every stop is
+   derived here, which is position-independent: a page scrolled to any offset
+   sits on some blend of them, and clearing all three clears every blend. The
+   publishing session's closed-form derivation matched the real pixels to
+   within one channel step on all six brands.
 
-   4.9 clears the measured paint for every brand in the config (lakeshore 4.75,
-   fieldfinch 4.72, graniteridge 4.54) and costs nothing over 4.7, which
-   produces the identical ink for both of the brands that missed. 108 samples
-   across six industries and every page with an eyebrow: 0 below 4.5, worst
-   4.75.
+   ⚠️ A small margin survives for ONE measured reason, named so it is not read
+   as a guess: targeting exactly 4.5 lands on the boundary, and 8-bit
+   quantisation plus anti-aliasing then reads back 4.49. The `.drop` body text
+   did exactly that. 4.6 is the smallest value that clears after rounding. */
+export const ROUNDING = 4.6;
 
-   ⚠️ It is also applied to the three inks that land on `--tint`, where nothing
-   is painted over at all: the panel is opaque and the pixel inside a tint
-   plate is exactly the computed `--tint`. That is one number instead of two
-   for no measurable cost, not a second finding, and it is said here so the
-   margin is not read as evidence of a problem on the tint. */
-export const PAINTED = 4.9;
+/* The three gradient stops the body actually paints, from the palette. */
+export function sky(palette, theme) {
+  if (theme === 'dark') {
+    return [
+      mix(palette.navy, '#0a1322', 0.56),
+      mix(palette.navy, '#091120', 0.72),
+      mix(palette.navy, '#08101c', 0.84),
+    ];
+  }
+  return [mix(palette.tint, '#ffffff', 0.66), mix(palette.tint, '#ffffff', 0.24), palette.tint];
+}
 
 export function brandVars(palette, theme) {
   const s = SURFACE[theme], k = INK[theme], sem = SEMANTIC[theme];
+  /* what the body paints, plus the tab column, which is the one ground token
+     that really is painted (`--ground-deep`) */
+  const grounds = [...sky(palette, theme), s.groundDeep];
   /* ⛔ The tint has to let the FAINT ink read on it, because the panel foot
      sits there. In dark it is the navy lightened, so it is pushed back toward
      the panel until faint clears rather than being left where it looked nice. */
   let tint = theme === 'dark' ? mix(palette.navy, '#ffffff', 0.1) : palette.tint;
-  for (let i = 0; i < 24 && contrast(k.faint, tint) < 4.5; i++) {
+  /* ⚠️ ROUNDING, not 4.5: the loop used to exit at the first value its own
+     arithmetic called 4.5, and the painted result read back 4.49 on one brand.
+     Exiting at a boundary is exiting one step too early. */
+  for (let i = 0; i < 24 && contrast(k.faint, tint) < ROUNDING; i++) {
     tint = mix(tint, theme === 'dark' ? '#000000' : '#ffffff', 0.08);
   }
   const want = [
-    ['--accent-ink', worst(palette.accent, [s.ground, s.groundDeep], PAINTED), [s.ground, s.groundDeep], PAINTED],
-    ['--accent-ink-deep', readable(palette.accent, s.groundDeep, PAINTED), [s.groundDeep], PAINTED],
-    ['--accent-on-tint', readable(palette.accent, tint, PAINTED), [tint], PAINTED],
-    ['--good-ink', worst(sem.good, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
-    ['--warn-ink', worst(sem.warn, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
-    ['--bad-ink', worst(sem.bad, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
+    ['--accent-ink', worst(palette.accent, grounds, ROUNDING), grounds, ROUNDING],
+    ['--accent-ink-deep', readable(palette.accent, s.groundDeep, ROUNDING), [s.groundDeep], ROUNDING],
+    ['--accent-on-tint', readable(palette.accent, tint, ROUNDING), [tint], ROUNDING],
+    /* the semantics can land on the tint, the grounds, or a total row, so they
+       clear every one of those */
+    ['--good-ink', worst(sem.good, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
+    ['--warn-ink', worst(sem.warn, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
+    ['--bad-ink', worst(sem.bad, [...grounds, tint], ROUNDING), [...grounds, tint], ROUNDING],
   ];
   /* the postcondition, carried with the result rather than assumed */
   const missed = [];
@@ -198,6 +212,11 @@ export function brandVars(palette, theme) {
     '--tint': tint,
     ...Object.fromEntries(want.map(([n, v]) => [n, v])),
     '--on-accent': onFill(palette.accent),
+    /* ⛔ `--navy` is a runtime brand token too, and five rules hard-coded
+       white on it (#rail, .verdict, .lvl-ord, .cover, #present-bar). Dark for
+       every brand in the config, so white passes today, but it is the client's
+       colour and nothing checked it. */
+    '--on-navy': onFill(palette.navy),
     '--on-bad': onFill(sem.bad),
     '--on-good': onFill(sem.good),
     '--on-warn': onFill(sem.warn),
