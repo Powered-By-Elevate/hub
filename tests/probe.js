@@ -303,7 +303,11 @@ async function main() {
     for (const theme of ['light', 'dark']) {
       for (const [id, b] of Object.entries(brands)) {
         const v = C.brandVars(b.palette, theme);
-        for (const stop of C.sky(b.palette, theme)) {
+        /* ⚠️ `v.stops`, not `C.sky(b.palette, theme)`. The second form omits the
+           derived tint, so it builds the light stops from `palette.tint` and
+           checks a gradient the page may not paint. They agree today only
+           because the light tint loop never runs. */
+        for (const stop of v.stops) {
           const r = C.contrast(v['--accent-ink'], stop);
           if (r + 0.005 < 4.5) paintMiss.push(`${theme}/${id} on ${stop} ${r.toFixed(2)}:1`);
         }

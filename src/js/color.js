@@ -186,11 +186,19 @@ export const SEMANTIC = {
    - It said 4.6 is "the smallest value that clears after rounding". It is not:
      4.55 clears with room (tightest 4.557 against 4.505 at the boundary). 4.6
      is safe and cheap, and chosen for headroom rather than for being minimal.
-   - It read as a general margin. **Its entire effect is on the tint loop.**
-     Targets of 4.50, 4.52, 4.55 and 4.58 produce identical derived inks,
-     because `readable()`'s step overshoots the bound regardless, so the only
-     place the number changes an outcome is the loop below, which is also the
-     only place the 4.49 came from. */
+   - It used to read as a margin whose "entire effect is on the tint loop",
+     because at `readable()`'s old 0.04 step the targets 4.50 through 4.58
+     produced identical derived inks: the step overshot the bound regardless.
+
+   ⛔ THAT CLAIM WAS TRUE AT 0.04 AND THE SAME COMMIT SHIPPED 0.01, which made
+   its own comment false before anyone read it. Measured at the shipped step,
+   ROUNDING moves 4 of 14 inks at 4.52 and 7 of 14 at 4.60, so it is a general
+   margin after all and the tint loop is merely where its first symptom was
+   found. Two changes in one commit, each correct alone, and the comment for
+   one described the world before the other. The lesson is not about colour:
+   **a comment measured against the code as it was is a comment about a
+   different program**, so a claim and the change that invalidates it must not
+   travel together unmeasured. */
 export const ROUNDING = 4.6;
 
 /* The three gradient stops the body actually paints.
@@ -199,8 +207,12 @@ export const ROUNDING = 4.6;
    `var(--tint)` on the page, and `brandVars` may move that value, so reading
    the palette here would be two mechanisms answering one question: they agree
    today only because the tint loop never runs in light (closest margin 0.25).
-   Callers that have the derived tint pass it; the default keeps the function
-   usable on a bare palette. */
+   ⚠️ And the rule has to be FOLLOWED, not just written: the gate called this
+   with no tint while asserting the discipline in this very comment, so it was
+   checking stops built from `palette.tint` while the page painted stops built
+   from the derived one. They agreed only for the reason named above. A caller
+   that has `brandVars`' result reads `stops` from it rather than calling this
+   again, which removes the chance to forget. */
 export function sky(palette, theme, tint = palette.tint) {
   if (theme === 'dark') {
     return [
@@ -244,11 +256,21 @@ export function brandVars(palette, theme) {
     ['--warn-ink', worst(sem.warn, [...semSurf, tint], ROUNDING), [...semSurf, tint], ROUNDING],
     ['--bad-ink', worst(sem.bad, [...semSurf, tint], ROUNDING), [...semSurf, tint], ROUNDING],
   ];
-  /* the postcondition, carried with the result rather than assumed */
+  /* the postcondition, carried with the result rather than assumed.
+
+     ⛔ THE TINT IS IN IT NOW, AND WAS NOT. `missed` was built from `want`, the
+     six derived inks, while the tint was returned having never been checked.
+     It is the surface under every panel foot, drop zone and tag, and it was the
+     one value in this function that could fail silently: a hand-authored
+     `tint: #050505` in light exhausts the loop at #dddddd with faint reading
+     4.08, and `missed` came back empty. That is exactly the argument that put
+     `unmet()` on `worst()` two rounds ago, applied to the loop beside it only
+     after the publishing session cornered it. */
   const missed = [];
   for (const [name, value, surfaces, need] of want) {
     for (const m of unmet(value, surfaces, need)) missed.push(`${name}: ${m}`);
   }
+  for (const m of unmet(k.faint, [tint], ROUNDING)) missed.push(`--tint: ${m}`);
   return {
     '--tint': tint,
     ...Object.fromEntries(want.map(([n, v]) => [n, v])),

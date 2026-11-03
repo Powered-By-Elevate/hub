@@ -129,7 +129,24 @@ export class Settings {
        brand tint under dark-theme ink at 1.03:1 on the P&L subtotals. A state
        the product cannot reach, but the reason it could be reached at all is
        that the derivation lived in one branch of one method. */
-    for (const [k, v] of Object.entries(brandVars(p, d.theme))) root.style.setProperty(k, v);
+    const derived = brandVars(p, d.theme);
+    /* ⚠️ THE POSTCONDITION IS ONLY USEFUL WHERE IT IS READ.
+
+       `missed` was read in exactly one place, the gate, which runs over
+       `config/brands.json`. A deployment's own palette never passed through
+       it, so the two failures the publishing session cornered (a light navy,
+       a near-black tint) would have shipped silently to the client who
+       authored them. `paletteFrom()` is clean across 1,080 colours, so the
+       exposure is only reachable by hand-editing an exported config, which is
+       exactly what the export invites. Saying so in the console is
+       proportionate: it reaches the person editing the file. */
+    if (derived.missed && derived.missed.length) {
+      console.warn(`[hub] this brand's colours cannot all be made readable in the ${d.theme} theme:\n  `
+        + derived.missed.join('\n  '));
+    }
+    for (const [k, v] of Object.entries(derived)) {
+      if (k.startsWith('--')) root.style.setProperty(k, v);
+    }
     root.style.setProperty('--navy', p.navy);
     root.style.setProperty('--font-display', d.brand.type.display);
     root.style.setProperty('--font-body', d.brand.type.body);
