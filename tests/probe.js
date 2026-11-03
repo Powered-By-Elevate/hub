@@ -1067,6 +1067,209 @@ async function main() {
         ok(orphans.length === 0, `${ind}/${role}/${p}: no grid orphans its last item`,
           orphans.slice(0, 2).join(', '));
 
+        /* ⛔ NOTHING IS DRAWN OUTSIDE ITS OWN GRIDLINES.
+
+           A chart's plot range and its gridlines used to be chosen by two
+           different functions: the top of the plot was `niceMax(hi)` and the
+           step came from a ladder in `ticks()`, so they agreed only by luck.
+           When they disagreed the last gridline sat below the top of the plot
+           and a mark was drawn in the strip above it, with no line to read it
+           against. Worst case measured: construction's "Load against margin"
+           at 47px, and Net income over 24 months, which is the chart on the
+           financial dashboard. `niceScale()` now returns the range AND its
+           ticks together, so they cannot disagree by construction.
+
+           Second cause, same symptom, different fix: a bubble is a DISC around
+           its value, so a point whose value is the top tick hangs its radius
+           above the line. Padding cannot fix that, because padding moves the
+           gridline and the dot down together (measured: reserving the radius
+           in padT left the overflow unchanged to the pixel). The scale takes
+           the headroom instead.
+
+           ⚠️ The threshold is 4px and not 0, because a line chart's own 3px
+           point marker straddling the top gridline is the conventional look
+           and reads as ON the line, which is what it is. Three charts in
+           retail do that today. Anything bigger is a real escape. */
+        const outside = await page.evaluate(() => {
+          const out = [];
+          for (const svg of document.querySelectorAll('#page svg.chart')) {
+            const lines = [...svg.querySelectorAll('.axis line')];
+            if (lines.length < 2) continue;
+            const ys = lines.map(l => l.getBoundingClientRect().top);
+            const top = Math.min(...ys), bot = Math.max(...ys);
+            let worst = 0;
+            for (const m of svg.querySelectorAll('path, polyline, rect, circle')) {
+              if (m.closest('.axis')) continue;
+              const b = m.getBoundingClientRect();
+              if (b.height < 0.5 && b.width < 0.5) continue;
+              if (b.top < top - 1) worst = Math.max(worst, Math.round(top - b.top));
+              if (b.bottom > bot + 1) worst = Math.max(worst, Math.round(b.bottom - bot));
+            }
+            if (worst > 4) {
+              const pn = svg.closest('.panel');
+              const h = pn && pn.querySelector('h3');
+              out.push(`${(h ? h.textContent.trim() : '?').slice(0, 30)} +${worst}px`);
+            }
+          }
+          return out;
+        });
+        ok(outside.length === 0, `${ind}/${role}/${p}: every mark inside its gridlines`,
+          outside.slice(0, 2).join(', '));
+
+        /* ⛔ NO NEGATIVE TICK ON DATA THAT NEVER GOES NEGATIVE.
+
+           `niceScale()` shipped with both of its epsilons inverted. An epsilon
+           there exists to let a quotient of 2.9999999996 count as 3; pushed the
+           other way it adds a whole step to an EXACT quotient, and
+           `Math.floor(0 - 1e-9)` is -1. `bars()` passes lo=0 for any
+           non-negative series and `stack()` always does, so 49 of 107 value
+           axes were given a step of empty plot below zero and a negative label
+           to go with it, in all six industries, "The year so far" on every
+           home page among them.
+
+           ⚠️ Both gates missed it because an axis has two ends and both checks
+           watched one. The check above asks whether a mark sits ABOVE the top
+           gridline, which an axis overshooting downward still satisfies. The
+           publishing session's asked whether a chart crossing zero draws a zero
+           line, which it did. Neither asked whether the negative half was
+           earned.
+
+           ⚠️ And measure the GRIDLINE, not its label. A tick label is drawn at
+           `Y(t) + 3.5` and a text node's bounding box starts an ascent above
+           its baseline, so taking the label's top as the line put zero 5px off
+           and reported 45 charts whose bars sit exactly on the bottom gridline
+           as data below zero. The line's own geometry is the only honest
+           reading. */
+        const unearned = await page.evaluate(() => {
+          const out = [];
+          for (const svg of document.querySelectorAll('#page svg.chart')) {
+            const lines = [...svg.querySelectorAll('.axis line')]
+              .filter(l => l.getBoundingClientRect().height < 2);
+            const labels = [...svg.querySelectorAll('.axis text')];
+            if (lines.length < 2 || !labels.length) continue;
+            const neg = labels.filter(t => /^[-−]/.test(t.textContent.trim()));
+            if (!neg.length) continue;
+            /* the zero gridline: the line whose own label reads zero */
+            let zy = null;
+            for (const l of lines) {
+              const ly = l.getBoundingClientRect().top;
+              const t = labels.find(x => {
+                const b = x.getBoundingClientRect();
+                return Math.abs(b.top + b.height / 2 - ly) < 7;
+              });
+              if (t && /^[-−]?[$\s]*0([.,]0+)?%?$/.test(t.textContent.trim())) { zy = ly; break; }
+            }
+            if (zy === null) continue;      /* no zero drawn: nothing to judge */
+            let below = false;
+            for (const m of svg.querySelectorAll('rect, circle, polyline, path')) {
+              /* `.cursor` spans the whole plot and is not data: counting it is
+                 what made a first sweep's "real negative" tally meaningless */
+              if (m.closest('.axis') || m.closest('.cursor')) continue;
+              const b = m.getBoundingClientRect();
+              if (b.height < 0.5 && b.width < 0.5) continue;
+              if (b.bottom > zy + 2.5) { below = true; break; }
+            }
+            if (!below) {
+              const pn = svg.closest('.panel'), h = pn && pn.querySelector('h3');
+              out.push(`${(h ? h.textContent.trim() : '?').slice(0, 28)}: ${
+                neg[0].textContent.trim()}`);
+            }
+          }
+          return out;
+        });
+        ok(unearned.length === 0, `${ind}/${role}/${p}: no negative tick without negative data`,
+          unearned.slice(0, 2).join(', '));
+
+        /* ⛔ THE CASCADE'S CUT NEVER PAINTS OVER ITS KEPT BAR.
+
+           Two rules fought: `.casc-keep` has a declared 3px rendering floor so
+           a sub-1% running total is still visible, and `.casc-cut` is placed
+           proportionally. On a floored row the cut therefore began INSIDE the
+           bar: the publishing session measured logistics Interest at 2.41px and
+           Other at 1.88px into a 3px bar, which paints 80% and 63% of the
+           running total in translucent red. Reproduced here to the hundredth
+           of a pixel, and reproduced again by reverting the fix in the page,
+           which is the only way to know a zero means fixed and not a selector
+           that matches nothing. `left: max(var(--at), 3px)` is the fix. */
+        const cascOver = await page.evaluate(() => {
+          const out = [];
+          for (const row of document.querySelectorAll('#page .casc-row')) {
+            const keep = row.querySelector('.casc-keep'), cut = row.querySelector('.casc-cut');
+            if (!keep || !cut) continue;
+            const k = keep.getBoundingClientRect(), c = cut.getBoundingClientRect();
+            if (k.right - c.left > 0.5) {
+              out.push(`${(row.querySelector('.casc-n') || {}).textContent || '?'}`.trim());
+            }
+          }
+          return out;
+        });
+        ok(cascOver.length === 0, `${ind}/${role}/${p}: no cascade cut over its kept bar`,
+          cascOver.slice(0, 3).join(', '));
+
+        /* ⛔ A KEY SHOWS THE COLOURS ITS OWN CHART DRAWS.
+
+           "The shape of the year" borrowed the heatmap's `hm-ramp`, which is
+           one colour at varying opacity, for a chart drawn in TWO colours at
+           full opacity. The legend said a faded accent, the bars said
+           `--accent-lift`, and a reader matching one to the other found
+           neither. Nothing in the build could see it, because no arithmetic
+           compares a swatch with a fill. This does: every swatch colour in a
+           panel's key must be a colour that panel's chart actually paints. */
+        const liars = await page.evaluate(() => {
+          const out = [];
+          for (const pn of document.querySelectorAll('#page .panel')) {
+            const key = pn.querySelector('.hm-key .hm-ramp');
+            const svg = pn.querySelector('svg.chart');
+            if (!key || !svg) continue;
+            /* ⚠️ COLOUR AND OPACITY TOGETHER, not colour alone. A heatmap
+               paints one colour at many strengths and its ramp swatches are
+               faded ON PURPOSE, so a check that rejected a faded swatch failed
+               84 times on two charts that were right. What matters is the PAIR:
+               a swatch must match the colour AND the strength of some mark the
+               chart paints. `fill` never carries `fill-opacity`, so both are
+               read and rounded to the nearest 0.02, which is finer than an eye
+               but coarse enough for a rounded computed value. */
+            /* ⚠️ COLOUR AND STRENGTH, and strength as a RANGE.
+
+               Three readings, each wrong in its own way, before this one:
+               colour alone passed the defect that started this (an accent
+               faded to .42 next to bars painted at full accent, identical
+               colour); colour plus a no-fading rule failed 84 times on two
+               heatmaps whose ramp swatches are faded on purpose; colour plus
+               an exact strength match failed on two more, because a RAMP
+               legend is a scale and its middle stop need not be a value the
+               data happens to contain.
+
+               So: the swatch's colour must be one the chart paints, and its
+               strength must lie inside the range of strengths the chart paints
+               THAT colour at. `fill` never carries `fill-opacity`, so both are
+               read and multiplied. */
+            const paints = new Map();
+            for (const m of svg.querySelectorAll('rect, circle, path')) {
+              if (m.closest('.axis')) continue;
+              const c = getComputedStyle(m);
+              const a = Number(c.fillOpacity) * Number(c.opacity);
+              const r = paints.get(c.fill);
+              if (r) { r[0] = Math.min(r[0], a); r[1] = Math.max(r[1], a); }
+              else paints.set(c.fill, [a, a]);
+            }
+            if (!paints.size) continue;
+            for (const i of key.querySelectorAll('i')) {
+              const c = getComputedStyle(i);
+              const r = paints.get(c.backgroundColor);
+              const a = Number(c.opacity);
+              if (!r || a < r[0] - 0.03 || a > r[1] + 0.03) {
+                const h = pn.querySelector('h3');
+                out.push(`${(h ? h.textContent.trim() : '?').slice(0, 26)}: key ${
+                  c.backgroundColor} @${a}${r ? ` vs painted ${r[0].toFixed(2)}-${r[1].toFixed(2)}` : ' (never painted)'}`);
+              }
+            }
+          }
+          return out;
+        });
+        ok(liars.length === 0, `${ind}/${role}/${p}: every key swatch is a colour its chart paints`,
+          liars.slice(0, 2).join(', '));
+
         /* ⛔ A FILED ROW KEEPS BOTH FACTS THAT IDENTIFY IT.
 
            A filing is named `<place> - <date> <type>` and the row used to cut

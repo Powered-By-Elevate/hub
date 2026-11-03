@@ -94,6 +94,56 @@ function ticks(min, max, count = 4, room = null) {
   return out;
 }
 
+/* ⛔ THE SCALE AND THE TICKS MUST AGREE BY CONSTRUCTION, NOT BY COINCIDENCE.
+
+   The round-step rewrite left the plot's top edge and its top gridline free to
+   disagree, because they were chosen by different code with no knowledge of
+   each other: the plot top is `niceMax(hi)` and `ticks()` picks its step from
+   the span. Where the top is not a multiple of the step, the last tick falls
+   BELOW the top of the plot, and the data between them has no gridline above
+   it at all.
+
+   Worked example, from the publishing session: lo=-200K, hi=500K gives a span
+   of 700K and a step of 200K, so the ticks run -200K, 0, 200K, 400K and 600K
+   is dropped for exceeding hi. Top gridline 400K, plot top 500K. Measured on
+   five charts across both themes, with marks sitting 11 to 25px above the top
+   gridline: on `Net income, 24 months` the final point climbs past the $400K
+   line with nothing above it, so a reader cannot tell $450K from $900K.
+
+   ⚠️ That is a worse defect than the ugly axis it came from, and it was mine:
+   the fix for one number introduced it. So the range is settled FROM the step
+   rather than beside it. One function returns both and they cannot drift. */
+export function niceScale(lo, hi, count = 4, room = null) {
+  if (!(hi > lo)) { hi = (hi || 0) + 1; lo = Math.min(0, lo); }
+  /* a first pass to learn the step the span wants */
+  const probe = ticks(lo, hi, count, room);
+  const step = probe.length > 1 ? Math.abs(probe[1] - probe[0]) : (hi - lo) / count;
+  /* then snap the RANGE outward to whole steps, so the extremes are ticks.
+
+     ⛔ THE EPSILON LEANS TOWARD THE VALUE, NEVER AWAY FROM IT, and the first
+     cut of this had both signs inverted (`floor(lo / step - 1e-9)`,
+     `ceil(hi / step + 1e-9)`). An epsilon here exists to let a quotient that
+     is 2.9999999996 count as 3. Pushed the other way it does the opposite: on
+     an EXACT quotient it adds a whole step. `Math.floor(0 - 1e-9)` is -1, and
+     `bars()` passes lo=0 for any non-negative series while `stack()` always
+     does, so a chart that never goes below zero was given a full step of empty
+     plot underneath it and a negative gridline label to go with it.
+
+     Measured on the built pages, both the defect and the fix: of 107 value
+     axes, 49 carried a negative label on data that never went negative, with
+     the zero line floating 22 to 70px above the bottom of the plot, in all six
+     industries, and "The year so far" on every home page among them. Zero
+     after. The bracket this function exists to fix still holds: lo=-200K,
+     hi=480K still gives -200K to 600K. */
+  const snapLo = Math.floor(lo / step + 1e-9) * step;
+  const snapHi = Math.ceil(hi / step - 1e-9) * step;
+  const out = [];
+  for (let v = snapLo; v <= snapHi + step * 1e-6; v += step) {
+    out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+  }
+  return { lo: snapLo, hi: snapHi, ticks: out.length > 1 ? out : [snapLo, snapHi] };
+}
+
 /* ------------------------------------------------------------------- line */
 
 export function line(opts) {
@@ -109,15 +159,14 @@ export function line(opts) {
   let lo = Math.min(...all), hi = Math.max(...all);
   if (zeroBase && lo > 0) lo = 0;
   if (lo === hi) { hi = hi || 1; lo = Math.min(0, lo); }
-  /* ⛔ A ROUND AXIS, NOT max x 0.75. The ticks were interpolated between the
-     raw extremes, so a series peaking at $255K printed $255K, $191K, $128K and
-     $64K up the side: four numbers nobody would ever choose, on every line
-     chart in the build. `niceMax` already exists for exactly this and the bar
-     chart has always used it. */
-  if (hi > 0) hi = niceMax(hi);
-  if (lo < 0) lo = -niceMax(Math.abs(lo));
-  const pad = lo < 0 ? 0 : 0;
-  hi = hi + pad;
+  /* ⛔ A ROUND AXIS, NOT max x 0.75, AND THE SAME SOURCE AS THE GRIDLINES.
+     The ticks were interpolated between the raw extremes, so a series peaking
+     at $255K printed $255K, $191K, $128K and $64K up the side. `niceScale`
+     settles the range and its ticks together, so the top gridline is always
+     the top of the plot and no mark can sit above every line. */
+  const sc = niceScale(lo, hi, 4, ih);
+  lo = sc.lo; hi = sc.hi;
+  const axisTicks = sc.ticks;
   const x = i => padL + (labels.length < 2 ? iw / 2 : iw * i / (labels.length - 1));
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
 
@@ -134,7 +183,7 @@ export function line(opts) {
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto"
     data-chart="line" data-id="${id}" role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi, 4, ih)) {
+  for (const t of axisTicks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -205,10 +254,13 @@ export function bars(opts) {
   const padL = 56, padR = 14, padT = 14, padB = 26;
   const iw = W - padL - padR, ih = height - padT - padB;
   const all = values.concat(overlay || []).concat(target ? [target] : []).filter(Number.isFinite);
-  let hi = niceMax(Math.max(...all, 0));
-  let lo = negativeOk ? Math.min(0, Math.min(...all)) : 0;
-  if (lo < 0) lo = -niceMax(Math.abs(lo));
+  /* the range and the gridlines from one source, so the top gridline is the
+     top of the plot: see niceScale() */
+  const bsc = niceScale(negativeOk ? Math.min(0, Math.min(...all)) : 0,
+    Math.max(...all, 0), 4, ih);
+  let hi = bsc.hi, lo = bsc.lo;
   if (hi === lo) hi = lo + 1;
+  const barTicks = bsc.ticks;
   const bw = iw / values.length;
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
   const c = color || seriesColour(0);
@@ -231,7 +283,7 @@ export function bars(opts) {
     role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi, 4, ih)) {
+  for (const t of barTicks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -305,7 +357,8 @@ export function stack(opts) {
   const padL = 56, padR = 14, padT = 14, padB = 26;
   const iw = W - padL - padR, ih = height - padT - padB;
   const totals = rows.map(r => keys.reduce((a, k) => a + Math.max(0, r[k] || 0), 0));
-  const hi = niceMax(Math.max(...totals, 1));
+  const ssc = niceScale(0, Math.max(...totals, 1), 4, ih);
+  const hi = ssc.hi;
   const bw = iw / rows.length;
   const y = v => padT + ih - v / hi * ih;
 
@@ -322,7 +375,7 @@ export function stack(opts) {
     role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
-  for (const t of ticks(0, hi, 4, ih)) {
+  for (const t of ssc.ticks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -409,13 +462,14 @@ export function waterfall(opts) {
     else { tops.push({ from: acc, to: acc + it.value }); acc += it.value; }
   }
   const all = tops.flatMap(t => [t.from, t.to]);
-  const hi = niceMax(Math.max(...all, 0)), lo = Math.min(0, ...all);
+  const wsc = niceScale(Math.min(0, ...all), Math.max(...all, 0), 4, ih);
+  const hi = wsc.hi, lo = wsc.lo;
   const bw = iw / items.length;
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
 
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi, 4, ih)) {
+  for (const t of wsc.ticks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -496,7 +550,7 @@ export function cascade(opts) {
       <span class="casc-track" aria-hidden="true">
         <i class="casc-keep" style="width:${kept.toFixed(2)}%"></i>
         ${!lead && delta > 0 ? `<i class="casc-cut${down ? '' : ' up'}"
-          style="left:${kept.toFixed(2)}%;width:${delta.toFixed(2)}%"></i>` : ''}
+          style="--at:${kept.toFixed(2)}%;width:${delta.toFixed(2)}%"></i>` : ''}
       </span>
       <b class="casc-v${down ? ' down' : ''}"
         data-r="${esc(r.name)}: ${esc(fmt(r.value))}">${esc(fmt(r.value))}</b>
@@ -596,11 +650,39 @@ export function scatter(opts) {
        chart was supposed to do for them. */
     rule = null, ruleLabel = '' } = opts;
   if (!points.length) return `<div class="empty">Nothing to draw yet.</div>`;
-  const padL = 60, padR = 18, padT = 16, padB = 40;
+  /* ⚠️ A BUBBLE IS A DISC AROUND ITS VALUE, so the plot has to hold the glyph
+     and not just the number. Tech's "Revenue against margin" sizes its bubbles
+     by revenue and the biggest is r=16: its value sat correctly on the top
+     gridline and 14px of the disc hung above it into the panel, reading as a
+     circle escaping the chart. Measured, both themes. So every side reserves
+     the largest radius drawn, which for the ordinary r=5 or 6 case changes
+     nothing. */
+  const maxR = Math.max(6, ...points.map(p => Number(p.r) || 0));
+  const padL = Math.max(60, maxR + 8), padR = Math.max(18, maxR + 4);
+  const padT = Math.max(16, maxR + 3), padB = Math.max(40, maxR + 26);
   const iw = W - padL - padR, ih = height - padT - padB;
   const xs = points.map(p => p.x), ys = points.map(p => p.y);
-  const xhi = niceMax(Math.max(...xs)), yhi = niceMax(Math.max(...ys));
-  const xlo = Math.min(0, ...xs), ylo = Math.min(0, ...ys);
+  /* ⚠️ niceScale on BOTH axes, same reason as every other chart: the plot's
+     edge and its last gridline were chosen separately, so a point could sit
+     above the top line with nothing above it. Measured at +47px on
+     construction's "Load against margin", the worst case anywhere in the
+     build. */
+  const yMin = Math.min(0, ...ys), yMax = Math.max(...ys);
+  let ysc = niceScale(yMin, yMax, 4, ih);
+  /* ⛔ PADDING CANNOT FIX A DISC ON THE TOP GRIDLINE, because padding moves the
+     gridline and the dot down together. The first attempt reserved maxR in
+     padT and the overflow stayed at 14px, unchanged to the pixel. The room has
+     to come from the SCALE: the top gridline is pushed up until the largest
+     bubble's rim clears it. Two passes settle it, because extending the range
+     can change the step. */
+  for (let i = 0; i < 3; i++) {
+    const span = ysc.hi - ysc.lo || 1;
+    if (yMax + maxR / ih * span <= ysc.hi) break;
+    ysc = niceScale(yMin, yMax + maxR / ih * span, 4, ih);
+  }
+  const xsc = niceScale(Math.min(0, ...xs), Math.max(...xs), 4, iw / 2);
+  const xhi = xsc.hi, yhi = ysc.hi;
+  const xlo = xsc.lo, ylo = ysc.lo;
   const X = v => padL + (v - xlo) / (xhi - xlo || 1) * iw;
   const Y = v => padT + ih - (v - ylo) / (yhi - ylo || 1) * ih;
   /* Every label already drawn, so a later one can avoid it. Declared with
@@ -610,7 +692,7 @@ export function scatter(opts) {
 
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(ylo, yhi, 4, ih)) {
+  for (const t of ysc.ticks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(Y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(yFmt(t))}</text>`;
     /* ⛔ An axis tick is a label and a point label can land on one. The first
@@ -620,7 +702,7 @@ export function scatter(opts) {
     placedLabels.push({ x: padL - 8 - tick.length * 2.7, y: Y(t) + 3.5,
       half: tick.length * 2.7 + 4 });
   }
-  for (const t of ticks(xlo, xhi)) {
+  for (const t of xsc.ticks) {
     svg += `<text x="${X(t).toFixed(1)}" y="${height - 22}" text-anchor="middle">${esc(xFmt(t))}</text>`;
   }
   svg += `</g>`;

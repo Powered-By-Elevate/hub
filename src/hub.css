@@ -1787,10 +1787,24 @@ body.presenting .strip[data-current="true"] {
    beside it in its own column. The bar shows the shape of the shrink; the
    number is what is read. A floor is honest where it is declared and the
    figure is adjacent, and dishonest where it is silent. */
+/* ⚠️ PRINT. Every other chart in this build is SVG, whose fills print because
+   they are content. The cascade's bars are CSS backgrounds, which a browser
+   drops by default in economy mode, so the dashboard's bridge printed as empty
+   tracks while every chart beside it printed in full. */
+.casc-keep, .casc-cut { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 .casc-keep { position: absolute; inset: 0 auto 0 0; background: var(--navy);
   border-radius: 4px; min-width: 3px; }
 .casc-row.end .casc-keep { background: var(--good); }
-.casc-cut { position: absolute; top: 0; bottom: 0; background: var(--bad); opacity: .55; }
+/* ⛔ THE CUT STARTS WHERE THE BAR REALLY ENDS, FLOOR INCLUDED.
+
+   The floor above widens the kept bar to 3px without moving the cut, which is
+   positioned proportionally. On a floored row the two then overlap: measured on
+   logistics, Interest's cut began 2.41px and Other's 1.88px INSIDE the 3px bar,
+   covering about 80% and 63% of it with a translucent red. The reader sees the
+   running total painted the colour of the loss. `max()` holds the cut at the
+   bar's painted edge, so the floor and the cut agree. */
+.casc-cut { position: absolute; top: 0; bottom: 0; left: max(var(--at), 3px);
+  background: var(--bad); opacity: .55; }
 .casc-cut.up { background: var(--good); opacity: .5; }
 .casc-v {
   font-size: 13px; text-align: right; font-variant-numeric: tabular-nums;

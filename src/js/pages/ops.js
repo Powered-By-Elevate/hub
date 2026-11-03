@@ -1531,10 +1531,24 @@ export function season(ctx) {
         /* A quiet month is the calendar, not a failure. Red here would say
            February went wrong, and February goes like this every year. */
         color: 'var(--accent)', negColor: 'var(--accent-lift)',
+      /* ⛔ THE KEY BELOW SHOWS THE COLOURS THIS CHART ACTUALLY DRAWS.
+
+         It used to borrow the heatmap's `hm-ramp`, which is one colour at
+         varying opacity, for a chart that uses TWO colours at full opacity: the
+         swatch said a faded accent and the bars said `--accent-lift`. A reader
+         matching the legend to a bar found neither. The second swatch now names
+         its own colour instead of inheriting a ramp's.
+
+         ⚠️ And this note lives OUT here for two reasons. A JSX-style brace
+         comment inside the template literal below would render as text on the
+         page. And writing one INTO this comment to say so closed the comment
+         early at its own delimiter, which made the rest of the sentence into
+         code: the build and `node --check` both passed and the app did not
+         boot. A comment cannot quote the mark that ends it. */
       }) + `<div class="hm-key">
         <div class="hm-ramp">
           <i style="opacity:1"></i><span>above an average month</span>
-          <i style="opacity:.42;margin-left:14px"></i><span>below it</span>
+          <i style="background:var(--accent-lift);opacity:1;margin-left:14px"></i><span>below it</span>
         </div>
         <p>Every bar is one calendar month measured against the AVERAGE month of
           this extract, so the baseline is not zero ${esc(label.toLowerCase())}, it is a
