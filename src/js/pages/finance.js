@@ -64,17 +64,26 @@ export function dash(ctx) {
     U.panel({
       col: 8,
       title: 'Revenue against the plan',
-      note: `${F.monthsWord(last12.length, true)} to ${esc(F.monthName(q.view.month, true))}.${
-        budSeries && budSeries.some(v => v) ? ' The bar is what happened, the line is what was budgeted.' : ''}`,
       body: C.bars({
         values: revSeries, labels: last12.map(mN), fmt: v => F.money(v),
         overlay: budSeries && budSeries.some(v => v) ? budSeries : null,
+        /* ⛔ The budget was a 2px tick floating above each bar, so reading the
+           variance meant eyeballing twelve gaps. As a ghost bar behind the
+           actual one, the shortfall is the uncovered remainder and needs no
+           measuring. */
+        ghost: true,
         name: 'Actual', overlayName: 'Budget', height: 250,
       }),
-      foot: budSeries && bRev
-        ? `${Number.isFinite(vsBudget) && vsBudget >= 0 ? 'Ahead of' : 'Behind'} plan by
-           ${F.money(Math.abs(rev - bRev))} over the window.`
-        : 'No budget is loaded for this window.',
+      /* the variance is the point of the panel, so it is said in the head
+         rather than left as grey footer text under the chart */
+      note: `${F.monthsWord(last12.length, true)} to ${esc(F.monthName(q.view.month, true))}.${
+        budSeries && bRev
+          ? ` <b class="${Number.isFinite(vsBudget) && vsBudget >= 0 ? 'ok' : 'off'}-plan">${
+            Number.isFinite(vsBudget) && vsBudget >= 0 ? 'Ahead of' : 'Behind'} plan by ${
+            F.money(Math.abs(rev - bRev))}</b> over the window.`
+          : ' No budget is loaded for this window.'}`,
+      foot: budSeries && budSeries.some(v => v)
+        ? 'The solid bar is what happened. The pale bar behind it is the plan.' : '',
     }),
     U.panel({
       col: 4,
@@ -93,19 +102,37 @@ export function dash(ctx) {
           ];
         const kept = Math.max(0, rev - parts.reduce((a, p) => a + p.value, 0));
         parts.push({ name: 'Kept', value: kept, color: 'var(--good)' });
-        return `<div style="display:flex;justify-content:center;margin-bottom:12px">
-          ${C.donut({ parts, fmt: v => F.money(v), center: F.pct(rev ? kept / rev * 100 : 0), centerLabel: 'kept' })}
-        </div>${C.donutLegend(parts, v => F.money(v))}`;
+        /* ⛔ THIS WAS A DONUT AND A DONUT CANNOT DRAW AN 86/14 SPLIT.
+           Cost of revenue is 86.2% of the ring, so the other six parts are
+           slivers a reader cannot tell apart, and the legend underneath was
+           doing all of the work while the ring sat on top as decoration.
+           The ranking IS the legend, given its own room, and the one figure
+           the panel exists to deliver is said once at the top. */
+        const pcOf = v => rev ? v / rev * 100 : 0;
+        return `<div class="keptfig">
+            <span class="keptfig-v">${F.pct(pcOf(kept))}</span>
+            <span class="keptfig-l">of every dollar is kept</span>
+          </div>` + C.hbars({
+          rows: parts.map(pt => ({
+            name: pt.name, value: pt.value, color: pt.color,
+            note: F.pct(pcOf(pt.value), 1),
+          })),
+          fmt: v => F.money(v), height: 13, gap: 5, stacked: true,
+        });
       })(),
     }),
   ];
 
   if (!q.unitScoped) {
     panels.push(U.panel({
-      col: 7,
+      /* col 5, not 7: the cascade is DOM and reads at any width, while the
+         24-month line is an SVG on a fixed viewBox, so a narrow panel scales
+         its 10.5px axis text down to about 4px. Width goes to the one that
+         needs it. */
+      col: 5,
       title: 'From revenue to net income',
       note: 'The bridge over the window, in the order the statement takes it.',
-      body: C.waterfall({
+      body: C.cascade({
         items: [
           { name: 'Revenue', value: rev, total: true },
           { name: 'Cost of revenue', value: -q.sum('cor', w) },
@@ -115,12 +142,14 @@ export function dash(ctx) {
           { name: 'Other', value: q.sum('other', w) },
           { name: 'Net income', value: q.sum('ni', w), total: true },
         ],
-        fmt: v => F.money(v), height: 270,
+        fmt: v => F.money(v),
       }),
+      foot: `Each bar is what is left at that line. The column beside it is what
+        the line took off, and the last column is the running total.`,
     }));
 
     panels.push(U.panel({
-      col: 5,
+      col: 7,
       title: 'Net income, 24 months',
       note: 'The shape of the business, not one month of it.',
       body: C.line({
@@ -140,8 +169,9 @@ export function dash(ctx) {
         { label: 'Cash', value: F.money(cash), note: `${F.num(cd.value, 0)} days of running cost` },
         { label: 'Receivables', value: F.money(ar), note: `${F.num(dso(q), 0)} days sales outstanding` },
         { label: 'Payables', value: F.money(ap), note: `${F.num(dpo(q), 0)} days payable` },
-        { label: 'Working capital', value: F.money(cash + ar + inv + q.bal('oca') - ap - q.bal('accr') - q.bal('cd')) },
-      ]),
+        { label: 'Working capital', value: F.money(cash + ar + inv + q.bal('oca') - ap - q.bal('accr') - q.bal('cd')),
+          note: `${F.ratio(current(q))} current ratio` },
+      ], { pairs: true }),
       foot: `Current ratio ${F.ratio(current(q))}. Debt is
         ${F.money(q.bal('ltd') + q.bal('cd'))} against equity of
         ${F.money(q.bal('cap') + q.bal('re') + q.bal('cy'))}.`,

@@ -32,9 +32,65 @@ export function niceMax(v) {
   return step * mag;
 }
 
-function ticks(min, max, count = 4) {
+/* ⛔ TICKS ON ROUND NUMBERS, NOT ON FRACTIONS OF THE MAXIMUM.
+
+   This interpolated between the extremes, so an axis topping out at a round
+   $250K still printed $188K, $125K and $63K up the side: nobody chooses those
+   numbers, and they appeared on every chart in the build. A nice maximum is
+   not enough on its own, because the STEP has to be round too. */
+/* ⚠️ `count` IS A TARGET, AND THE ROOM AVAILABLE IS THE LIMIT. The round-step
+   ladder puts more ticks on an axis than the old interpolation did, and on a
+   short plot that printed two labels 8px apart on education's headcount chart.
+   A caller that knows its plot height passes `room`, and the target is capped
+   so no two labels land closer than 26px. */
+function ticks(min, max, count = 4, room = null) {
+  /* ⚠️ THE LIMIT BINDS ON THE TICKS PRODUCED, NOT ON THE TARGET.
+
+     Capping `count` alone does nothing, because the step comes from a ladder:
+     a headcount series spanning 8 people picks a step of 2 and emits five
+     ticks whatever the target was, which printed 412 and 420 nine pixels
+     apart on education's team chart. So the room becomes a maximum the chosen
+     step has to satisfy. */
+  const most = room ? Math.max(2, Math.floor(room / 26)) : 99;
+  const span = max - min;
+  if (!(span > 0)) return [min];
+  /* ⚠️ Pick the step by the TICK COUNT IT PRODUCES, not by magnitude alone.
+     Taking the first ladder rung at or above span/count chose 100K for a 250K
+     axis, because 62.5K rounds up past the 50K rung, and the axis printed
+     $250K, $200K, $100K, $0 with one gap twice the others. Scoring every
+     candidate by how close its interval count lands to the target picks 50K
+     and gives six evenly spaced round numbers. */
+  const raw = span / count;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  let step = mag, bestScore = Infinity;
+  for (const m of [mag / 10, mag, mag * 10]) {
+    for (const x of [1, 2, 2.5, 5]) {
+      const cand = x * m;
+      const n = span / cand;
+      if (n < 2 || n > Math.min(9, most)) continue;
+      const score = Math.abs(n - count);
+      if (score < bestScore) { bestScore = score; step = cand; }
+    }
+  }
+  /* no rung satisfies the room, so take the coarsest that does */
+  if (span / step > most) step = span / most;
   const out = [];
-  for (let i = 0; i <= count; i++) out.push(min + (max - min) * i / count);
+  for (let v = Math.ceil(min / step) * step; v <= max + step * 1e-6; v += step) {
+    out.push(Math.abs(v) < step * 1e-6 ? 0 : v);
+  }
+  /* ⛔ THE DATA'S EXTREMES ARE NOT AXIS LABELS.
+
+     This appended `min` and `max` so the range was always written down, and
+     on education's team chart the minimum was 412 against a first round tick
+     of 420: eight people apart, nine pixels apart, one label printed on the
+     other. A threshold in data units cannot see that, because how many pixels
+     eight people buy depends on the plot's height.
+
+     An axis exists to let a reader put a value to a position, which round
+     gridlines do. The exact minimum and maximum are the series' business and
+     the readout already gives them on hover. So nothing is appended, and the
+     only guard left is against an axis with nothing on it at all. */
+  if (out.length < 2) return [min, max];
   return out;
 }
 
@@ -53,8 +109,15 @@ export function line(opts) {
   let lo = Math.min(...all), hi = Math.max(...all);
   if (zeroBase && lo > 0) lo = 0;
   if (lo === hi) { hi = hi || 1; lo = Math.min(0, lo); }
-  const pad = (hi - lo) * 0.08;
-  hi = hi + pad; lo = lo < 0 ? lo - pad : lo;
+  /* ⛔ A ROUND AXIS, NOT max x 0.75. The ticks were interpolated between the
+     raw extremes, so a series peaking at $255K printed $255K, $191K, $128K and
+     $64K up the side: four numbers nobody would ever choose, on every line
+     chart in the build. `niceMax` already exists for exactly this and the bar
+     chart has always used it. */
+  if (hi > 0) hi = niceMax(hi);
+  if (lo < 0) lo = -niceMax(Math.abs(lo));
+  const pad = lo < 0 ? 0 : 0;
+  hi = hi + pad;
   const x = i => padL + (labels.length < 2 ? iw / 2 : iw * i / (labels.length - 1));
   const y = v => padT + ih - (v - lo) / (hi - lo) * ih;
 
@@ -71,7 +134,7 @@ export function line(opts) {
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto"
     data-chart="line" data-id="${id}" role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi)) {
+  for (const t of ticks(lo, hi, 4, ih)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -136,7 +199,7 @@ export function bars(opts) {
   const {
     values = [], labels = [], height = 220, fmt = v => v, color = null,
     target = null, overlay = null, overlayName = 'Budget', name = 'Actual',
-    negativeOk = true, negColor = 'var(--bad)',
+    negativeOk = true, negColor = 'var(--bad)', ghost = false,
   } = opts;
   if (!values.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const padL = 56, padR = 14, padT = 14, padB = 26;
@@ -168,7 +231,7 @@ export function bars(opts) {
     role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi)) {
+  for (const t of ticks(lo, hi, 4, ih)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -189,12 +252,32 @@ export function bars(opts) {
     const bx = padL + bw * i + bw * 0.18;
     const w = bw * 0.64;
     const top = Math.min(y(v), y(0)), h = Math.max(1.5, Math.abs(y(v) - y(0)));
+    /* ⛔ GHOST: THE PLAN AS A BAR BEHIND, NOT A TICK ABOVE.
+
+       A 2px line floating over each bar makes the reader measure twelve gaps
+       by eye to see a variance. Drawn as a pale bar behind the actual one, the
+       shortfall is simply the part left uncovered, and an overshoot is the
+       actual bar standing above it. Behind, so it can never hide the figure
+       it is being compared with. */
+    if (ghost && overlay && Number.isFinite(overlay[i])) {
+      const gt = Math.min(y(overlay[i]), y(0)), gh = Math.max(1.5, Math.abs(y(overlay[i]) - y(0)));
+      svg += `<rect x="${(bx - w * 0.09).toFixed(1)}" y="${gt.toFixed(1)}"
+        width="${(w * 1.18).toFixed(1)}" height="${gh.toFixed(1)}"
+        fill="var(--ink-faint)" opacity=".34" rx="2"/>`;
+    }
     svg += `<rect x="${bx.toFixed(1)}" y="${top.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}"
       fill="${v < 0 ? negColor : c}" rx="2"/>`;
-    if (overlay && Number.isFinite(overlay[i])) {
+    if (overlay && !ghost && Number.isFinite(overlay[i])) {
       svg += `<line x1="${(bx - w * 0.1).toFixed(1)}" x2="${(bx + w * 1.1).toFixed(1)}"
         y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"
         stroke="var(--ink)" stroke-width="2" opacity=".75"/>`;
+    }
+    /* the plan's own edge stays visible on a ghost bar, so the comparison has
+       a line to read against rather than only a change of tone */
+    if (ghost && overlay && Number.isFinite(overlay[i])) {
+      svg += `<line x1="${(bx - w * 0.09).toFixed(1)}" x2="${(bx + w * 1.09).toFixed(1)}"
+        y1="${y(overlay[i]).toFixed(1)}" y2="${y(overlay[i]).toFixed(1)}"
+        stroke="var(--ink-faint)" stroke-width="1.5"/>`;
     }
     if (i % step === 0) {
       svg += `<text x="${(padL + bw * i + bw / 2).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(labels[i] || '')}</text>`;
@@ -207,7 +290,9 @@ export function bars(opts) {
   svg += `</svg>`;
   if (overlay) {
     svg += `<div class="chart-legend"><span><i style="background:${c}"></i>${esc(name)}</span>
-      <span><i style="background:var(--ink);height:3px;border-radius:2px"></i>${esc(overlayName)}</span></div>`;
+      <span><i style="${ghost
+        ? 'background:var(--ink-faint);opacity:.45'
+        : 'background:var(--ink);height:3px;border-radius:2px'}"></i>${esc(overlayName)}</span></div>`;
   }
   return svg;
 }
@@ -237,7 +322,7 @@ export function stack(opts) {
     role="img" data-hover="${esc(hover)}">`;
   svg += `<g class="cursor" style="display:none"><line class="hover-line" y1="${padT}" y2="${padT + ih}"/></g>`;
   svg += `<g class="axis">`;
-  for (const t of ticks(0, hi)) {
+  for (const t of ticks(0, hi, 4, ih)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -330,7 +415,7 @@ export function waterfall(opts) {
 
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(lo, hi)) {
+  for (const t of ticks(lo, hi, 4, ih)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${y(t).toFixed(1)}" y2="${y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`;
   }
@@ -365,12 +450,93 @@ export function waterfall(opts) {
   return svg;
 }
 
+/* --------------------------------------------------------------- cascade
+
+   ⛔ A WATERFALL CANNOT DRAW A THIN-MARGIN P&L, AND THIS BUILD IS FULL OF THEM.
+
+   `waterfall()` floats its bars correctly. That was never the defect. The
+   defect is arithmetic: on a 3%-margin business, revenue sets a $50M axis and
+   everything after cost of revenue lives in the bottom 7% of it. Measured on
+   the construction dashboard, five of the seven steps drew under 8px, and one
+   of those five was NET INCOME, which is the number the chart exists to
+   deliver. A reader sees two bars and five lines on an axis.
+
+   Raising a minimum bar height would fix the picture by making the bars lie,
+   which is the one thing this chart must not do.
+
+   So the BAR CARRIES THE RUNNING TOTAL, not the step. It shrinks from 100% of
+   revenue to whatever net income is, so every row has a visible bar no matter
+   how thin the margin, and the part removed at each line is drawn as the
+   piece taken off the end of the previous row. The step's own value is a
+   number in an aligned column, which is where a small number belongs and how
+   a statement reads anyway: top to bottom, each line taking something off the
+   one above. */
+export function cascade(opts) {
+  const { items = [], fmt = v => v } = opts;
+  if (!items.length) return `<div class="empty">Nothing to draw yet.</div>`;
+  const base = Math.abs(items[0].value) || 1;
+  let acc = 0;
+  const rows = items.map(it => {
+    const from = it.total ? 0 : acc;
+    const to = it.total ? it.value : acc + it.value;
+    acc = to;
+    return { ...it, from, to };
+  });
+  const pc = v => Math.max(0, Math.min(100, Math.abs(v) / base * 100));
+
+  return `<div class="casc">` + rows.map((r, i) => {
+    const last = i === rows.length - 1;
+    const kept = pc(r.to);
+    /* the slice removed (or added) at this line, drawn where it left the bar */
+    const delta = Math.abs(pc(r.from) - pc(r.to));
+    const down = r.value < 0;
+    const lead = i === 0 || last;
+    return `<div class="casc-row${lead ? ' lead' : ''}${last ? ' end' : ''}">
+      <span class="casc-n">${esc(r.name)}</span>
+      <span class="casc-track" aria-hidden="true">
+        <i class="casc-keep" style="width:${kept.toFixed(2)}%"></i>
+        ${!lead && delta > 0 ? `<i class="casc-cut${down ? '' : ' up'}"
+          style="left:${kept.toFixed(2)}%;width:${delta.toFixed(2)}%"></i>` : ''}
+      </span>
+      <b class="casc-v${down ? ' down' : ''}"
+        data-r="${esc(r.name)}: ${esc(fmt(r.value))}">${esc(fmt(r.value))}</b>
+      <span class="casc-run">${lead ? '' : esc(fmt(r.to))}</span>
+    </div>`;
+  }).join('') + `</div>`;
+}
+
 /* ----------------------------------------------------------- ranked h-bars */
 
 export function hbars(opts) {
-  const { rows = [], fmt = v => v, max = null, showNeg = true, height = 18, gap = 7 } = opts;
+  const { rows = [], fmt = v => v, max = null, showNeg = true, height = 18, gap = 7,
+    stacked = false } = opts;
   if (!rows.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const hi = max !== null ? max : Math.max(...rows.map(r => Math.abs(r.value)), 1);
+
+  /* ⛔ A NAME, A BAR, A VALUE AND A NOTE DO NOT FIT ON ONE LINE IN A QUARTER
+     PANEL. The single-line form caps the name at 40% and ellipsises it, and
+     in a col-4 panel the value and note columns claim 136px of about 280, so
+     "Cost of revenue" rendered as "C" and "Payroll & benefits" as "P.". Seven
+     rows of single letters is worse than the chart it replaced.
+
+     Stacked puts the name and value on one line with the bar beneath, which
+     needs no horizontal budget for the label at all. */
+  if (stacked) {
+    return `<div class="hb-stack" style="gap:${gap + 3}px">` + rows.map(r => {
+      const w = Math.abs(r.value) / hi * 100;
+      const neg = r.value < 0 && showNeg;
+      return `<div class="hb-s">
+        <div class="hb-s-top">
+          <span class="hb-s-n">${esc(r.name)}</span>
+          <b class="hb-s-v">${esc(fmt(r.value))}</b>
+          ${r.note ? `<span class="hb-s-note">${r.note}</span>` : ''}
+        </div>
+        <span class="bar-cell" style="height:${height}px">
+          <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.color || seriesColour(r.band ?? 0))}"></i>
+        </span>
+      </div>`;
+    }).join('') + `</div>`;
+  }
   return `<div class="rows" style="gap:${gap}px">` + rows.map((r, i) => {
     const w = Math.abs(r.value) / hi * 100;
     const neg = r.value < 0 && showNeg;
@@ -444,7 +610,7 @@ export function scatter(opts) {
 
   let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
-  for (const t of ticks(ylo, yhi)) {
+  for (const t of ticks(ylo, yhi, 4, ih)) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>`;
     svg += `<text x="${padL - 8}" y="${(Y(t) + 3.5).toFixed(1)}" text-anchor="end">${esc(yFmt(t))}</text>`;
     /* ⛔ An axis tick is a label and a point label can land on one. The first

@@ -35,8 +35,12 @@ export function verdict({ title, body, figs = [] }) {
    list swaps the figure in place with no fetch and no repaint: you read the
    actual number before you choose it. That is what makes it real time rather
    than a list of names you pick blind and then go and look at. */
-export function strip(items) {
-  return `<div class="strip">${items.map(i => {
+export function strip(items, opts = {}) {
+  /* ⛔ `pairs` lays the cards two across instead of letting them wrap.
+     `flex: 1 1 158px` fits three in a half-width panel and drops the fourth
+     onto a row of its own, which is the ragged last row this build removed
+     from every other grid. Four facts belong in a 2x2, not a 3+1. */
+  return `<div class="strip${opts.pairs ? ' pairs' : ''}">${items.map(i => {
     const pick = Number.isInteger(i.slot) && i.options && i.options.length > 1;
     return `<div class="strip-item${pick ? ' pickable' : ''}" ${pick ? `data-slot="${i.slot}"` : ''}>
       <div class="strip-label">${pick

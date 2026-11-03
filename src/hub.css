@@ -331,6 +331,32 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* the strip of figures under a page head */
 .strip { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 22px; }
+/* two across, so four cards never leave one alone on the last row */
+.strip.pairs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.strip.pairs .strip-item { min-width: 0; }
+@media (max-width: 420px) { .strip.pairs { grid-template-columns: 1fr; } }
+
+/* hbars, stacked: the name needs no horizontal budget, so it cannot be
+   crushed to a letter in a narrow panel. See chart.js hbars(stacked). */
+.hb-stack { display: flex; flex-direction: column; }
+.hb-s-top { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.hb-s-n { font-size: 12.5px; color: var(--ink-soft); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hb-s-v { font-size: 12.5px; font-variant-numeric: tabular-nums; font-family: var(--font-display); }
+.hb-s-note { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums;
+  min-width: 38px; text-align: right; }
+/* ⚠️ `.bar-cell` is a span. Inside `.rows` it is a flex item and blockifies,
+   so its height applies; as a direct child of a block it stays inline and the
+   height does nothing, which drew seven rows with no bars at all. */
+.hb-s .bar-cell { display: block; min-width: 0; }
+
+/* the one figure "Where the money goes" exists to deliver, said once */
+.keptfig { display: flex; align-items: baseline; gap: 9px; margin: 2px 0 16px; }
+.keptfig-v {
+  font-family: var(--font-display); font-size: 34px; line-height: 1;
+  letter-spacing: -.02em; font-variant-numeric: tabular-nums; color: var(--good-ink, var(--good));
+}
+.keptfig-l { font-size: 12.5px; color: var(--ink-soft); }
 .strip-item {
   background: var(--paper);
   border: 1px solid var(--rule);
@@ -1727,6 +1753,64 @@ body.presenting .strip[data-current="true"] {
 .panel.roomy > .panel-body:has(.fold),
 .panel.roomy > .panel-body:has(.sc),
 .panel.roomy > .panel-body:has(.pf) { display: block; }
+
+/* ------------------------------------------------------------- the cascade
+   See chart.js cascade(): the bar is the RUNNING TOTAL, so every line has a
+   visible bar on a thin-margin statement, and the step's own value sits in an
+   aligned column where a small number can be read. */
+.casc { display: flex; flex-direction: column; }
+.casc-row {
+  display: grid; align-items: center; gap: 14px;
+  grid-template-columns: minmax(70px, 1fr) minmax(54px, 1.9fr) auto auto;
+  padding: 9px 2px; border-top: 1px solid var(--rule-soft);
+}
+.casc-row:first-child { border-top: 0; }
+.casc-row.lead { padding: 12px 2px; }
+.casc-row.end { border-top: 1px solid var(--rule); margin-top: 2px; }
+.casc-n { font-size: 12.5px; color: var(--ink-soft); }
+.casc-row.lead .casc-n { font-size: 13px; font-weight: 600; color: var(--ink); }
+.casc-track {
+  position: relative; display: block; height: 16px; border-radius: 4px;
+  background: var(--rule-soft); overflow: hidden;
+}
+.casc-row.lead .casc-track { height: 22px; }
+/* ⚠️ A RENDERING FLOOR, AND IT IS NAMED AS ONE.
+
+   The cascade fixed construction at a 3% margin, where the running total still
+   drew 9px. The gate then caught logistics, whose margin is under 1%: Interest
+   rendered at 0.6px and Other at 1.1px, which is the waterfall's own failure
+   arriving one floor down. Below about 1% of revenue no proportional bar is
+   visible at any panel width.
+
+   So the bar has a 3px minimum, which is the same convention as the 1.5px
+   floor every other bar in this build uses, and the exact value is printed
+   beside it in its own column. The bar shows the shape of the shrink; the
+   number is what is read. A floor is honest where it is declared and the
+   figure is adjacent, and dishonest where it is silent. */
+.casc-keep { position: absolute; inset: 0 auto 0 0; background: var(--navy);
+  border-radius: 4px; min-width: 3px; }
+.casc-row.end .casc-keep { background: var(--good); }
+.casc-cut { position: absolute; top: 0; bottom: 0; background: var(--bad); opacity: .55; }
+.casc-cut.up { background: var(--good); opacity: .5; }
+.casc-v {
+  font-size: 13px; text-align: right; font-variant-numeric: tabular-nums;
+  font-family: var(--font-display);
+}
+.casc-v.down { color: var(--bad-ink, var(--bad)); }
+.casc-row.lead .casc-v { font-size: 15px; }
+.casc-run {
+  font-size: 11.5px; text-align: right; color: var(--ink-faint);
+  font-variant-numeric: tabular-nums; min-width: 46px;
+}
+/* ⚠️ The running total is the least important of the four columns, so it is
+   the one that goes when the panel cannot hold all four: it was being clipped
+   at the panel edge rather than dropped. */
+@media (max-width: 640px) { .casc-run { display: none; } }
+@media (max-width: 560px) {
+  .casc-row { grid-template-columns: 1fr auto; gap: 4px 10px; }
+  .casc-track { grid-column: 1 / -1; order: 3; }
+  .casc-run { order: 4; grid-column: 1 / -1; text-align: left; }
+}
 
 /* ------------------------------------------------------------- the schedule
    Matt, 2026-11-02: *"backlog and schedule is ugly and needs better graphics

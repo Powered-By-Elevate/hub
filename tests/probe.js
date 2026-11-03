@@ -1098,6 +1098,32 @@ async function main() {
         ok(filed.length === 0, `${ind}/${role}/${p}: a filed row keeps its place and its type`,
           filed.slice(0, 2).join(', '));
 
+        /* ⛔ EVERY LINE OF A CASCADE HAS A VISIBLE BAR.
+
+           This is the whole reason the cascade replaced the waterfall. On a
+           3%-margin statement the waterfall drew five of seven steps under
+           8px, one of them net income, because revenue set the axis and the
+           tail lived in the bottom 7% of it. The cascade's bar carries the
+           RUNNING TOTAL instead of the step, so it shrinks but never vanishes.
+
+           If a future change puts the step back in the bar, this fails: the
+           check is on the property that made the swap worth making, not on
+           the component being present. */
+        const flatRows = await page.evaluate(() => {
+          const out = [];
+          for (const row of document.querySelectorAll('#page .casc-row')) {
+            const bar = row.querySelector('.casc-keep');
+            if (!bar) { out.push('a row with no bar at all'); continue; }
+            const w = bar.getBoundingClientRect().width;
+            if (w < 2) {
+              out.push(`${(row.querySelector('.casc-n') || {}).textContent || '?'} ${w.toFixed(1)}px`);
+            }
+          }
+          return out;
+        });
+        ok(flatRows.length === 0, `${ind}/${role}/${p}: every cascade line keeps a visible bar`,
+          flatRows.slice(0, 2).join(', '));
+
         /* ⛔ NO CHART LABEL SITS ON ANOTHER.
 
            Matt, twice in one pass: *"this is bad. i literally cannot read any
