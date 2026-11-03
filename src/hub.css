@@ -111,7 +111,8 @@ body {
 
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; margin: 0; letter-spacing: -.01em; }
 
-a { color: var(--accent); text-decoration: none; }
+/* every text use of the brand goes through the derived ink, never --accent */
+a { color: var(--accent-ink, var(--accent)); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 button { font: inherit; color: inherit; cursor: pointer; }
@@ -574,7 +575,7 @@ table.t td .btn { white-space: nowrap; }
   background: var(--tint); color: var(--ink-faint); font-size: 12.5px; text-align: center;
 }
 .drop img { max-height: 58px; max-width: 100%; }
-.drop label { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.drop label { color: var(--accent-ink, var(--accent)); cursor: pointer; text-decoration: underline; }
 .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--paper)); }
 
 @media (max-width: 900px) {
@@ -803,7 +804,7 @@ table.t td .btn { white-space: nowrap; }
 .steps li::before {
   content: counter(s); position: absolute; left: 0; top: 0;
   width: 21px; height: 21px; border-radius: 50%;
-  background: var(--tint); color: var(--accent);
+  background: var(--tint); color: var(--accent-on-tint, var(--accent));
   display: grid; place-items: center; font-size: 11px; font-weight: 700;
 }
 .steps li b { color: var(--ink); }
@@ -837,7 +838,7 @@ table.t td .btn { white-space: nowrap; }
   transition: transform .13s ease, box-shadow .16s ease;
 }
 .door:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.door-ico { width: 30px; height: 30px; border-radius: 8px; background: var(--tint); display: grid; place-items: center; color: var(--accent); margin-bottom: 4px; }
+.door-ico { width: 30px; height: 30px; border-radius: 8px; background: var(--tint); display: grid; place-items: center; color: var(--accent-on-tint, var(--accent)); margin-bottom: 4px; }
 .door b { font-size: 14.5px; }
 .door span { font-size: 12.5px; color: var(--ink-faint); line-height: 1.45; }
 
@@ -1392,7 +1393,9 @@ body.presenting .strip[data-current="true"] {
    precedence is the surprising direction, so the component sets its own size as
    the cap's fallback chain: the container governs only when the caller did not
    ask, which is how a default should behave. See chart.js dial(). */
-.dials svg.dial { margin: 0 auto; max-width: var(--dial-size, var(--dial-cap)); }
+/* the chain lives in chart.js's inline style, which is what wins; this only
+   centres the drawing. See the comment there. */
+.dials svg.dial { margin: 0 auto; }
 .dials p { margin-bottom: 10px; max-width: 34ch; }
 
 /* the close coverage strip: one cell per month */

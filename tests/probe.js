@@ -69,7 +69,30 @@ async function main() {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
   await page.goto(base, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction('window.__hub !== undefined', { timeout: 20000 });
+  /* ⛔ A BOOT FAILURE IS NOT A CHECK FAILURE, AND IT HAS ITS OWN WITNESS.
+
+     An import once landed inside a block comment: `node --check` passed,
+     `build.py` passed, and this line threw a bare `TimeoutError` with an empty
+     log while the real cause, `ReferenceError: brandVars is not defined`, was
+     already sitting in the `errors` array collected two lines above. Twenty
+     minutes went into reading the diff for something the page had said in one
+     sentence.
+
+     A change that produces valid syntax in the wrong place passes every static
+     gate there is, and the only witness is the running page. So the wait
+     reports what the page said rather than only that it timed out. */
+  try {
+    await page.waitForFunction('window.__hub !== undefined', { timeout: 20000 });
+  } catch (e) {
+    console.log('\n  THE APP DID NOT BOOT. This is a boot failure, not a check failure.');
+    if (errors.length) {
+      console.log('  The page said:');
+      for (const line of errors.slice(0, 5)) console.log('    ' + String(line).split('\n')[0]);
+    } else {
+      console.log('  The page logged nothing, so look at the script tags and the module graph.');
+    }
+    throw e;
+  }
 
   /* ⛔ EVERY INK READS ON EVERY SURFACE IT CAN LAND ON.
 
@@ -208,9 +231,53 @@ async function main() {
     for (const theme of ['light', 'dark']) {
       const k = C.INK[theme];
       const a = C.contrast(k.ink, k.soft), b = C.contrast(k.soft, k.faint);
-      ok(a > 1.45 && b > 1.45, `${theme}: the ink scale stays a scale`,
+      /* ⚠️ A floor on each step catches the exact failure this was written for
+         (the old 1.27 trips it) and nothing more general: 2.33 and 1.50 would
+         pass and is the same shape of problem, as the publishing session
+         pointed out. So the STEPS are compared to each other as well. An even
+         ladder is what makes three tiers read as three tiers, and the dark
+         theme, which is the design's own standard, runs 1.77 and 1.67. */
+      const even = Math.max(a, b) / Math.min(a, b);
+      ok(a > 1.45 && b > 1.45, `${theme}: every step of the ink scale is a step`,
         `ink/soft ${a.toFixed(2)}, soft/faint ${b.toFixed(2)}`);
+      ok(even < 1.35, `${theme}: the ink scale's steps are even`,
+        `steps differ by ${((even - 1) * 100).toFixed(0)}%`);
     }
+
+    /* ⛔ AND THE DERIVATION REPORTS ITS OWN FAILURES.
+
+       `worst()` returns its best attempt and cannot say that no colour
+       satisfies the surfaces it was given: brute-forcing the grey space finds
+       255 surface pairs where none exists, and for one of them it returns a
+       value reading 1.30:1 with no signal. Every brand in the config converges
+       today, so this asserts the postcondition rather than trusting it, and a
+       future palette that cannot be satisfied fails here instead of shipping. */
+    const unsat = [];
+    for (const theme of ['light', 'dark']) {
+      for (const [id, b] of Object.entries(brands)) {
+        for (const m of (C.brandVars(b.palette, theme).missed || [])) {
+          unsat.push(`${theme}/${id} ${m}`);
+        }
+      }
+    }
+    ok(unsat.length === 0, 'the derivation satisfies every surface it was asked for',
+      unsat.slice(0, 3).join('; '));
+
+    /* ⛔ AND IT CLEARS THE SURFACE THE WORLD ACTUALLY PAINTS.
+
+       `world.css` lays a lit ground over `--ground`, so the declared surface
+       is not the one text sits on. Measured under the page eyebrow in dark:
+       rgb(12, 25, 44) against the token's rgb(14, 20, 28). Deriving to exactly
+       4.5 against the token left two brands at 4.32:1 on the paint. The margin
+       is in `color.js` as PAINTED; this is the check that it is enough. */
+    const paintMiss = [];
+    for (const [id, b] of Object.entries(brands)) {
+      const v = C.brandVars(b.palette, 'dark');
+      const r = C.contrast(v['--accent-ink'], '#0c192c');
+      if (r + 0.005 < 4.5) paintMiss.push(`${id} ${r.toFixed(2)}:1`);
+    }
+    ok(paintMiss.length === 0, 'the brand ink clears the ground the world paints, not just the token',
+      paintMiss.join('; '));
   }
 
   /* the front door: a first-time viewer lands here before any extract loads */

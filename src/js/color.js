@@ -83,6 +83,23 @@ export function worst(ink, surfaces, need = 4.5) {
   return out;
 }
 
+/* ⛔ AND A WAY FOR IT TO SAY IT FAILED.
+
+   `worst()` returns its best attempt and cannot report that no colour
+   satisfies the surfaces it was given. The publishing session brute-forced the
+   grey space and found 255 surface pairs where none exists: for `#383838` with
+   `#b8b8b8` it returns a value reading 1.30:1 and 4.54:1, a failure handed
+   back with no signal. Every real brand converges today, so the risk is
+   bounded rather than live, but a function that can lie silently is one a
+   future brand walks into.
+
+   So the postcondition is explicit and `brandVars` records it. A caller that
+   wants the guarantee reads `unmet`; the gate asserts it is empty. */
+export function unmet(ink, surfaces, need = 4.5) {
+  return surfaces.filter(s => contrast(ink, s) + 0.005 < need)
+    .map(s => `${ink} on ${s} ${contrast(ink, s).toFixed(2)}:1`);
+}
+
 export function mix(a, b, t) {
   const x = hex(a), y = hex(b);
   return toHex(x.map((v, i) => v + (y[i] - v) * t));
@@ -111,6 +128,28 @@ export const SEMANTIC = {
 
 /* Everything `Settings.apply()` sets that depends on the brand. One function,
    so the gate can assert the same values the page will wear. */
+/* ⛔ THE DECLARED SURFACE IS NOT THE PAINTED ONE.
+
+   `world.css` lays a lit ground over `--ground`, so even a surface the
+   stylesheet DOES declare is not the surface text sits on. Measured by the
+   publishing session under the page eyebrow in dark:
+
+     --ground token         rgb(14, 20, 28)   what the derivation sees
+     body actually paints   rgb( 9, 19, 33)   the world's lit ground
+     under the eyebrow      rgb(12, 25, 44)   plus the gradient and the light
+
+   Deriving to exactly 4.5 against the token left lakeshore and fieldfinch at
+   4.32:1 on the paint, a miss of about 0.2 on 32 instances. This is `--tint`
+   one level subtler: that colour was absent from the stylesheet, this one is
+   present and overpainted.
+
+   The fix is a MARGIN rather than another surface in the list, because the
+   painted ground moves with the pointer light and has no single value to add.
+   4.9 clears the measured paint for every brand in the config (lakeshore 4.75,
+   fieldfinch 4.72, graniteridge 4.54) and costs nothing over 4.7, which
+   produces the identical ink for both of the brands that missed. */
+export const PAINTED = 4.9;
+
 export function brandVars(palette, theme) {
   const s = SURFACE[theme], k = INK[theme], sem = SEMANTIC[theme];
   /* ⛔ The tint has to let the FAINT ink read on it, because the panel foot
@@ -120,24 +159,27 @@ export function brandVars(palette, theme) {
   for (let i = 0; i < 24 && contrast(k.faint, tint) < 4.5; i++) {
     tint = mix(tint, theme === 'dark' ? '#000000' : '#ffffff', 0.08);
   }
+  const want = [
+    ['--accent-ink', worst(palette.accent, [s.ground, s.groundDeep], PAINTED), [s.ground, s.groundDeep], PAINTED],
+    ['--accent-ink-deep', readable(palette.accent, s.groundDeep, PAINTED), [s.groundDeep], PAINTED],
+    ['--accent-on-tint', readable(palette.accent, tint, PAINTED), [tint], PAINTED],
+    ['--good-ink', worst(sem.good, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
+    ['--warn-ink', worst(sem.warn, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
+    ['--bad-ink', worst(sem.bad, [s.groundDeep, tint], PAINTED), [s.groundDeep, tint], PAINTED],
+  ];
+  /* the postcondition, carried with the result rather than assumed */
+  const missed = [];
+  for (const [name, value, surfaces, need] of want) {
+    for (const m of unmet(value, surfaces, need)) missed.push(`${name}: ${m}`);
+  }
   return {
     '--tint': tint,
-    /* ink variants: the brand and the semantics, lifted to read on the ground.
-       Measured against the DEEPEST surface they can land on, so one value is
-       safe everywhere rather than safe on the page and failing on the rail. */
-    '--accent-ink': worst(palette.accent, [s.ground, s.groundDeep]),
-    '--accent-ink-deep': readable(palette.accent, s.groundDeep),
-    '--accent-on-tint': readable(palette.accent, tint),
+    ...Object.fromEntries(want.map(([n, v]) => [n, v])),
     '--on-accent': onFill(palette.accent),
-    /* ⛔ Derived against the WORSE of the two surfaces it can land on, which
-       is why `worst()` exists. The agepill wears these on `--tint` and read
-       3.67:1 in dark while the same colour on the deep ground passed, so a
-       value derived against one surface is only safe on that surface. */
-    '--good-ink': worst(sem.good, [s.groundDeep, tint]),
-    '--warn-ink': worst(sem.warn, [s.groundDeep, tint]),
-    '--bad-ink': worst(sem.bad, [s.groundDeep, tint]),
     '--on-bad': onFill(sem.bad),
     '--on-good': onFill(sem.good),
     '--on-warn': onFill(sem.warn),
+    /* non-custom-property key: the gate reads it, setProperty ignores it */
+    missed,
   };
 }

@@ -934,9 +934,20 @@ export function dial(opts) {
      the container's `--dial-cap`, so a caller that asks for 120 gets 120 even
      inside a `.dials` grid. A default caller sets nothing and the container
      governs, which is the way round a default should work. */
+  /* ⛔ THE FALLBACK CHAIN GOES IN THE INLINE DECLARATION, BECAUSE INLINE WINS.
+
+     The first fix set `--dial-size` inline and put the rule that consults it
+     in the stylesheet, where it could never apply: the property was set and
+     read by nothing, and inside a `.dials` grid a caller's 120 was still
+     overridden by 190, exactly as before. That is the same inline-beats-
+     stylesheet precedence this fix existed to correct, reintroduced by the
+     fix itself. Measured by the publishing session, not reasoned.
+
+     One declaration, one chain, in the place that wins: the caller's size if
+     it asked, else the container's cap, else the component's own default. */
   const sized = opts.size !== undefined ? `--dial-size:${size}px;` : '';
   let svg = `<svg class="chart dial" viewBox="0 0 ${size} ${size}"
-    style="${sized}width:100%;max-width:var(--dial-cap, ${size}px);height:auto" role="img">`;
+    style="${sized}width:100%;max-width:var(--dial-size, var(--dial-cap, ${size}px));height:auto" role="img">`;
   svg += arc(a0, a1, r, 13, 'var(--rule-soft)');
   for (const b of bands) {
     svg += arc(at(b.from), at(b.to), r, 13, b.color || 'var(--rule)', .9);
