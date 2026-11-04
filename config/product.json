@@ -4,6 +4,11 @@
     "tagline": "One place a company reads itself",
     "pitch": "The financial dashboard your leadership already wanted, wired to the software you already run, in your own brand, with each person seeing exactly their level.",
     "vendor": "Powered by Elevate",
+    "lead": "Built first for construction and retail, where most of the companies we serve do their work. Every other world below runs on the same engine.",
+    "leads": [
+      "construction",
+      "retail"
+    ],
     "version": "0.1.0"
   },
   "demoNotice": "Sample company. Every figure on this page is generated, and every company, person and project name is invented.",

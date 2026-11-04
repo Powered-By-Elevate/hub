@@ -132,6 +132,39 @@ const SCENES = {
     </g>
     ${ground(p)}`,
 
+  /* a dining room on a corner: arched windows, an awning, string lights over
+     a patio, and the kitchen's chimney breathing */
+  restaurants: (p, id) => `
+    ${sun(p, 1010, 90, 40)}
+    ${far(id, [[30, 250, 110], [160, 276, 70], [1070, 240, 100]])}
+    <g>
+      <rect x="330" y="176" width="420" height="180" fill="${p.deep}" opacity=".58"/>
+      <rect x="330" y="166" width="420" height="16" fill="${p.accent}" opacity=".7"/>
+      <rect x="690" y="110" width="30" height="62" fill="${p.deep}" opacity=".7"/>
+      ${[0, 1, 2].map(i => `<circle cx="${705 + i * 9}" cy="${96 - i * 22}" r="${10 + i * 4}"
+        fill="${p.lift}" opacity="${(.3 - i * .08).toFixed(2)}"/>`).join('')}
+      ${[370, 470, 570].map((x, i) => `
+        <path d="M${x} 326V262a40 40 0 0 1 80 0v64Z" fill="${p.lift}" opacity="${i === 1 ? '.62' : '.36'}"/>
+        <path d="M${x + 40} 326V230M${x} 286h80" stroke="${p.navy}" stroke-width="3" opacity=".35"/>`).join('')}
+      <rect x="672" y="250" width="54" height="76" fill="${p.navy}" opacity=".5"/>
+      <path d="M318 218h444l-20 30H338Z" fill="${p.accent}" opacity=".8"/>
+      ${[0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => `<path d="M${340 + i * 46} 218l23 30 23-30"
+        fill="${p.lift}" opacity=".35"/>`).join('')}
+    </g>
+    <path d="M760 214q90 26 180 0q90 26 180 0" stroke="${p.lift}" stroke-width="2" fill="none" opacity=".6"/>
+    ${[790, 830, 870, 910, 950, 990, 1030, 1070].map((x, i) =>
+      `<circle cx="${x}" cy="${218 + Math.round(Math.sin((i + 0.5) / 4 * Math.PI) * 11)}" r="4.5"
+        fill="${p.lift}" opacity=".9"/>`).join('')}
+    ${[820, 960].map(x => `
+      <g>
+        <path d="M${x - 44} 286q44-36 88 0Z" fill="${p.accent}" opacity=".75"/>
+        <path d="M${x} 286v52" stroke="${p.lift}" stroke-width="3" opacity=".7"/>
+        <rect x="${x - 34}" y="322" width="68" height="7" rx="3" fill="${p.lift}" opacity=".7"/>
+        <path d="M${x - 26} 329v27M${x + 26} 329v27" stroke="${p.lift}" stroke-width="3" opacity=".5"/>
+      </g>`).join('')}
+    ${trees(p, [[230, 356], [278, 356]])}
+    ${ground(p)}`,
+
   /* a plant: sawtooth roof, stacks, a conveyor */
   industrial: (p, id) => `
     ${sun(p, 1040, 80, 36)}
@@ -249,6 +282,8 @@ export function motif(industryId, palette, size = 46) {
       <path d="M10 20v10c0 2 4 4 10 4s10-2 10-4V20" stroke="currentColor" stroke-width="2.4" fill="none"/>`,
     retail: `<path d="M6 16h28l-3 18H9Z" fill="currentColor" opacity=".35"/>
       <path d="M14 16a6 6 0 0 1 12 0" stroke="currentColor" stroke-width="2.4" fill="none"/>`,
+    restaurants: `<path d="M6 27a14 14 0 0 1 28 0Z" fill="currentColor" opacity=".4"/>
+      <path d="M3 30h34M20 9v4" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round"/>`,
     industrial: `<path d="M5 34V18l8 5v-5l8 5v-5l8 5V34Z" fill="currentColor" opacity=".4"/>
       <rect x="28" y="8" width="5" height="26" fill="currentColor" opacity=".55"/>`,
     logistics: `<rect x="4" y="14" width="17" height="13" fill="currentColor" opacity=".4"/>

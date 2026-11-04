@@ -20,6 +20,7 @@ import { settings as settingsPage, connectSheet, FONT_PAIRS } from './cms.js';
 import * as Chooser from './chooser.js';
 import * as Present from './present.js';
 import * as World from './world.js';
+import * as Gate from './gate.js';
 
 const BASIS = [
   { id: 'month', name: 'Month' }, { id: 'ytd', name: 'YTD' },
@@ -65,7 +66,12 @@ async function boot() {
     if (balanceFrame) return;
     balanceFrame = requestAnimationFrame(() => { balanceFrame = 0; balanceRows(); });
   }, { passive: true });
-  window.addEventListener('hashchange', () => { readHash(); render(); });
+  window.addEventListener('hashchange', () => {
+    const gate = readHash();
+    if (gate) { openGate(gate.kind, gate.arg); return; }
+    if (Gate.open()) closeGate();
+    render();
+  });
   document.addEventListener('click', onClick);
   document.addEventListener('change', onChange);
   document.addEventListener('input', onInput);
@@ -78,10 +84,13 @@ async function boot() {
     if (ev.key === 'Escape') { closeMenu(); closeSheet(); }
   });
 
-  readHash();
+  const gate = readHash();
   render();
   window.__hub = api();
-  if (firstVisit || location.hash === '#/choose') openChooser(firstVisit);
+  /* A sign-in or console link opens on that screen and never on the front
+     door: someone sent a client's sign-in should land on it. */
+  if (gate) await openGate(gate.kind, gate.arg);
+  else if (firstVisit || location.hash === '#/choose') openChooser(firstVisit);
 }
 
 async function useIndustry(id, first = false) {
@@ -96,11 +105,72 @@ async function useIndustry(id, first = false) {
   if (!first) app.s.save();
 }
 
+/* A page route sets the page. `#/signin`, `#/signin/<industry>` and
+   `#/console` are the two doors (gate.js): they are returned rather than
+   routed, so they sit in front of the Hub without changing which page is
+   under them, and no page route is ever gated behind them. */
 function readHash() {
   const h = location.hash.replace(/^#\/?/, '');
-  if (!h) return;
+  if (!h) return null;
   const [page, arg] = h.split('/');
+  if (page === 'signin' || page === 'console') {
+    return { kind: page, arg: arg ? decodeURIComponent(arg) : null };
+  }
   if (PAGES[page]) { app.page = page; app.arg = arg ? decodeURIComponent(arg) : null; }
+  return null;
+}
+
+/* ------------------------------------------------------------------ doors */
+
+function toGate(kind, arg = null) {
+  const hash = `#/${kind}${arg ? '/' + encodeURIComponent(arg) : ''}`;
+  if (location.hash !== hash) location.hash = hash; else openGate(kind, arg);
+}
+
+async function openGate(kind, arg = null, note = false) {
+  closeMenu(); closeSheet(); Chooser.hide();
+  const inds = app.cfg.industries.industries;
+  if (kind === 'console') {
+    /* one client's own Hub has no other clients to show */
+    if (app.s.tenant) { go('home'); return; }
+    const base = document.body.dataset.base || '';
+    await Promise.all(inds.filter(i => !app.data[i.id])
+      .map(i => loadData(i.id, base).then(d => { app.data[i.id] = d; })));
+    const rows = Gate.clients(app.cfg, app.data, app.s.data.roles);
+    /* Elevate's screen wears the house brand, not whichever client is loaded */
+    app.s.apply(app.cfg.brands.brands.default || app.s.data.brand);
+    document.title = `Elevate console · ${app.s.data.productName}`;
+    Gate.show(Gate.console_({ cfg: app.cfg, rows, display: U.display }), 'console');
+    return;
+  }
+  const id = arg && inds.find(i => i.id === arg) ? arg : app.s.data.industry;
+  if (id !== app.s.data.industry) { app.s.useIndustry(id); await useIndustry(id); }
+  app.s.apply();
+  Gate.show(Gate.signin({ cfg: app.cfg, s: app.s, q: app.q, ind: app.s.industry,
+    tenant: !!app.s.tenant, note }), 'signin');
+}
+
+function closeGate() {
+  Gate.hide();
+  app.s.apply();
+}
+
+/* Into the Hub as someone. Only the view level and the session are set here:
+   which pages, which units and whether money shows are still settings.js,
+   query.js and fmt.js. A landing page the level is not offered falls back to
+   the first page it is. */
+async function enterAs(industry, roleId, session, lands) {
+  if (industry && industry !== app.s.data.industry) {
+    app.s.useIndustry(industry);
+    await useIndustry(industry);
+  }
+  app.s.data.role = roleId;
+  app.s.data.entity = '*';
+  app.s.data.session = session;
+  app.s.save();
+  closeGate();
+  const ids = app.s.pages().map(p => p.id);
+  go(ids.includes(lands) ? lands : (ids[0] || 'home'));
 }
 
 function startPresenting() {
@@ -236,6 +306,7 @@ function demoNote() {
 
 function rail(pages) {
   const s = app.s;
+  const who = s.data.session;
   const mods = s.modulesWithPages();
   const open = (PAGES[app.page] && app.cfg.product.pages[app.page])
     ? app.cfg.product.pages[app.page].module : 'start';
@@ -254,17 +325,13 @@ function rail(pages) {
       </button>`).join('')}
     </div>
     <div class="rail-foot">
+      ${who && who.kind === 'person' ? `<b>${esc(who.name)}</b><br>` : ''}
       <b>${esc(s.role.name)}</b><br>
-      ${esc(scopeWord(s))} · ${esc(moneyWord(s))}
+      ${esc(Gate.scopeWord(s.role))} · ${esc(Gate.moneyWord(s.role))}
+      <button class="rail-switch" data-act="${who && who.kind === 'staff' ? 'console' : who ? 'sign-out' : 'signin'}">
+        ${icon(who && who.kind === 'staff' ? 'shield' : 'lock', 14)}
+        ${who && who.kind === 'staff' ? 'Back to the Elevate console' : who ? 'Sign out' : 'Demo sign-in'}</button>
     </div>`;
-}
-
-function scopeWord(s) {
-  return { all: 'every company', company: 'one company', units: 'assigned units only', own: 'own work only' }[s.role.scope];
-}
-
-function moneyWord(s) {
-  return { full: 'all figures', operating: 'operating figures', unit: 'unit figures', none: 'no currency' }[s.role.money];
 }
 
 function tabs(pages) {
@@ -311,7 +378,10 @@ function bar() {
   const ent = ents.find(e => e.id === (s.data.entity || '*')) || ents[0];
   const moves = q.basisMoves(app.page);
 
+  const who = s.data.session;
   return `<button class="btn ghost sm menu-toggle" data-act="rail-toggle">${icon('menu', 18)}</button>
+    ${who && who.kind === 'staff' ? `<button class="pill pill-back" data-act="console"
+      title="Back to every client">${icon('arrow', 14)}<span class="pill-label">Elevate</span><b>Console</b></button>` : ''}
     <button class="pill" data-act="menu" data-arg="entity" aria-expanded="${app.menu === 'entity'}">
       <span class="pill-mark">${brandMark(s.data.brand, 18)}</span>
       <span class="pill-label">Company</span><b>${esc(short(ent.name))}</b>${caret()}
@@ -331,7 +401,9 @@ function bar() {
     </div>
     <span class="bar-gap"></span>
     <button class="pill" data-act="menu" data-arg="role" aria-expanded="${app.menu === 'role'}">
-      <span class="pill-label">Viewing as</span><b>${esc(s.role.name)}</b>${caret()}
+      ${who && who.kind === 'person'
+    ? `<span class="pill-label">Signed in</span><b>${esc(who.name)}</b>`
+    : `<span class="pill-label">Viewing as</span><b>${esc(s.role.name)}</b>`}${caret()}
     </button>
     <span class="bar-tools">
       <button class="btn ghost sm" data-act="theme-toggle" title="Light or dark">
@@ -659,6 +731,16 @@ function menuBody(kind) {
     }
     return out;
   }
+  if (kind === 'role' && s.data.session && s.data.session.kind === 'person') {
+    /* A signed-in person is their level. Seeing another means signing in as
+       someone else, the way it would in a deployment. */
+    const who = s.data.session;
+    return `<div class="menu-head">Signed in</div>
+      <div class="menu-who"><b>${esc(who.name)}</b><small>${esc(who.title)}</small>
+        <small>${esc(s.role.name)} · ${esc(Gate.scopeWord(s.role))} · ${esc(Gate.moneyWord(s.role))}</small></div>
+      <div class="menu-sep"></div>
+      <button class="menu-item" data-act="sign-out"><span>Sign out<small>Back to the sign-in, to pick someone else</small></span></button>`;
+  }
   if (kind === 'role') {
     return `<div class="menu-head">View level</div>` + s.data.roles.map(r =>
       `<button class="menu-item" data-act="pick-role" data-arg="${esc(r.id)}"
@@ -715,6 +797,22 @@ async function onClick(ev) {
   switch (act) {
     case 'go': closeMenu(); closeSheet(); go(arg); break;
     case 'chooser': closeMenu(); closeSheet(); openChooser(); break;
+    case 'console': closeMenu(); closeSheet(); toGate('console'); break;
+    case 'signin': closeMenu(); closeSheet(); toGate('signin', arg || app.s.data.industry); break;
+    case 'ms-signin': openGate('signin', app.s.data.industry, true); break;
+    case 'signin-as': {
+      const p = Gate.people(app.cfg, app.s.data.roles, app.s.industry)[Number(arg)];
+      if (p) await enterAs(null, p.role, { kind: 'person', name: p.name, title: p.title }, p.lands);
+      break;
+    }
+    case 'staff-enter': {
+      const top = Gate.topRole(app.s.data.roles);
+      await enterAs(arg, top.id, { kind: 'staff' }, 'fin-dash');
+      break;
+    }
+    case 'sign-out':
+      delete app.s.data.session; app.s.save(); closeMenu();
+      toGate('signin', app.s.data.industry); break;
     /* Clicking the control that opened a menu CLOSES it. Matt: *"when i click
        this dropdown, reclicking the line doesnt collapse it....and it should"*.
        It never could: this called openMenu, which closes and immediately
@@ -935,6 +1033,7 @@ function onChange(ev) {
 function onInput(ev) {
   const bind = ev.target.dataset.bind;
   if (!bind) return;
+  if (bind === 'gate-search') { Gate.filter(ev.target.value); return; }
   if (bind === 'accent-pick' || bind === 'accent-hex') {
     const hex = ev.target.value;
     if (!/^#?[0-9a-f]{6}$/i.test(hex)) return;
@@ -1127,6 +1226,13 @@ function api() {
     settings: () => app.s.data,
     config: () => JSON.parse(app.s.exportJSON()),
     ties: () => ties(),
+    /* the two doors (gate.js) */
+    gate: () => Gate.open(),
+    openGate: (kind, arg) => openGate(kind, arg),
+    session: () => app.s.data.session || null,
+    people: () => Gate.people(app.cfg, app.s.data.roles, app.s.industry)
+      .map(p => ({ name: p.name, title: p.title, role: p.role, lands: p.lands })),
+    search: text => Gate.filter(text),
   };
 }
 

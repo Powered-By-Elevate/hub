@@ -46,6 +46,15 @@ const COLUMNS = {
     { name: 'Visitors', n: true, get: r => F.num(r.f.traffic) },
     { name: 'Conversion', n: true, get: r => F.pct(r.f.conv, 1) },
   ],
+  restaurants: [
+    { name: 'Format', get: r => esc(r.format || '') },
+    { name: 'Sales', n: true, get: r => F.money(r.f.sales) },
+    { name: 'Covers', n: true, get: r => F.num(r.f.covers) },
+    { name: 'Avg check', n: true, get: r => F.exact(r.f.check, 2) },
+    { name: 'Prime cost', n: true, get: r => bar(r.f.prime, 100, F.pct(r.f.prime, 1)) },
+    { name: 'Turns', n: true, get: r => r.f.seats ? F.num(r.f.turns, 1) : '—' },
+    { name: 'Sales / labor hr', n: true, get: r => F.exact(r.f.splh, 2) },
+  ],
   industrial: [
     { name: 'Plant', get: r => esc(r.plant || '') },
     { name: 'Produced', n: true, get: r => F.num(r.f.produced) },
@@ -246,11 +255,11 @@ function headlineOf(q, r, ind, w) {
 
 function headlineName(ind) {
   return { construction: 'Earned revenue', education: 'Students enrolled', retail: 'Net sales',
-    industrial: 'Units produced', logistics: 'Miles', tech: 'ARR' }[ind.id];
+    restaurants: 'Net sales', industrial: 'Units produced', logistics: 'Miles', tech: 'ARR' }[ind.id];
 }
 
 function headlineTotal(q, ind, m) {
-  const key = { construction: 'rev', education: 'enrolled', retail: 'sales',
+  const key = { construction: 'rev', education: 'enrolled', retail: 'sales', restaurants: 'sales',
     industrial: 'produced', logistics: 'miles', tech: 'arr' }[ind.id];
   return q.factSum(key, [m]);
 }
@@ -295,6 +304,15 @@ function flags(q, rows, ind) {
         add('Margin down', 'bad', `margin of <b>${F.pct(f.margin)}</b> against a company
           ${F.pct(ind.model.gm * 100)}`,
           (f.sales || 0) * (ind.model.gm * 100 - f.margin) / 100);
+      }
+    } else if (ind.id === 'restaurants') {
+      if (f.prime && f.prime > 65) {
+        add('Prime cost', 'bad', `prime cost of <b>${F.pct(f.prime)}</b>, food
+          <b>${F.pct(f.food)}</b> and labor <b>${F.pct(f.labor)}</b>`,
+          (f.sales || 0) * (f.prime - 60) / 100);
+      } else if (f.food && f.food > 34) {
+        add('Food cost', 'warn', `food cost at <b>${F.pct(f.food)}</b> of sales`,
+          (f.sales || 0) * (f.food - 31) / 100);
       }
     } else if (ind.id === 'industrial') {
       if (f.oee && f.oee < 62) add('Downtime', 'bad', `OEE of <b>${F.pct(f.oee)}</b>, with
@@ -467,7 +485,7 @@ export function second(ctx) {
   const ind = s.industry;
   const name = (ind.pages && ind.pages['ops-second'] && ind.pages['ops-second'].name) || 'Performance';
   const fn = {
-    construction: backlog, education: enrolment, retail: category,
+    construction: backlog, education: enrolment, retail: category, restaurants: primeCost,
     industrial: throughput, logistics: lanes, tech: retention,
   }[ind.id] || backlog;
   return U.pageHead({ eyebrow: 'Operations', title: name, answer: fn.answer(ctx),
@@ -693,6 +711,64 @@ category.answer = ctx => {
   return `The estate trades at <b>${F.exact(sp.value)}</b> per square foot on a
     <b>${F.exact(bk.value, 2)}</b> basket. <b>${esc(best ? best.name : '')}</b> is the densest at
     <b>${F.exact(best ? best.f.sales * 12 / best.f.sqft : 0)}</b>.`;
+};
+
+/* --- restaurants: prime cost and service
+
+   Prime cost is the number a restaurant operator runs on: food and labor
+   together, as a share of sales. 60% is the line most groups hold themselves
+   to, and the page draws it rather than leaving a reader to remember it. */
+const PRIME_TARGET = 60;
+
+function primeCost(ctx) {
+  const { q } = ctx;
+  const rows = q.unitRows();
+  const months = q.months.slice(-18);
+  const groupPrime = m => {
+    const s = q.factSum('sales', [m]);
+    return s ? (q.factSum('foodUsd', [m]) + q.factSum('laborUsd', [m])) / s * 100 : null;
+  };
+  /* the ranked list runs a row per location, so it takes the full width and
+     the two charts share the row under it rather than one stranded beside it */
+  return U.panel({
+    col: 12, title: 'Prime cost by location',
+    note: `Food plus labor as a share of sales. The mark is the ${PRIME_TARGET}% most groups hold themselves to.`,
+    body: C.hbars({
+      rows: rows.map(r => ({
+        name: r.short, value: r.f.prime || 0, mark: PRIME_TARGET,
+        note: `food ${F.pct(r.f.food, 0)} · labor ${F.pct(r.f.labor, 0)}`,
+        color: (r.f.prime || 0) > 65 ? 'var(--bad)' : ((r.f.prime || 0) > 62 ? 'var(--warn)' : 'var(--good)'),
+      })).sort((a, b) => b.value - a.value),
+      fmt: v => F.pct(v, 1), max: 100,
+    }),
+    foot: `Each point over ${PRIME_TARGET}% on this month’s sales is worth
+      <b>${F.money(q.factAt('sales') / 100)}</b> to the group.`,
+  }) + U.panel({
+    col: 5, title: 'Average check against table turns',
+    note: 'Dining rooms only. A room that turns slowly has to sell a bigger check to earn the same seat.',
+    body: C.scatter({
+      points: rows.filter(r => r.f.seats).map(r => ({ name: r.name, x: r.f.turns || 0, y: r.f.check || 0 })),
+      xFmt: v => F.num(v, 1), yFmt: v => F.exact(v, 2),
+      xLabel: 'Turns a day', yLabel: 'Average check', height: 300,
+    }),
+  }) + U.panel({
+    col: 7, title: 'Prime cost, month by month',
+    body: C.line({
+      series: [{ name: 'Prime cost', values: months.map(groupPrime) }],
+      labels: months.map(mN), fmt: v => F.pct(v, 1), height: 230, legend: false,
+      rule: PRIME_TARGET, ruleLabel: `target ${PRIME_TARGET}%`,
+    }),
+    foot: 'Food cost moves with the menu and the market, labor with the schedule, so a month above the line is read back to one or the other on the location page.',
+  });
+}
+primeCost.answer = ctx => {
+  const { q } = ctx;
+  const pc = q.kpi('primeCost'), fc = q.kpi('foodCost'), lc = q.kpi('laborCost'), ck = q.kpi('avgCheck');
+  const worst = q.unitRows().slice().sort((a, b) => (b.f.prime || 0) - (a.f.prime || 0))[0];
+  return `The group ran at <b>${F.pct(pc.value)}</b> prime cost, food <b>${F.pct(fc.value)}</b>
+    and labor <b>${F.pct(lc.value)}</b>, on a <b>${F.exact(ck.value, 2)}</b> average check.
+    <b>${esc(worst ? worst.name : '')}</b> is the heaviest at
+    <b>${F.pct(worst ? worst.f.prime : 0)}</b> this month.`;
 };
 
 /* --- industrial: throughput */
@@ -977,6 +1053,15 @@ function chain(u, f, ind) {
         { name: 'Gross profit', value: sales - cogs, total: true },
       ];
     }
+    case 'restaurants': {
+      const sales = f.sales || 0;
+      return [
+        { name: 'Net sales', value: sales, total: true },
+        { name: 'Food & beverage', value: -(f.foodUsd || 0) },
+        { name: 'Labor', value: -(f.laborUsd || 0) },
+        { name: 'After prime cost', value: sales - (f.foodUsd || 0) - (f.laborUsd || 0), total: true },
+      ];
+    }
     case 'industrial': {
       const made = (f.produced || 0) - (f.scrap || 0);
       const cpu = f.cpu || 0;
@@ -1017,6 +1102,8 @@ function chainNote(u, f, ind) {
         drawn as money rather than as a count.`;
     case 'retail':
       return `Before store payroll and occupancy, which sit in overhead rather than on the store.`;
+    case 'restaurants':
+      return `Prime cost only. Rent, utilities and the support office sit in overhead, above this line.`;
     case 'industrial':
       return `Scrap is priced at the same unit cost as good output, because it consumed it.`;
     case 'logistics':
@@ -1059,6 +1146,13 @@ function unitVerdict(q, u, f, ind) {
              <b>${F.num(f.traffic)}</b> visitors converting at <b>${F.pct(f.conv, 1)}</b>.`
           : `Online, so there is no selling area to divide by.`,
       };
+    case 'restaurants':
+      return {
+        title: `${name} sold <b>${F.money(f.sales)}</b> at <b>${F.pct(f.prime)}</b> prime cost.`,
+        body: `<b>${F.num(f.covers)}</b> covers at an average check of <b>${F.exact(f.check, 2)}</b>,
+          ${f.seats ? `turning each seat <b>${F.num(f.turns, 1)}</b> times a day, ` : ''}with
+          <b>${F.exact(f.splh, 2)}</b> of sales for every labor hour.`,
+      };
     case 'industrial':
       return {
         title: `${name} ran at <b>${F.pct(f.oee)}</b> and made each unit for <b>${F.exact(f.cpu, 2)}</b>.`,
@@ -1100,6 +1194,8 @@ const GRID = {
     says: 'how full each campus has been' },
   retail: { key: 'sales', name: 'Net sales', fmt: v => F.money(v), good: 'high',
     says: 'how each store has traded' },
+  restaurants: { key: 'covers', name: 'Covers', fmt: v => F.num(v), good: 'high',
+    says: 'how busy each location has been' },
   industrial: { key: 'oee', name: 'OEE', fmt: v => F.pct(v, 0), good: 'high', isPct: true,
     says: 'how effectively each line has run' },
   logistics: { key: 'onTime', name: 'On time', fmt: v => F.pct(v, 0), good: 'high', isPct: true,
@@ -1216,6 +1312,7 @@ const RULES = {
   education: ['A campus under 70% of its seats, which is serious',
     'A campus under 85% of its seats'],
   retail: ['Margin more than 6 points under the company'],
+  restaurants: ['Prime cost over 65% of sales', 'Food cost over 34% of sales'],
   industrial: ['OEE under 62%', 'Scrap over 4% of what was produced'],
   logistics: [
     'Fuel and maintenance over 42% of what the truck earns',
@@ -1479,10 +1576,10 @@ export function season(ctx) {
   const { q, s } = ctx;
   const ind = s.industry;
   const months = q.months;
-  const key = { construction: 'rev', education: 'enrolled', retail: 'sales',
+  const key = { construction: 'rev', education: 'enrolled', retail: 'sales', restaurants: 'covers',
     industrial: 'produced', logistics: 'miles', tech: 'arr' }[ind.id] || 'rev';
   const label = { construction: 'Earned revenue', education: 'Students enrolled',
-    retail: 'Net sales', industrial: 'Units produced', logistics: 'Miles',
+    retail: 'Net sales', restaurants: 'Covers', industrial: 'Units produced', logistics: 'Miles',
     tech: 'ARR' }[ind.id] || 'Revenue';
   const money = ['rev', 'sales', 'arr'].includes(key);
   const fmt = v => money ? F.money(v) : F.num(v, 0);

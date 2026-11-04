@@ -7,6 +7,7 @@
  *   node tests/probe.js            # the full walk
  *   node tests/probe.js --quick    # one industry, every role
  *   node tests/probe.js --shots    # also write screenshots to tests/shots
+ *   node tests/probe.js --only restaurants   # one named industry
  *
  * One browser at a time, on purpose: two headless Chromiums in a small
  * container get the second one killed, and a killed browser reads exactly like
@@ -397,12 +398,21 @@ async function main() {
   const firstScreen = await page.evaluate(() => ({
     showing: window.__hub.choosing(),
     cards: (window.__hub.cards() || []).length,
+    shipped: window.__hub.industries().length,
+    order: (window.__hub.cards() || []).map(c => c.id),
+    leads: [...document.querySelectorAll('#chooser .world')].filter(w => w.querySelector('.w-lead')).map(w => w.dataset.world),
     worlds: document.querySelectorAll('#chooser .world').length,
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   }));
   ok(firstScreen.showing, 'a first visit opens on the chooser');
-  ok(firstScreen.cards === 6, 'the chooser reads six cards', String(firstScreen.cards));
-  ok(firstScreen.worlds === 6, 'the chooser draws six worlds', String(firstScreen.worlds));
+  ok(firstScreen.cards === firstScreen.shipped, 'the chooser reads a card per industry', `${firstScreen.cards} of ${firstScreen.shipped}`);
+  ok(firstScreen.worlds === firstScreen.shipped, 'the chooser draws a world per industry', `${firstScreen.worlds} of ${firstScreen.shipped}`);
+  /* Education is not the target market, construction
+     and retail are. The front door leads with them and says so. */
+  ok(firstScreen.order[0] === 'construction' && firstScreen.order[1] === 'retail'
+    && firstScreen.order[firstScreen.order.length - 1] === 'education',
+    'the front door leads with construction and retail and ends on education', firstScreen.order.join(','));
+  ok(firstScreen.leads.join(',') === 'construction,retail', 'the industries we lead with are marked', firstScreen.leads.join(','));
   ok(firstScreen.overflow <= 1, 'the chooser does not scroll sideways at 1440',
     String(firstScreen.overflow));
 
@@ -441,6 +451,154 @@ async function main() {
   ok(await page.evaluate('window.__hub.choosing()'), 'the rail reopens the chooser');
   await page.evaluate('window.__hub.chooser(false)');
   await page.waitForTimeout(140);
+
+  /* --- the two doors (gate.js): a client's sign-in and Elevate's console ------
+     Each client gets logins that show different
+     views, and the team picks a client and sees all of their data. Neither
+     door is a permission system: each only SETS a view level, so what is
+     asserted here is that the level it sets is the one it says, and that the
+     level then behaves like itself (a no-money person leaks no currency). */
+  console.log('\ndoors');
+  const gateOverflow = () => page.evaluate(() => {
+    const g = document.getElementById('gate');
+    return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      g ? g.scrollWidth - g.clientWidth : 0);
+  });
+  const indsNow = await page.evaluate('window.__hub.industries()');
+  for (const ind of quick ? [indsNow[0]] : indsNow) {
+    errors.length = 0;
+    await page.evaluate(`window.__hub.openGate('signin', '${ind}')`);
+    await page.waitForTimeout(160);
+    const sg = await page.evaluate(() => ({
+      gate: window.__hub.gate(),
+      industry: window.__hub.settings().industry,
+      people: window.__hub.people(),
+      rows: document.querySelectorAll('#gate .sg-person').length,
+      ms: !!document.querySelector('#gate [data-act="ms-signin"]'),
+      honest: /demo sign-in/i.test(document.getElementById('gate').innerText),
+      shell: getComputedStyle(document.getElementById('shell')).display,
+    }));
+    ok(sg.gate === 'signin', `${ind}: the sign-in draws`, String(sg.gate));
+    ok(sg.industry === ind, `${ind}: the sign-in is that client's`, sg.industry);
+    ok(sg.people.length > 0 && sg.rows === sg.people.length, `${ind}: every sample person is drawn`,
+      `${sg.rows} of ${sg.people.length}`);
+    ok(sg.ms, `${ind}: the sign-in shows Microsoft as the real route`);
+    ok(sg.honest, `${ind}: the sign-in says it is a demo`);
+    ok(sg.shell === 'none', `${ind}: the shell steps aside for the sign-in`, sg.shell);
+    ok(await gateOverflow() <= 1, `${ind}: the sign-in does not scroll sideways at 1440`);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(120);
+    ok(await gateOverflow() <= 1, `${ind}: the sign-in does not scroll sideways at 390`,
+      String(await gateOverflow()));
+    await page.setViewportSize({ width: 1440, height: 950 });
+    ok(errors.length === 0, `${ind}: the sign-in console clean`, errors[0] || '');
+
+    /* every person lands at their own level, on a page that level is offered */
+    for (let i = 0; i < sg.people.length; i++) {
+      const who = sg.people[i];
+      errors.length = 0;
+      await page.evaluate(`window.__hub.openGate('signin', '${ind}')`);
+      await page.waitForTimeout(100);
+      await page.evaluate(i2 => document.querySelectorAll('#gate .sg-person')[i2].click(), i);
+      await page.waitForTimeout(220);
+      const inn = await page.evaluate(() => {
+        const s = window.__hub.settings();
+        const lvl = s.roles.find(r => r.id === s.role);
+        return {
+          role: s.role, money: lvl.money, gate: window.__hub.gate(), page: window.__hub.page(),
+          pages: window.__hub.pages(), session: window.__hub.session(),
+          dollars: ((document.getElementById('page').innerText || '').match(/\$/g) || []).length,
+          broken: (document.getElementById('page').innerText || '').includes('could not be drawn'),
+          bar: document.getElementById('bar').innerText || '',
+        };
+      });
+      const tag = `${ind}/${who.role}: ${who.title}`;
+      ok(inn.role === who.role, `${tag} signs in at that level`, inn.role);
+      ok(inn.gate === null, `${tag} closes the sign-in`, String(inn.gate));
+      ok(inn.pages.includes(inn.page), `${tag} lands on a page the level is offered`, inn.page);
+      ok(inn.page === who.lands || !inn.pages.includes(who.lands),
+        `${tag} lands where the sign-in said`, inn.page);
+      ok(inn.session && inn.session.kind === 'person' && inn.session.name === who.name,
+        `${tag} is remembered as signed in`);
+      ok(inn.bar.includes(who.name), `${tag} is named in the top bar`);
+      ok(!inn.broken, `${tag} lands on a page that draws`);
+      if (inn.money === 'none') {
+        ok(inn.dollars === 0, `${tag} lands with no currency anywhere`, `${inn.dollars} dollar signs`);
+      }
+      ok(errors.length === 0, `${tag} console clean`, errors[0] || '');
+    }
+  }
+
+  /* a page link still routes past a sign-in, so no deep link is ever gated */
+  await page.evaluate(`window.__hub.openGate('signin', '${indsNow[0]}')`);
+  await page.waitForTimeout(100);
+  await page.evaluate("location.hash = '#/home'");
+  await page.waitForTimeout(220);
+  ok(await page.evaluate('window.__hub.gate()') === null, 'a page link closes the sign-in');
+  ok(await page.evaluate('window.__hub.page()') === 'home', 'a page link lands on its page');
+
+  /* the console: every client, figures from each one's own extract */
+  errors.length = 0;
+  await page.evaluate("window.__hub.openGate('console')");
+  await page.waitForTimeout(260);
+  const cs = await page.evaluate(() => ({
+    gate: window.__hub.gate(),
+    cards: [...document.querySelectorAll('#gate .ec-card')].map(c => ({
+      id: c.dataset.client,
+      figs: [...c.querySelectorAll('.ec-figs b')].map(b => b.textContent.trim()),
+      name: c.querySelector('.ec-id b').textContent,
+    })),
+    text: document.getElementById('gate').innerText,
+  }));
+  ok(cs.gate === 'console', 'the Elevate console draws', String(cs.gate));
+  ok(cs.cards.length === indsNow.length, 'the console has a card for every client',
+    `${cs.cards.length} of ${indsNow.length}`);
+  ok(cs.cards.every(c => c.figs.length >= 2 && c.figs.every(f => /\d/.test(f))),
+    'every client card carries live figures', JSON.stringify(cs.cards.map(c => c.figs.length)));
+  ok(!/NaN|undefined|Infinity/.test(cs.text), 'the console has no NaN, undefined or Infinity');
+  ok(await gateOverflow() <= 1, 'the console does not scroll sideways at 1440');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(120);
+  ok(await gateOverflow() <= 1, 'the console does not scroll sideways at 390', String(await gateOverflow()));
+  await page.setViewportSize({ width: 1440, height: 950 });
+  const found = await page.evaluate(n => window.__hub.search(n), cs.cards[cs.cards.length - 1].name);
+  ok(found === 1, 'the console search finds one client by name', String(found));
+  const noMatch = await page.evaluate(() => window.__hub.search('zzqx no such client'));
+  ok(noMatch === 0 && await page.evaluate(() => !document.querySelector('#gate .ec-none').hidden),
+    'a search with no match says so');
+  await page.evaluate(() => window.__hub.search(''));
+  ok(errors.length === 0, 'the console is console clean', errors[0] || '');
+
+  /* staff entry: one click into a client at the top level, and a way back */
+  const target = cs.cards[1] ? cs.cards[1].id : cs.cards[0].id;
+  errors.length = 0;
+  await page.evaluate(id => document.querySelector(`#gate [data-act="staff-enter"][data-arg="${id}"]`).click(), target);
+  await page.waitForTimeout(320);
+  const staff = await page.evaluate(() => {
+    const s = window.__hub.settings();
+    const top = s.roles.slice().sort((a, b) => b.rank - a.rank)[0];
+    return { industry: s.industry, role: s.role, top: top.id, money: top.money,
+      session: window.__hub.session(), gate: window.__hub.gate(),
+      back: !!document.querySelector('#bar [data-act="console"]'),
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+  });
+  ok(staff.industry === target, 'staff entry opens the client picked', staff.industry);
+  ok(staff.role === staff.top && staff.money === 'full', 'staff entry gives full access', staff.role);
+  ok(staff.session && staff.session.kind === 'staff', 'staff entry is remembered as staff');
+  ok(staff.gate === null, 'staff entry closes the console');
+  ok(staff.back, 'a staff member has a way back to the console');
+  ok(staff.overflow <= 1, 'the staff landing does not scroll sideways', String(staff.overflow));
+  await page.evaluate(() => document.querySelector('#bar [data-act="console"]').click());
+  await page.waitForTimeout(260);
+  ok(await page.evaluate('window.__hub.gate()') === 'console', 'the way back reopens the console');
+  ok(errors.length === 0, 'staff entry console clean', errors[0] || '');
+
+  /* leave as the walk below expects to find the Hub: nobody signed in */
+  await page.evaluate(() => { delete window.__hub.settings().session; });
+  await page.evaluate("window.__hub.pick('role', 'exec')");
+  await page.evaluate("location.hash = '#/home'");
+  await page.waitForTimeout(220);
+  ok(await page.evaluate('window.__hub.gate()') === null, 'leaving the doors returns to the Hub');
 
   /* --- the world (world.css, world.js) ---------------------------------------
      Matt, 2026-10-31: *"why dsoesnt it have the moving background and texture
@@ -702,10 +860,13 @@ async function main() {
 
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');
-  ok(industries.length === 6, 'six industries ship', industries.join(','));
+  ok(industries.length === 7, 'seven industries ship', industries.join(','));
   ok(roles.length >= 8, 'at least eight view levels', String(roles.length));
 
-  const list = quick ? [industries[0]] : industries;
+  /* --only <id> walks one named industry, which is how a new one is proven alone */
+  const only = process.argv.includes('--only') ? process.argv[process.argv.indexOf('--only') + 1] : null;
+  const list = only ? industries.filter(i => i === only) : quick ? [industries[0]] : industries;
+  ok(list.length > 0, 'the industry asked for exists', String(only));
 
   for (const ind of list) {
     console.log(`\n${ind}`);

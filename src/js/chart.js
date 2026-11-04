@@ -310,7 +310,12 @@ export function line(opts) {
      rather than $0, which is the reader's signal that the axis moved. Nothing
      is hidden and nothing is implied that is not there. */
   let zoomed = false;
-  if (zeroBase && lo === 0 && hi > 0 && (hi - Math.min(...all)) / hi < 0.4) {
+  /* ⚠️ Measured against the axis as it will settle, not the raw maximum. The
+     round top can sit well above the data: restaurant cash cleared the test
+     against its raw maximum and then drew in 38% of the plot it settled on,
+     so the chart was flat and nothing zoomed (2026-11-04). */
+  if (zeroBase && lo === 0 && hi > 0
+    && (hi - Math.min(...all)) / (niceScale(0, hi, 4, ih, fmt).hi || hi) < 0.4) {
     const dLo = Math.min(...all), band = hi - dLo;
     lo = Math.max(0, dLo - band * 0.45);
     zoomed = lo > 0;

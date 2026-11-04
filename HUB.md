@@ -13,26 +13,47 @@ thing that sells; everything else is there when a company wants it.
 
 ## What it does
 
-- **Six industries ship as working demos**, each with its own sample company,
-  brand and connected software: construction, schools, retail, manufacturing,
-  freight, and software. The financial engine is identical in all six. What
-  changes is the **unit of work** the money is divided by — a contract, a
-  campus, a store, a production line, a truck, a product — and that single
-  decision is what makes a dashboard read as *theirs*.
+- **Seven industries ship as working demos**, each with its own sample company,
+  brand and connected software, in this order: construction, retail,
+  restaurants, manufacturing, freight, software and schools. Construction and
+  retail lead and carry a "Where we lead" mark on the front door, because that
+  is the market Elevate sells to first, and schools come last. The financial engine is
+  identical in all seven. What changes is the **unit of work** the money is
+  divided by (a contract, a store, a restaurant, a production line, a truck, a
+  product, a campus), and that single decision is what makes a dashboard read
+  as *theirs*.
 - **Branding is configuration.** Logo, colour, typefaces, company name. Change
   them in the settings console and the whole page follows, live.
-- **Software is pick and plug.** Nine categories, 72 connectors, each with its
+- **Software is pick and plug.** Nine categories, 77 connectors, each with its
   real auth route and API. Switch one on and the pages that use it go live;
   switch it off and those pages say so rather than showing a figure from
   nowhere. Where a company runs nothing in a category, the product puts
   forward the one we would recommend.
-- **View levels by job title.** Eight levels out of the box, renameable to a
+- **View levels by job title.** Nine levels out of the box, renameable to a
   company's own titles. A level carries a rank (which pages), a scope (how much
   of the company) and a money setting (whether currency is shown at all), and
   the three are independent: a supervisor can see every operational page for
-  their own crew with no money on any of them.
+  their own crew with no money on any of them, and People & HR sees the people
+  page and no finance page.
 - **It exports its own configuration.** The settings console produces the JSON
   file a real deployment is built from. No per-client code, no branch, no fork.
+
+## The two doors: client sign-in and the Elevate console
+
+Each client gets logins that show different views, and the Elevate team
+picks a client and sees all of their data.
+
+| Route | What it is |
+| --- | --- |
+| `#/signin` or `#/signin/<industry>` | A client's sign-in, in its own brand. "Sign in with Microsoft" is shown as the route a deployment uses. The demo has no sign-in, says so, and lists sample people instead (`config/roles.json` `signin`), each tied to one view level and one landing page. |
+| `#/console` | Elevate's staff view. Every client in `config/industries.json` as a card with figures from its own extract, a search, and one click into that client at its top level. Inside, the top bar and the rail carry the way back. |
+
+⛔ **Neither door is a permission system.** Picking a person only sets the view
+level. Pages are still decided in `settings.js`, scope in `query.js` and money
+in `fmt.js`. A signed-in person sees their own name in the top bar and signs
+out rather than switching level, and every page route still works with nobody
+signed in, which is how the gate walks the Hub. In a deployment the session is
+Microsoft's and the level comes from the job title. Code in `src/js/gate.js`.
 
 ## The three honest states
 
@@ -51,9 +72,9 @@ Never promote an entry's state without a measurement.
 
 ```
 cd tools/hub
-python3 data/gen.py          # regenerate the sample data (deterministic)
-python3 build.py             # assemble dist/
-python3 build.py --serve 8000
+python data/gen.py           # regenerate the sample data (deterministic)
+python build.py              # assemble dist/
+python build.py --serve 8000
 ```
 
 Then open `http://127.0.0.1:8000/`. It must be served over http, not opened as
@@ -63,13 +84,14 @@ load from `file://`.
 ## The gate
 
 ```
-node tests/probe.js          # the full walk: six industries, eight levels, every page
+node tests/probe.js          # the full walk: seven industries, nine levels, every page
 node tests/probe.js --quick  # one industry
+node tests/probe.js --only restaurants   # one named industry
 node tests/probe.js --shots  # also write screenshots to tests/shots
 node tests/probe.js --dist <path>   # any other build, a client's included
 ```
 
-**8,170 checks on the demo.** Every page of every view level of every industry is
+**21,067 checks on the demo.** Every page of every view level of every industry is
 opened, and the probe asserts that it drew without throwing, that the console is
 clean, that nothing reads `NaN` or `undefined`, that there is no sideways scroll
 at 1440 or 390, that the statements tie, that every KPI resolves to a real
@@ -94,10 +116,10 @@ worth more than the bug it was written for.
 ```
 config/
   product.json      the page catalogue, the module list, the statement model
-  connectors.json   72 softwares, nine categories, auth route and API each
-  industries.json   six profiles: company, unit of work, measures, KPIs, software
-  brands.json       six brand kits, plus the validated chart palette
-  roles.json        eight view levels
+  connectors.json   77 softwares, nine categories, auth route and API each
+  industries.json   seven profiles, in front-door order: company, unit of work, measures, KPIs, software
+  brands.json       seven brand kits, plus the validated chart palette
+  roles.json        nine view levels, and the sample people the demo sign-in offers
 data/gen.py         the sample data engine
 src/
   index.html        the shell
@@ -109,6 +131,7 @@ src/
     fmt.js          formatting, and the one place a money permission is enforced
     ui.js           verdict, strip, panel, table
     cms.js          the settings console
+    gate.js         the client sign-in and the Elevate console
     pages/          finance (8 pages), ops (4), start and the lighter modules
     app.js          rail, top bar, router, exports, the __hub probe surface
 build.py            assembles dist/ for GitHub Pages

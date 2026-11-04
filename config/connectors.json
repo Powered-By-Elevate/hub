@@ -95,7 +95,8 @@
         "logistics",
         "tech",
         "education",
-        "industrial"
+        "industrial",
+        "restaurants"
       ],
       "note": "Running live on a real company file, including journaled postings and class/location tracking. The right ledger for most companies under about $50M."
     },
@@ -126,7 +127,8 @@
       "industries": [
         "retail",
         "tech",
-        "logistics"
+        "logistics",
+        "restaurants"
       ],
       "note": "Clean API, generous reporting endpoints. Strong second choice to QuickBooks."
     },
@@ -224,7 +226,8 @@
         "retail",
         "construction",
         "industrial",
-        "logistics"
+        "logistics",
+        "restaurants"
       ],
       "note": "Card and spend data at transaction level, days before the statement closes."
     },
@@ -239,7 +242,8 @@
       "industries": [
         "construction",
         "industrial",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "AP approvals. Useful for an accurate payables ageing ahead of the ledger."
     },
@@ -257,9 +261,23 @@
         "logistics",
         "construction",
         "industrial",
-        "education"
+        "education",
+        "restaurants"
       ],
       "note": "Bank balances and transactions direct, for a cash figure that does not wait on a reconciliation."
+    },
+    {
+      "id": "restaurant365",
+      "name": "Restaurant365",
+      "cat": "finance",
+      "auth": "OData credentials (API user)",
+      "api": "OData v4",
+      "status": "cataloged",
+      "recommend": true,
+      "industries": [
+        "restaurants"
+      ],
+      "note": "Accounting built for multi-unit restaurants, with inventory and recipe costing beside the ledger, so food cost ties to the books."
     },
     {
       "id": "procore",
@@ -385,7 +403,8 @@
         "retail",
         "industrial",
         "logistics",
-        "tech"
+        "tech",
+        "restaurants"
       ],
       "note": "Running live across several boards. Send API-Version 2026-07 on every call: the silent default is older and missing half the mutations."
     },
@@ -401,7 +420,8 @@
         "tech",
         "retail",
         "education",
-        "logistics"
+        "logistics",
+        "restaurants"
       ],
       "note": "Portfolios and goals map well onto a role view."
     },
@@ -435,7 +455,8 @@
         "industrial",
         "logistics",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Running live. The right answer whenever a company is already on Microsoft 365, because it needs no new license."
     },
@@ -510,7 +531,8 @@
         "industrial",
         "logistics",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Running live, including per-person trimmed document indexes. SharePoint REST accepts app-only tokens only when they are issued for a certificate, never a client secret."
     },
@@ -525,7 +547,8 @@
       "industries": [
         "education",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Shared drives plus a service account give clean unattended reads."
     },
@@ -540,7 +563,8 @@
       "industries": [
         "construction",
         "retail",
-        "tech"
+        "tech",
+        "restaurants"
       ],
       "note": "Team folders and file events are both available, so an index can stay current."
     },
@@ -601,7 +625,8 @@
         "industrial",
         "logistics",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Running live for reads. Where a company already runs Teams, nothing new has to be bought or learned."
     },
@@ -619,7 +644,8 @@
         "industrial",
         "logistics",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Running live. The calendar is the only honest source of where a day actually went."
     },
@@ -634,7 +660,8 @@
       "industries": [
         "tech",
         "retail",
-        "logistics"
+        "logistics",
+        "restaurants"
       ],
       "note": "Delivery as well as reading: a close or a variance can land in a channel the moment it is known."
     },
@@ -649,7 +676,8 @@
       "industries": [
         "education",
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Domain-wide delegation makes unattended reads possible without a password anywhere."
     },
@@ -664,7 +692,8 @@
       "industries": [
         "logistics",
         "retail",
-        "industrial"
+        "industrial",
+        "restaurants"
       ],
       "note": "For the people who never open a dashboard: a text when a number crosses a line."
     },
@@ -695,7 +724,8 @@
         "education",
         "industrial",
         "logistics",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Adapter built and tested against fixtures. Certificate issuance is the slow part, measured in weeks not hours."
     },
@@ -710,7 +740,8 @@
       "industries": [
         "tech",
         "retail",
-        "logistics"
+        "logistics",
+        "restaurants"
       ],
       "note": "Clean payroll API, quick to wire, good fit under about 200 people."
     },
@@ -724,7 +755,8 @@
       "recommend": true,
       "industries": [
         "tech",
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Carries HR, payroll and device management, so one grant answers several questions."
     },
@@ -774,6 +806,19 @@
       "note": "Enterprise. A custom RaaS report is usually faster than the REST surface."
     },
     {
+      "id": "7shifts",
+      "name": "7shifts",
+      "cat": "people",
+      "auth": "OAuth 2.0 / access token",
+      "api": "REST v2",
+      "status": "cataloged",
+      "recommend": true,
+      "industries": [
+        "restaurants"
+      ],
+      "note": "Restaurant scheduling and time clock. Labor hours by location, which is what sales per labor hour is divided by."
+    },
+    {
       "id": "salesforce",
       "name": "Salesforce",
       "cat": "crm",
@@ -801,7 +846,8 @@
         "tech",
         "retail",
         "education",
-        "construction"
+        "construction",
+        "restaurants"
       ],
       "note": "The pragmatic choice for a company with no CRM: free to start and the API is complete."
     },
@@ -857,7 +903,8 @@
       "status": "cataloged",
       "recommend": true,
       "industries": [
-        "retail"
+        "retail",
+        "restaurants"
       ],
       "note": "Strong for a physical footprint: sales per hour, per location, per employee."
     },
@@ -881,11 +928,12 @@
       "auth": "OAuth 2.0 (client credentials)",
       "api": "REST",
       "status": "cataloged",
-      "recommend": false,
+      "recommend": true,
       "industries": [
+        "restaurants",
         "retail"
       ],
-      "note": "Restaurant. Labor and food cost against sales, by daypart."
+      "note": "The restaurant point of sale. Checks, covers, labor and food cost against sales, by location and daypart."
     },
     {
       "id": "powerschool",

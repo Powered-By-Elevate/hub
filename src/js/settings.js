@@ -101,9 +101,13 @@ export class Settings {
   useIndustry(industryId) {
     const keepTheme = this.data.theme;
     const keepRole = this.data.role;
+    const keepSession = this.data.session;
     this.data = this.defaults(industryId);
     this.data.theme = keepTheme;
     this.data.role = keepRole;
+    /* who is signed in (gate.js) travels with them: an Elevate staff member
+       moving between clients is still staff */
+    if (keepSession) this.data.session = keepSession;
     this.save().apply();
     return this;
   }
@@ -113,10 +117,13 @@ export class Settings {
 
   /* --------------------------------------------------------------- apply */
 
-  apply() {
+  /* `brand` is only ever passed by the Elevate console, which wears the house
+     brand over whichever client is loaded. Everything else applies the
+     client's own. */
+  apply(brand = this.data.brand) {
     const d = this.data;
     const root = document.documentElement;
-    const p = d.brand.palette;
+    const p = brand.palette;
     root.dataset.theme = d.theme;
     root.style.setProperty('--accent', p.accent);
     root.style.setProperty('--accent-deep', p.accentDeep);
@@ -148,14 +155,14 @@ export class Settings {
       if (k.startsWith('--')) root.style.setProperty(k, v);
     }
     root.style.setProperty('--navy', p.navy);
-    root.style.setProperty('--font-display', d.brand.type.display);
-    root.style.setProperty('--font-body', d.brand.type.body);
+    root.style.setProperty('--font-display', brand.type.display);
+    root.style.setProperty('--font-body', brand.type.body);
 
     const series = (this.cfg.brands.series || SERIES_FALLBACK)[d.theme] || SERIES_FALLBACK.light;
     series.forEach((c, i) => root.style.setProperty(`--s${i}`, c));
 
     document.title = `${d.company} · ${d.productName}`;
-    this.fonts(d.brand.type.google);
+    this.fonts(brand.type.google);
     return this;
   }
 

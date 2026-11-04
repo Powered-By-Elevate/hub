@@ -230,6 +230,12 @@ function verdictLine(ctx, m) {
       return `Trading at <b>${F.exact(sp.value)}</b> per square foot on an average basket of
         <b>${F.exact(bk.value, 2)}</b>.`;
     },
+    restaurants: () => {
+      const pc = q.kpi('primeCost'), ck = q.kpi('avgCheck'), ss = q.kpi('sameStore');
+      return `Prime cost ran <b>${F.pct(pc.value)}</b> of sales on an average check of
+        <b>${F.exact(ck.value, 2)}</b>, with same-store sales
+        ${ss.value >= 0 ? 'up' : 'down'} <b>${F.pct(Math.abs(ss.value))}</b> on a year ago.`;
+    },
     industrial: () => {
       const o = q.kpi('oee'), cpu = q.kpi('costPerUnit');
       return `The lines ran at <b>${F.pct(o.value)}</b> effectiveness and made each unit for
@@ -928,6 +934,10 @@ function unitCost(q, u, months, ind) {
     const rev = sumFactOver(q, u.id, 'sales', months);
     const m = q.factAvg('margin', months[months.length - 1], [u], 'sales') / 100;
     return rev * (1 - (m || ind.model.gm));
+  }
+  if (id === 'restaurants') {
+    /* cost of sales is food and drink, which the location carries to the cent */
+    return sumFactOver(q, u.id, 'foodUsd', months);
   }
   if (id === 'industrial') {
     const made = sumFactOver(q, u.id, 'produced', months) - sumFactOver(q, u.id, 'scrap', months);

@@ -171,169 +171,6 @@
       }
     },
     {
-      "id": "education",
-      "name": "Schools & education",
-      "short": "Education",
-      "tagline": "Funding follows the student, so every cost belongs to a seat",
-      "company": "Lakeshore Academies",
-      "brand": "lakeshore",
-      "entities": [
-        {
-          "id": "LSA",
-          "name": "Lakeshore Academies",
-          "kind": "Network office"
-        },
-        {
-          "id": "LSF",
-          "name": "Lakeshore Facilities Trust",
-          "kind": "Facilities"
-        }
-      ],
-      "unit": {
-        "one": "campus",
-        "many": "campuses",
-        "collection": "Campuses",
-        "key": "Campus",
-        "owner": "Principal"
-      },
-      "pages": {
-        "ops-home": {
-          "name": "Network overview"
-        },
-        "ops-units": {
-          "name": "Campuses"
-        },
-        "ops-second": {
-          "name": "Enrolment & attendance"
-        },
-        "ops-detail": {
-          "name": "Campus"
-        },
-        "pipeline-home": {
-          "name": "Enrolment pipeline"
-        },
-        "ops-grid": {
-          "name": "Enrolment grid"
-        },
-        "ops-people": {
-          "name": "Principals"
-        }
-      },
-      "headline": {
-        "metric": "enrolled",
-        "label": "Students enrolled",
-        "says": "{v} students are enrolled"
-      },
-      "kpis": [
-        "revenue",
-        "perStudent",
-        "enrolled",
-        "fillRate",
-        "cashDays",
-        "staffRatio"
-      ],
-      "measures": [
-        {
-          "id": "enrolled",
-          "name": "Students enrolled",
-          "unit": "num"
-        },
-        {
-          "id": "capacity",
-          "name": "Seats available",
-          "unit": "num"
-        },
-        {
-          "id": "adm",
-          "name": "Average daily membership",
-          "unit": "num"
-        },
-        {
-          "id": "funding",
-          "name": "Funding per student",
-          "unit": "usd"
-        },
-        {
-          "id": "staff",
-          "name": "Staff (FTE)",
-          "unit": "num"
-        },
-        {
-          "id": "costPer",
-          "name": "Cost per student",
-          "unit": "usd"
-        }
-      ],
-      "connected": {
-        "finance": "sage-intacct",
-        "systems": [
-          "powerschool"
-        ],
-        "projects": [],
-        "tasks": [
-          "ms-planner"
-        ],
-        "docs": [
-          "google-drive"
-        ],
-        "comms": [
-          "google-workspace",
-          "zoom"
-        ],
-        "crm": [
-          "hubspot"
-        ],
-        "people": [
-          "paylocity"
-        ],
-        "inventory": []
-      },
-      "model": {
-        "revM0": 1980000,
-        "growth": 0.009,
-        "season": [
-          1.0,
-          1.0,
-          1.0,
-          1.0,
-          1.0,
-          0.42,
-          0.38,
-          1.12,
-          1.0,
-          1.0,
-          1.0,
-          1.0
-        ],
-        "gm": 0.206,
-        "ohPct": 0.112,
-        "units": 6,
-        "dso": 34,
-        "dpo": 29,
-        "capex": 0.011,
-        "debt": 22400000
-      },
-      "portfolio": {
-        "barLabel": "Seats filled",
-        "bar": [
-          "enrolled",
-          "capacity"
-        ],
-        "size": "funding",
-        "sizeLabel": "Funding per student",
-        "chips": [
-          [
-            "enrolled",
-            "Enrolled"
-          ],
-          [
-            "staff",
-            "Staff"
-          ]
-        ]
-      }
-    },
-    {
       "id": "retail",
       "name": "Retail & multi-site",
       "short": "Retail",
@@ -492,6 +329,161 @@
         ],
         "barMax": 0.3,
         "barNote": "drawn against a 30% scale, because a store that converts a quarter of its visitors is doing well"
+      }
+    },
+    {
+      "id": "restaurants",
+      "name": "Food & beverage",
+      "short": "Restaurants",
+      "tagline": "Prime cost by location, the average check, and the kitchen quietly eating the margin",
+      "company": "Marigold & Ash Hospitality",
+      "brand": "marigold",
+      "entities": [
+        {
+          "id": "MAR",
+          "name": "Marigold & Ash Restaurants",
+          "kind": "Restaurants"
+        },
+        {
+          "id": "MAC",
+          "name": "Marigold & Ash Catering",
+          "kind": "Catering"
+        }
+      ],
+      "unit": {
+        "one": "restaurant",
+        "many": "restaurants",
+        "collection": "Locations",
+        "key": "Location",
+        "owner": "Area director"
+      },
+      "pages": {
+        "ops-home": {
+          "name": "Location portfolio"
+        },
+        "ops-units": {
+          "name": "Locations"
+        },
+        "ops-second": {
+          "name": "Prime cost & service"
+        },
+        "ops-detail": {
+          "name": "Location"
+        },
+        "ops-grid": {
+          "name": "Covers grid"
+        },
+        "ops-people": {
+          "name": "Area directors"
+        }
+      },
+      "headline": {
+        "metric": "primeCost",
+        "label": "Prime cost, food and labor as a share of sales",
+        "says": "The group runs at {v} prime cost"
+      },
+      "kpis": [
+        "revenue",
+        "primeCost",
+        "sameStore",
+        "avgCheck",
+        "tableTurns",
+        "splh"
+      ],
+      "measures": [
+        {
+          "id": "sales",
+          "name": "Net sales",
+          "unit": "usd"
+        },
+        {
+          "id": "covers",
+          "name": "Covers",
+          "unit": "num"
+        },
+        {
+          "id": "check",
+          "name": "Average check",
+          "unit": "usd"
+        },
+        {
+          "id": "food",
+          "name": "Food cost",
+          "unit": "pct"
+        },
+        {
+          "id": "labor",
+          "name": "Labor cost",
+          "unit": "pct"
+        },
+        {
+          "id": "prime",
+          "name": "Prime cost",
+          "unit": "pct"
+        }
+      ],
+      "connected": {
+        "finance": "restaurant365",
+        "systems": [
+          "toast"
+        ],
+        "projects": [],
+        "tasks": [
+          "monday"
+        ],
+        "docs": [
+          "google-drive"
+        ],
+        "comms": [
+          "slack"
+        ],
+        "crm": [],
+        "people": [
+          "7shifts"
+        ],
+        "inventory": []
+      },
+      "model": {
+        "revM0": 2050000,
+        "growth": 0.0035,
+        "season": [
+          0.86,
+          0.88,
+          0.98,
+          1.0,
+          1.04,
+          1.02,
+          1.0,
+          0.98,
+          0.94,
+          0.98,
+          1.02,
+          1.2
+        ],
+        "gm": 0.69,
+        "ohPct": 0.58,
+        "units": 11,
+        "dso": 3,
+        "dpo": 24,
+        "capex": 0.03,
+        "debt": 7800000,
+        "gmSpread": 0.04
+      },
+      "portfolio": {
+        "barLabel": "Prime cost",
+        "bar": "prime",
+        "size": "sales",
+        "sizeLabel": "Sales",
+        "chips": [
+          [
+            "covers",
+            "Covers"
+          ],
+          [
+            "check",
+            "Check"
+          ]
+        ]
       }
     },
     {
@@ -972,6 +964,169 @@
           [
             "churn",
             "Churn"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "education",
+      "name": "Schools & education",
+      "short": "Education",
+      "tagline": "Funding follows the student, so every cost belongs to a seat",
+      "company": "Lakeshore Academies",
+      "brand": "lakeshore",
+      "entities": [
+        {
+          "id": "LSA",
+          "name": "Lakeshore Academies",
+          "kind": "Network office"
+        },
+        {
+          "id": "LSF",
+          "name": "Lakeshore Facilities Trust",
+          "kind": "Facilities"
+        }
+      ],
+      "unit": {
+        "one": "campus",
+        "many": "campuses",
+        "collection": "Campuses",
+        "key": "Campus",
+        "owner": "Principal"
+      },
+      "pages": {
+        "ops-home": {
+          "name": "Network overview"
+        },
+        "ops-units": {
+          "name": "Campuses"
+        },
+        "ops-second": {
+          "name": "Enrolment & attendance"
+        },
+        "ops-detail": {
+          "name": "Campus"
+        },
+        "pipeline-home": {
+          "name": "Enrolment pipeline"
+        },
+        "ops-grid": {
+          "name": "Enrolment grid"
+        },
+        "ops-people": {
+          "name": "Principals"
+        }
+      },
+      "headline": {
+        "metric": "enrolled",
+        "label": "Students enrolled",
+        "says": "{v} students are enrolled"
+      },
+      "kpis": [
+        "revenue",
+        "perStudent",
+        "enrolled",
+        "fillRate",
+        "cashDays",
+        "staffRatio"
+      ],
+      "measures": [
+        {
+          "id": "enrolled",
+          "name": "Students enrolled",
+          "unit": "num"
+        },
+        {
+          "id": "capacity",
+          "name": "Seats available",
+          "unit": "num"
+        },
+        {
+          "id": "adm",
+          "name": "Average daily membership",
+          "unit": "num"
+        },
+        {
+          "id": "funding",
+          "name": "Funding per student",
+          "unit": "usd"
+        },
+        {
+          "id": "staff",
+          "name": "Staff (FTE)",
+          "unit": "num"
+        },
+        {
+          "id": "costPer",
+          "name": "Cost per student",
+          "unit": "usd"
+        }
+      ],
+      "connected": {
+        "finance": "sage-intacct",
+        "systems": [
+          "powerschool"
+        ],
+        "projects": [],
+        "tasks": [
+          "ms-planner"
+        ],
+        "docs": [
+          "google-drive"
+        ],
+        "comms": [
+          "google-workspace",
+          "zoom"
+        ],
+        "crm": [
+          "hubspot"
+        ],
+        "people": [
+          "paylocity"
+        ],
+        "inventory": []
+      },
+      "model": {
+        "revM0": 1980000,
+        "growth": 0.009,
+        "season": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.42,
+          0.38,
+          1.12,
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "gm": 0.206,
+        "ohPct": 0.112,
+        "units": 6,
+        "dso": 34,
+        "dpo": 29,
+        "capex": 0.011,
+        "debt": 22400000
+      },
+      "portfolio": {
+        "barLabel": "Seats filled",
+        "bar": [
+          "enrolled",
+          "capacity"
+        ],
+        "size": "funding",
+        "sizeLabel": "Funding per student",
+        "chips": [
+          [
+            "enrolled",
+            "Enrolled"
+          ],
+          [
+            "staff",
+            "Staff"
           ]
         ]
       }

@@ -2,7 +2,7 @@
 """
 The Hub's sample data engine.
 
-One generator, six industries. It writes a data file per industry profile that
+One generator, seven industries. It writes a data file per industry profile that
 the dashboard reads exactly as it would read a real company's extract, so the
 demo exercises the same code path a client does: nothing in the app knows the
 figures were invented.
@@ -20,7 +20,7 @@ a CFO catches in the first ten minutes:
      revenue line for that month, to the cent. A dashboard whose detail does
      not tie to its summary is worse than no dashboard.
 
-    python3 data/gen.py              # all six
+    python3 data/gen.py              # all seven
     python3 data/gen.py --only tech  # one
 """
 from __future__ import annotations
@@ -108,6 +108,22 @@ LANES = [
 
 CATEGORIES = ["Apparel", "Home", "Outdoor", "Gift", "Pantry"]
 
+# What a restaurant group pursues: work that adds covers or a site, never a
+# shop category. Construction pursues its own job kinds, the rest use CATEGORIES.
+PURSUITS = {"construction": JOB_KINDS,
+            "restaurants": ["Catering contract", "Private events", "New site",
+                            "Corporate account", "Wedding season", "Stadium concession"]}
+
+# A restaurant's format sets its seats, its check and how much of the group's
+# sales it carries. Flagships seat more and sell dearer, an express counter
+# turns a cheap check fast.
+RESTAURANT_FORMATS = {
+    "Flagship": {"seats": 160, "check": 46.0, "weight": 1.5},
+    "Neighborhood": {"seats": 120, "check": 33.0, "weight": 1.0},
+    "Express": {"seats": 80, "check": 21.0, "weight": 0.7},
+    "Catering": {"seats": 0, "check": 38.0, "weight": 1.1},   # no dining room, so no turns
+}
+
 # Names for the sample people. A demo whose owner column reads "PM A" tells a
 # prospect they are looking at a placeholder, which is the one thing a demo
 # cannot afford, so the sample set carries people with names.
@@ -167,7 +183,8 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
     # like that tells a prospect they are looking at a placeholder, and a
     # workload page is specifically about people.
     crew = people_pool(rnd, min(n, {"construction": 6, "education": 6, "retail": 8,
-                                    "industrial": 6, "logistics": 12, "tech": 4}[kind]))
+                                    "industrial": 6, "logistics": 12, "tech": 4,
+                                    "restaurants": 4}[kind]))
 
     if kind == "construction":
         for i in range(n):
@@ -211,9 +228,23 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
         units[-1]["name"] = "Online"
         units[-1]["short"] = "Online"
         units[-1]["format"] = "Ecommerce"
+    elif kind == "restaurants":
+        # The last location is the catering kitchen, booked to its own entity,
+        # the way a group that caters runs it.
+        for i in range(n):
+            place = PLACES[(i * 5 + 1) % len(PLACES)]
+            fmt = "Flagship" if i < 2 else ("Express" if i % 4 == 3 else "Neighborhood")
+            units.append({
+                "id": f"R{i + 1:02d}", "name": f"Marigold {place}", "short": place,
+                "entity": ents[1] if i == n - 1 else ents[0],
+                "status": "Open", "owner": crew[i % len(crew)],
+                "format": fmt, "seats": RESTAURANT_FORMATS[fmt]["seats"],
+            })
+        units[-1].update({"name": "Catering kitchen", "short": "Catering", "format": "Catering",
+                          "status": "Catering", "seats": 0})
     elif kind == "industrial":
         for i in range(n):
-            plant = "Plant 1" if i < n // 2 else "Plant 2"
+            plant ="Plant 1" if i < n // 2 else "Plant 2"
             units.append({
                 "id": f"L{i + 1}", "name": f"{plant} Line {i % (n // 2) + 1}", "short": f"Line {i + 1}",
                 "entity": ents[0] if i < n - 1 else ents[1],
@@ -272,6 +303,9 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
     cash_rows: list[dict] = []
 
     unit_weight = {u["id"]: rnd.around(1.0, 0.55) for u in units}
+    if ind["id"] == "restaurants":   # a flagship carries more than an express counter
+        for u in units:
+            unit_weight[u["id"]] *= RESTAURANT_FORMATS[u["format"]]["weight"]
     # a couple of units are deliberately in trouble: a demo needs something to find
     # A demo where nothing is ever seriously wrong does not sell, and a
     # dashboard nobody watches catch something is a dashboard nobody trusts.
@@ -281,9 +315,10 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
     re_open = model["revM0"] * 12 * 0.21 + lift   # retained earnings opening
     cap = model["revM0"] * 12 * 0.08
     debt0 = model["debt"]
-    fa0 = model["revM0"] * 12 * (0.9 if ind["id"] in ("industrial", "logistics", "education") else 0.22)
+    fa0 = model["revM0"] * 12 * (0.9 if ind["id"] in ("industrial", "logistics", "education", "restaurants") else 0.22)
     inv_rate = {"retail": 0.72, "industrial": 0.55, "construction": 0.09,
-                "logistics": 0.04, "education": 0.02, "tech": 0.01}[ind["id"]]
+                "logistics": 0.04, "education": 0.02, "tech": 0.01,
+                "restaurants": 0.07}[ind["id"]]   # about a week of food on the shelf
 
     ni_cum_prior = 0.0
     fa = fa0
@@ -300,9 +335,10 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
         # --- the P&L, per entity
         rev_parts = spread_to_total([rnd.around(w, 0.06) for w in weights], rev_total)
         month_ni = 0.0
+        ledger = {"cor": 0.0, "labor": 0.0}   # what the units' own costs must tie to
         for ei, ent in enumerate(ents):
             rev = rev_parts[ei]
-            gm = rnd.around(model["gm"], 0.14)
+            gm = rnd.around(model["gm"], model.get("gmSpread", 0.14))   # a menu holds its food cost tighter than a job book
             cor = round2(rev * (1 - gm))
             gp = round2(rev - cor)
             oh_total = round2(rev_total * model["ohPct"] * (weights[ei] if ei else 1 - sum(weights[1:])))
@@ -316,6 +352,8 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
             ebitda = round2(gp - oh_total)
             ni = round2(ebitda - dep - interest + other)
             month_ni += ni
+            ledger["cor"] += cor
+            ledger["labor"] += oh_split[0]
 
             for line, amount in (
                 ("rev", rev), ("cor", cor), ("gp", gp),
@@ -339,7 +377,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
                     budget_rows.append({"m": month, "e": ent["id"], "l": line, "v": amount})
 
         # --- the fleet of units, tied to the month's revenue
-        write_unit_facts(ind, month, mi, rev_total, units, unit_weight, trouble, rnd, unit_facts)
+        write_unit_facts(ind, month, mi, rev_total, units, unit_weight, trouble, rnd, unit_facts, ledger)
 
         # --- the balance sheet, per entity, cash as the plug
         fy_start = mi - (m - 1) if m <= mi + 1 else 0
@@ -427,11 +465,25 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
 
 # -------------------------------------------------------------- unit facts
 
-def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out):
+def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out, ledger=None):
     kind = ind["id"]
     live = [u for u in units if u["status"] not in ("Complete",)] or units
     parts = spread_to_total([uw[u["id"]] for u in live], rev_total)
     rev_by_unit = {u["id"]: parts[i] for i, u in enumerate(live)}
+
+    # A restaurant's food and labor are its share of the ledger's own cost of
+    # sales and labor lines, spread by each location's rate. So the group's
+    # prime cost read off the locations equals the statement to the cent, and a
+    # kitchen running hot shows as a location above the rest, not as a figure
+    # that disagrees with the P&L.
+    if kind == "restaurants":
+        gm = ind["model"]["gm"]
+        food_rate = {u["id"]: rnd.around(1 - gm + 0.045, 0.02) if u["id"] in trouble else rnd.around(1 - gm, 0.05)
+                     for u in units}
+        labor_rate = {u["id"]: rnd.around(0.34, 0.03) if u["id"] in trouble else rnd.around(0.30, 0.06) for u in units}
+        ids = [u["id"] for u in units]
+        food_by = dict(zip(ids, spread_to_total([rev_by_unit[i] * food_rate[i] for i in ids], ledger["cor"])))
+        labor_by = dict(zip(ids, spread_to_total([rev_by_unit[i] * labor_rate[i] for i in ids], ledger["labor"])))
 
     for u in units:
         uid = u["id"]
@@ -477,6 +529,20 @@ def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out):
                      "sqft": sqft, "margin": round2(margin * 100),
                      "traffic": traffic, "conv": round2(rnd.around(22 if sqft else 3.1, 0.12)),
                      "rev": rev}
+        elif kind == "restaurants":
+            spec = RESTAURANT_FORMATS[u["format"]]
+            covers = max(1, int(rev / rnd.around(spec["check"], 0.06)))
+            food, labor = food_by[uid], labor_by[uid]
+            hours = round2(labor / rnd.around(19.5, 0.05))     # all-in cost of an hour
+            facts = {"sales": rev, "covers": covers, "check": round2(rev / covers),
+                     "seats": u["seats"],
+                     "turns": round2(covers / (u["seats"] * 30.4)) if u["seats"] else 0.0,
+                     "foodUsd": food, "laborUsd": labor, "hours": hours,
+                     "food": round2(food / rev * 100) if rev else 0.0,
+                     "labor": round2(labor / rev * 100) if rev else 0.0,
+                     "prime": round2((food + labor) / rev * 100) if rev else 0.0,
+                     "splh": round2(rev / hours) if hours else 0.0,
+                     "rev": rev}
         elif kind == "industrial":
             avail = 520
             run = avail * (0.61 if bad else rnd.around(0.84, 0.06))
@@ -521,7 +587,8 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
     and what the empty seats are costing, so the generator now carries the
     series and the per-department detail those answers need."""
     heads = {"construction": 148, "education": 412, "retail": 186,
-             "industrial": 264, "logistics": 112, "tech": 74}[ind["id"]]
+             "industrial": 264, "logistics": 112, "tech": 74,
+             "restaurants": 418}[ind["id"]]
     depts = {
         "construction": ["Field", "Project management", "Estimating", "Accounting", "Safety"],
         "education": ["Instruction", "Student support", "Operations", "Administration", "Food service"],
@@ -529,14 +596,17 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
         "industrial": ["Production", "Maintenance", "Quality", "Shipping", "Administration"],
         "logistics": ["Drivers", "Dispatch", "Maintenance", "Safety", "Administration"],
         "tech": ["Engineering", "Product", "Go to market", "Support", "Administration"],
+        "restaurants": ["Kitchen", "Front of house", "Bar", "Restaurant management", "Support office"],
     }[ind["id"]]
     base_turn = {"construction": 18.4, "education": 12.1, "retail": 41.2,
-                 "industrial": 22.6, "logistics": 58.3, "tech": 9.4}[ind["id"]]
+                 "industrial": 22.6, "logistics": 58.3, "tech": 9.4,
+                 "restaurants": 74.0}[ind["id"]]
     """Average cost of a seat, by industry. It sets the vacancy figure the page
        puts on an open role, so it is a per-industry number rather than one
        average pretending to fit a driver and an engineer alike."""
     base_cost = {"construction": 78000, "education": 54000, "retail": 41000,
-                 "industrial": 62000, "logistics": 68000, "tech": 148000}[ind["id"]]
+                 "industrial": 62000, "logistics": 68000, "tech": 148000,
+                 "restaurants": 36000}[ind["id"]]
 
     # Payroll has TWO homes in the statements: the people who do the work sit
     # inside cost of revenue, and everyone else sits in the overhead line. A
@@ -546,7 +616,10 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
     # to the company's ACTUAL all-in payroll, and the page states the split
     # rather than letting a reader assume one figure is the other.
     direct_share = {"construction": 0.38, "education": 0.70, "retail": 0.12,
-                    "industrial": 0.30, "logistics": 0.45, "tech": 0.55}[ind["id"]]
+                    "industrial": 0.30, "logistics": 0.45, "tech": 0.55,
+                    # a restaurant's cost of sales is food and drink only: every hour
+                    # worked sits in the labor line, which is how prime cost is read
+                    "restaurants": 0.0}[ind["id"]]
     direct = round2(cost_of_revenue * direct_share)
     all_in = round2(direct + overhead_labor)
 
@@ -603,6 +676,8 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
         "tech": [["Backend engineer", "Frontend engineer"], ["Designer", "Product manager"],
                  ["Account executive", "Sales engineer"], ["Support engineer", "Support lead"],
                  ["Office manager", "Finance analyst"]],
+        "restaurants": [["Line cook", "Prep cook"], ["Server", "Host"], ["Bartender", "Barback"],
+                        ["General manager", "Assistant manager"], ["Payroll clerk", "Purchasing lead"]],
     }[ind["id"]]
     roles = []
     for i in range(open_n):
@@ -671,7 +746,7 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
             st = stages[si]
             value = round2(v)
             rows.append({
-                "name": f"{rnd.pick(PLACES)} {rnd.pick(JOB_KINDS) if ind['id'] == 'construction' else rnd.pick(CATEGORIES)}",
+                "name": f"{rnd.pick(PLACES)} {rnd.pick(PURSUITS.get(ind['id'], CATEGORIES))}",
                 "stage": st[0], "weight": st[1], "value": value,
                 "weighted": round2(value * st[1]),
                 "owner": owners[i % len(owners)],
@@ -739,6 +814,7 @@ DISCIPLINES = {
     "logistics": ["Driver files", "Maintenance", "DOT compliance", "Insurance",
                   "Rate confirmations", "Finance"],
     "tech": ["Contracts", "Specifications", "Security & compliance", "Support", "Finance"],
+    "restaurants": ["Leases", "Health inspections", "Licenses & permits", "Vendors", "Payroll", "Finance"],
 }
 
 # What lives in each of those folders, so a document's name tells you what it is.
@@ -774,6 +850,8 @@ DOC_KINDS = {
     "Specifications": ["Product specification", "Architecture note", "Release plan"],
     "Security & compliance": ["SOC 2 report", "Penetration test", "DPA"],
     "Support": ["Escalation record", "Runbook"],
+    "Health inspections": ["Inspection report", "Corrective action", "Temperature log"],
+    "Licenses & permits": ["Liquor license", "Food service permit", "Fire certificate"],
 }
 
 
@@ -924,7 +1002,7 @@ def check(data: dict, ind: dict) -> None:
 def summarise(data: dict, ind: dict) -> dict:
     """One small card's worth of a company, for the front door.
 
-    The chooser draws six worlds before any of their extracts are loaded, so
+    The chooser draws every world before any of their extracts are loaded, so
     the figure on each card is computed here instead. It duplicates a little of
     the app's KPI arithmetic, which is why the probe asserts that every card
     matches what that industry's own KPI returns once loaded: a duplicated
@@ -971,6 +1049,10 @@ def summarise(data: dict, ind: dict) -> dict:
             num += oee * avl
             den += avl
         value, fmt = (round2(num / den) if den else 0.0), "pct"
+    elif kind == "restaurants":
+        sales = fact_sum("sales", ytd)
+        value = round2((fact_sum("foodUsd", ytd) + fact_sum("laborUsd", ytd)) / sales * 100) if sales else 0.0
+        fmt = "pct"
     elif kind == "logistics":
         miles = fact_sum("miles", ytd)
         value = round2(fact_sum("rev", ytd) / miles) if miles else 0.0

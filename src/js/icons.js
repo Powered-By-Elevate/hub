@@ -52,6 +52,7 @@ const P = {
   factory: 'M3 20V11l5 3V11l5 3V8l8 4v8H3Zm4-3h2m4 0h2',
   school: 'M12 3 3 8h18l-9-5Zm-7 5v12h14V8M9 20v-6h6v6',
   code: 'M9 7 4 12l5 5m6-10 5 5-5 5',
+  dish: 'M12 5v2M5 17a7 7 0 0 1 14 0M3 17h18M6 20h12',
 };
 
 export function icon(name, size = 18, extra = '') {
@@ -71,6 +72,7 @@ const SHAPES = {
   hex: 'M12 1.5 21.5 7v10L12 22.5 2.5 17V7L12 1.5Z',
   road: 'M5 1h14l3 22H2L5 1Z',
   beam: 'M12 1 22 12 12 23 2 12 12 1Z',
+  tile: 'M7 1h10a6 6 0 0 1 6 6v10a6 6 0 0 1-6 6H7a6 6 0 0 1-6-6V7a6 6 0 0 1 6-6Z',
 };
 
 /* A monogram mark in the brand's own color. Replaced by an uploaded lockup. */
@@ -108,5 +110,5 @@ export function hash(s) {
 
 export const INDUSTRY_ICON = {
   construction: 'plan', education: 'school', retail: 'store',
-  industrial: 'factory', logistics: 'truck', tech: 'code',
+  industrial: 'factory', logistics: 'truck', tech: 'code', restaurants: 'dish',
 };

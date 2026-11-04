@@ -1,8 +1,8 @@
 /* The front door.
 
-   Six worlds, each in its own brand, before a single extract is loaded. It
-   reads data/summary.json (about 3 KB) rather than the six industry files,
-   which are 1.8 MB between them, so the first screen paints immediately.
+   Every world in its own brand, construction and retail first, before a single extract is loaded. It
+   reads data/summary.json (about 3 KB) rather than the industry files,
+   which are 2.6 MB between them, so the first screen paints immediately.
 
    This is the first fifteen seconds of every demo, which is why it is a place
    of its own rather than a row of cards at the bottom of a page. */
@@ -72,11 +72,16 @@ function markup(cfg, current) {
           <span>${esc(cfg.product.product.vendor)}</span></div>
         <h1>One build.<br>Any industry.</h1>
         <p>${esc(cfg.product.product.pitch)}</p>
+        ${cfg.product.product.lead ? `<p class="ch-lead">${esc(cfg.product.product.lead)}</p>` : ''}
+        <div class="ch-acts">
         ${current ? `<button class="ch-close" data-ch-close>${icon('close', 15)}Back to
           ${esc(cards.find(c => c.id === current) ? cards.find(c => c.id === current).company : 'the dashboard')}</button>` : ''}
+          <button class="ch-close" data-act="console">${icon('shield', 15)}Elevate console</button>
+        </div>
       </header>
       <div class="worlds">
-        ${cards.map(c => world(c, brands[c.brand], c.id === current)).join('')}
+        ${cards.map(c => world(c, brands[c.brand], c.id === current,
+          (cfg.product.product.leads || []).includes(c.id))).join('')}
       </div>
       <footer class="ch-foot">
         <span>${esc(cfg.product.demoNotice)}</span>
@@ -86,12 +91,13 @@ function markup(cfg, current) {
     </div>`;
 }
 
-function world(c, brand, isCurrent) {
+function world(c, brand, isCurrent, leads) {
   const p = brand.palette;
   return `<button class="world" data-world="${esc(c.id)}" aria-current="${!!isCurrent}"
     style="--w-accent:${p.accent};--w-deep:${p.navy};--w-lift:${p.accentLift};--w-tint:${p.tint}">
     <span class="w-scene">
       ${scene(c.id, p, { height: 150 })}
+      ${leads ? '<span class="w-lead">Where we lead</span>' : ''}
       <span class="w-band">
         <span class="w-mark">${brandMark(brand, 38)}</span>
         <span class="w-id">

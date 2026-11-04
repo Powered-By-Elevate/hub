@@ -137,7 +137,7 @@ export function start(ctx) {
     (s.tenant ? '' : U.panel({
       col: 7, title: 'The same build, another industry', ico: 'grid',
       note: 'One codebase. The company, the brand, the unit of work, the measures and the connected software all move together.',
-      right: U.btn('See all six', { act: 'chooser', kind: 'primary', ico: 'grid', sm: true }),
+      right: U.btn(`See all ${F.countWord(cfg.industries.industries.length)}`, { act: 'chooser', kind: 'primary', ico: 'grid', sm: true }),
       body: `<div class="ind-strip">${cfg.industries.industries.map(i => {
         const b = cfg.brands.brands[i.brand];
         const on = i.id === s.data.industry;

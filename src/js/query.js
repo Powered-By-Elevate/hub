@@ -299,6 +299,55 @@ export class Q {
         const cogs = this.sum('cor', w) * annual;
         return K('Stock turn', inv ? cogs / inv : 0, 'ratio', { note: 'Annualised cost of sales over inventory' });
       }
+      /* Restaurants. Food and labor are read off the locations, which the
+         generator ties to the ledger's cost of sales and labor lines, so the
+         group's prime cost and the statement agree at full scope and a
+         unit-scoped role reads its own locations. */
+      case 'primeCost': {
+        const s = this.factSum('sales', w);
+        const pv = this.factSum('sales', p);
+        const v = s ? (this.factSum('foodUsd', w) + this.factSum('laborUsd', w)) / s * 100 : 0;
+        const was = pv ? (this.factSum('foodUsd', p) + this.factSum('laborUsd', p)) / pv * 100 : NaN;
+        return K('Prime cost', v, 'pct', { invert: true, delta: v - was, deltaUnit: 'pp',
+          note: 'Food and labor as a share of sales' });
+      }
+      case 'foodCost': {
+        const s = this.factSum('sales', w);
+        return K('Food cost', s ? this.factSum('foodUsd', w) / s * 100 : 0, 'pct', { invert: true });
+      }
+      case 'laborCost': {
+        const s = this.factSum('sales', w);
+        return K('Labor cost', s ? this.factSum('laborUsd', w) / s * 100 : 0, 'pct', { invert: true });
+      }
+      case 'sameStore': {
+        /* every location traded in both windows, so the comparable set is the whole group */
+        const back = m => `${Number(m.slice(0, 4)) - 1}${m.slice(4)}`;
+        const paired = w.filter(m => this.months.includes(back(m)));   /* like for like, month for month */
+        const now = this.factSum('sales', paired);
+        const ya = this.factSum('sales', paired.map(back));
+        return K('Same-store sales', ya ? (now - ya) / ya * 100 : 0, 'pct',
+          { note: 'Against the same months a year before' });
+      }
+      case 'avgCheck': {
+        const c = this.factSum('covers', w);
+        return K('Average check', c ? this.factSum('sales', w) / c : 0, 'usdExact');
+      }
+      case 'tableTurns': {
+        /* dining rooms only: the catering kitchen has covers and no seats */
+        let covers = 0, seatDays = 0;
+        for (const u of this.units) {
+          const seats = this.fact(u.id, 'seats', month) || 0;
+          if (!seats) continue;
+          for (const m of w) covers += this.fact(u.id, 'covers', m) || 0;
+          seatDays += seats * 30.4 * w.length;
+        }
+        return K('Table turns a day', seatDays ? covers / seatDays : 0, 'ratio1',
+          { note: 'Covers over seats, dining rooms only' });
+      }
+      case 'splh': {
+        const h = this.factSum('hours', w);
+        return K('Sales per labor hour', h ? this.factSum('sales', w) / h : 0, 'usdExact');
+      }
       case 'oee':
         return K('OEE', this.factAvg('oee', month, this.units, 'hoursAvl'), 'pct');
       case 'costPerUnit': {

@@ -86,6 +86,23 @@
       },
       "shape": "circle"
     },
+    "marigold": {
+      "name": "Marigold & Ash Hospitality",
+      "mono": "MA",
+      "palette": {
+        "accent": "#7A2848",
+        "accentDeep": "#571B33",
+        "accentLift": "#A8506F",
+        "tint": "#F8EDF1",
+        "navy": "#26131C"
+      },
+      "type": {
+        "display": "\"Playfair Display\", Georgia, serif",
+        "body": "\"Work Sans\", -apple-system, sans-serif",
+        "google": "Playfair+Display:wght@500;600;700&family=Work+Sans:wght@400;500;600;700"
+      },
+      "shape": "tile"
+    },
     "carbide": {
       "name": "Carbide Works",
       "mono": "CW",
