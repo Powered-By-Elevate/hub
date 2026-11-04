@@ -76,7 +76,8 @@ function markup(cfg, current) {
         <div class="ch-acts">
         ${current ? `<button class="ch-close" data-ch-close>${icon('close', 15)}Back to
           ${esc(cards.find(c => c.id === current) ? cards.find(c => c.id === current).company : 'the dashboard')}</button>` : ''}
-          <button class="ch-close" data-act="console">${icon('shield', 15)}Elevate console</button>
+          <button class="ch-close ch-staff" data-act="console">${icon('shield', 15)}Elevate staff
+            <span>Console</span></button>
         </div>
       </header>
       <div class="worlds">

@@ -35,6 +35,23 @@
       },
       "shape": "square"
     },
+    "elevate": {
+      "name": "Elevate",
+      "mono": "EL",
+      "palette": {
+        "accent": "#0c6980",
+        "accentDeep": "#09505F",
+        "accentLift": "#3A8FA4",
+        "tint": "#EAF3F5",
+        "navy": "#2e2e2e"
+      },
+      "type": {
+        "display": "\"Playfair Display\", Georgia, serif",
+        "body": "\"Montserrat\", -apple-system, \"Segoe UI\", sans-serif",
+        "google": "Playfair+Display:wght@500;600;700&family=Montserrat:wght@400;500;600;700"
+      },
+      "shape": "square"
+    },
     "graniteridge": {
       "name": "Granite Ridge Builders",
       "mono": "GR",

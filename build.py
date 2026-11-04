@@ -67,6 +67,7 @@ def build(no_data: bool = False, dist: Path = DIST,
     shutil.copy2(HERE / "src" / "hub.css", DIST / "hub.css")
     shutil.copy2(HERE / "src" / "world.css", DIST / "world.css")
     shutil.copytree(HERE / "src" / "js", DIST / "js")
+    shutil.copytree(HERE / "src" / "img", DIST / "img")
 
     # Configuration, with every $-prefixed key stripped. These files are fetched
     # by the browser, so they are published documents: the notes in the repo

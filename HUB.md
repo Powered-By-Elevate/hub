@@ -46,7 +46,7 @@ picks a client and sees all of their data.
 | Route | What it is |
 | --- | --- |
 | `#/signin` or `#/signin/<industry>` | A client's sign-in, in its own brand. "Sign in with Microsoft" is shown as the route a deployment uses. The demo has no sign-in, says so, and lists sample people instead (`config/roles.json` `signin`), each tied to one view level and one landing page. |
-| `#/console` | Elevate's staff view. Every client in `config/industries.json` as a card with figures from its own extract, a search, and one click into that client at its top level. Inside, the top bar and the rail carry the way back. |
+| `#/console` | Elevate's staff console, a full-screen client picker in Elevate's own brand (`config/brands.json` `elevate`, the wordmark in `src/img/`). A search field first, focused on arrival: type to filter over company, industry, entity and system, arrow keys move the highlight, Enter opens that client at its top level, Escape clears. Then the four stats, Recently opened (the last four, kept in the browser), industry chips, a sort, and one dense row per client in `config/industries.json` (mark, industry, scope, finance system, close, three figures from its own extract, a 12-month spark, Open and Sign-in view). It is light grey and charcoal on purpose, so it never reads as the dark, scenic front door. Inside a client, the top bar and the rail carry the way back. |
 
 ⛔ **Neither door is a permission system.** Picking a person only sets the view
 level. Pages are still decided in `settings.js`, scope in `query.js` and money

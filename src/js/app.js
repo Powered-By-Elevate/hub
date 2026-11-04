@@ -79,6 +79,9 @@ async function boot() {
     if (ev.key === 'Enter' && ev.target.dataset && ev.target.dataset.person) {
       ev.preventDefault(); addPerson(ev.target.dataset.person); return;
     }
+    if (ev.target.dataset && ev.target.dataset.bind === 'gate-search' && Gate.key(ev)) {
+      ev.preventDefault(); return;
+    }
     if (ev.target.matches('input, textarea, select')) return;
     if (Present.key(ev)) { ev.preventDefault(); return; }
     if (ev.key === 'Escape') { closeMenu(); closeSheet(); }
@@ -137,8 +140,9 @@ async function openGate(kind, arg = null, note = false) {
     await Promise.all(inds.filter(i => !app.data[i.id])
       .map(i => loadData(i.id, base).then(d => { app.data[i.id] = d; })));
     const rows = Gate.clients(app.cfg, app.data, app.s.data.roles);
-    /* Elevate's screen wears the house brand, not whichever client is loaded */
-    app.s.apply(app.cfg.brands.brands.default || app.s.data.brand);
+    /* Elevate's screen wears Elevate's own brand, not whichever client is loaded */
+    const b = app.cfg.brands.brands;
+    app.s.apply(b.elevate || b.default || app.s.data.brand);
     document.title = `Elevate console · ${app.s.data.productName}`;
     Gate.show(Gate.console_({ cfg: app.cfg, rows, display: U.display }), 'console');
     return;
@@ -796,7 +800,13 @@ async function onClick(ev) {
   const act = el.dataset.act, arg = el.dataset.arg;
   switch (act) {
     case 'go': closeMenu(); closeSheet(); go(arg); break;
-    case 'chooser': closeMenu(); closeSheet(); openChooser(); break;
+    case 'chooser':
+      closeMenu(); closeSheet();
+      /* from the console, the front door replaces it rather than sitting on it */
+      if (Gate.open()) { closeGate(); history.replaceState(null, '', `#/${app.page}`); render(); }
+      openChooser(); break;
+    case 'ec-ind': Gate.only(arg); break;
+    case 'ec-sort': Gate.sort(arg); break;
     case 'console': closeMenu(); closeSheet(); toGate('console'); break;
     case 'signin': closeMenu(); closeSheet(); toGate('signin', arg || app.s.data.industry); break;
     case 'ms-signin': openGate('signin', app.s.data.industry, true); break;
@@ -806,6 +816,7 @@ async function onClick(ev) {
       break;
     }
     case 'staff-enter': {
+      Gate.remember(arg);
       const top = Gate.topRole(app.s.data.roles);
       await enterAs(arg, top.id, { kind: 'staff' }, 'fin-dash');
       break;

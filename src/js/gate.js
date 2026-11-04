@@ -10,9 +10,9 @@
      deployment signs people in with Microsoft and maps each person to a view
      level by job title. The demo has no sign-in, so it says so and offers
      sample people instead, each tied to one level in config/roles.json.
-   - The CONSOLE is Elevate's own view: every client as a card with figures
-     from that client's own extract, and one click into any of them at the
-     top level.
+   - The CONSOLE is Elevate's own view, a staff tool in Elevate's brand: a
+     search first, then one row per client with figures from that client's
+     own extract, and Enter or one click into any of them at the top level.
 
    ⛔ Both only ever SET the view level. What a level may see is still decided
    where it always was: pages in settings.js, scope in query.js, money in
@@ -80,6 +80,7 @@ export function show(html, kind) {
   }
   host.innerHTML = html;
   host.dataset.kind = kind;
+  delete host.dataset.ind;
   host.hidden = false;
   document.body.classList.add('gated');
   window.scrollTo({ top: 0 });
@@ -91,6 +92,8 @@ export function show(html, kind) {
       el.classList.add('enter');
     });
   }
+  const field = host.querySelector('[data-bind="gate-search"]');
+  if (field) field.focus({ preventScroll: true });
   return host;
 }
 
@@ -205,6 +208,11 @@ export function clients(cfg, data, roles) {
   }
 }
 
+/* The console is a staff tool, so it reads as one: Elevate's own light grey,
+   charcoal and teal with the wordmark, a search first, and one dense row per
+   client. The front door is the opposite on purpose (dark, scenic, a card per
+   world), so a glance says which side of the glass you are on. Each client's
+   brand survives only as its mark and the colour of its spark. */
 export function console_({ cfg, rows, display }) {
   const was = F.state.money;
   F.setMoneyLevel('full');
@@ -213,32 +221,53 @@ export function console_({ cfg, rows, display }) {
     const units = rows.reduce((t, r) => t + r.q.allUnits.length, 0);
     const open = rows.filter(r => r.tentative).length;
     const rev = rows.reduce((t, r) => t + r.revenue, 0);
+    const inds = [...new Map(rows.map(r => [r.ind.id, r.ind.short || r.ind.name])).entries()];
+    const seen = recent().map(id => rows.find(r => r.ind.id === id)).filter(Boolean);
     return `<div class="ec" data-kind="console">
-      <header class="gate-top" data-rise>
-        <span class="gate-prod">${esc(cfg.product.product.name)} <span>${esc(cfg.product.product.vendor)}</span></span>
-        <span class="gate-links"><span class="gate-badge">${icon('shield', 13)}Staff view</span></span>
+      <header class="ec-top" data-rise>
+        <img class="ec-logo" src="img/elevate-wordmark.png" alt="Elevate" width="98" height="46">
+        <span class="ec-staff">${icon('shield', 13)}Staff console</span>
+        <span class="ec-gap"></span>
+        <button class="ec-link" data-act="chooser" aria-label="Prospect demo">${icon('grid', 14)}<span>Prospect demo</span></button>
       </header>
-      <div class="ec-head" data-rise>
-        <div>
-          <div class="sg-eyebrow">Elevate console</div>
-          <h1>Every client, in one place.</h1>
-          <p>Open any client's Hub at full access, or open their sign-in to see it the way one of their people does.</p>
-        </div>
-        <label class="ec-search">${icon('search', 16)}
-          <input type="search" data-bind="gate-search" placeholder="Find a client, company or system"
-            aria-label="Find a client" autocomplete="off"></label>
-      </div>
+      <section class="ec-hero" data-rise>
+        <div class="ec-eyebrow">${esc(cfg.product.product.name)} clients</div>
+        <h1>Find a client</h1>
+        <label class="ec-search">${icon('search', 20)}
+          <input type="search" data-bind="gate-search" placeholder="Company, industry or system"
+            aria-label="Find a client" aria-controls="ec-rows" autocomplete="off" spellcheck="false"></label>
+        <p class="ec-keys"><kbd>↑</kbd><kbd>↓</kbd> move <kbd>Enter</kbd> open at full access <kbd>Esc</kbd> clear</p>
+      </section>
       <div class="ec-stats" data-rise>
-        ${stat('Clients', rows.length, '')}
-        ${stat('Companies', ents, `${units.toLocaleString('en-US')} units of work between them`)}
-        ${stat('Revenue this year', F.figure(F.usd(rev)), 'Across every client, year to date')}
+        ${stat('Clients', rows.length, 'on this console')}
+        ${stat('Companies', ents, `${units.toLocaleString('en-US')} units of work`)}
+        ${stat('Revenue this year', F.figure(F.usd(rev)), 'every client, year to date')}
         ${stat('Waiting on a close', open, open === 1 ? 'client with a tentative month' : 'clients with a tentative month')}
       </div>
-      <div class="ec-grid">
-        ${rows.map(r => card(r, display)).join('')}
-      </div>
-      <p class="ec-none" hidden>No client matches that.</p>
-      <footer class="ec-foot">${esc(cfg.product.demoNotice)} The console is Elevate's view of its clients. A client never sees it.</footer>
+      ${seen.length ? `<div class="ec-recent" data-rise><span class="ec-label">Recently opened</span>
+        ${seen.map(r => `<button class="ec-chip" data-act="staff-enter" data-arg="${esc(r.ind.id)}">
+          ${brandMark(r.brand, 20)}<b>${esc(r.ind.company)}</b></button>`).join('')}</div>` : ''}
+      <section class="ec-panel" data-rise>
+        <div class="ec-tools">
+          <div class="ec-inds" role="group" aria-label="Industry">
+            <button class="ec-ind on" data-act="ec-ind" data-arg="*">All</button>
+            ${inds.map(([id, name]) => `<button class="ec-ind" data-act="ec-ind" data-arg="${esc(id)}">${esc(name)}</button>`).join('')}
+          </div>
+          <div class="ec-sort" role="group" aria-label="Sort">
+            <span class="ec-label">Sort</span>
+            <button class="on" data-act="ec-sort" data-arg="name">Name</button>
+            <button data-act="ec-sort" data-arg="rev">Revenue</button>
+            <button data-act="ec-sort" data-arg="close">Close</button>
+          </div>
+        </div>
+        <div class="ec-cols" aria-hidden="true"><span></span><span>Client</span><span>Scope</span>
+          <span>Finance system</span><span>Close</span><span>Headline figures</span><span>12 months</span><span></span></div>
+        <div class="ec-rows" id="ec-rows" role="listbox" aria-label="Clients">
+          ${rows.slice().sort((a, b) => a.ind.company.localeCompare(b.ind.company)).map(r => row(r, display)).join('')}
+        </div>
+        <p class="ec-none" hidden>No client matches that. Try a company, an industry or a system.</p>
+      </section>
+      <footer class="ec-foot">${esc(cfg.product.demoNotice)} Only the Elevate team sees this console. A client never does.</footer>
     </div>`;
   } finally {
     F.setMoneyLevel(was);
@@ -249,46 +278,119 @@ function stat(label, value, note) {
   return `<div class="ec-stat"><span>${esc(label)}</span><b>${value}</b>${note ? `<small>${esc(note)}</small>` : ''}</div>`;
 }
 
-function card(r, display) {
-  const p = r.brand.palette;
+/* "Oct 2026": the year stays, since "Oct 26" reads as a date */
+function mon(m) { return F.monthName(m, true).replace(/^(\w{3})\w*/, '$1'); }
+
+function row(r, display) {
   const ind = r.ind;
-  return `<article class="ec-card" data-rise data-search="${esc(r.search)}" data-client="${esc(ind.id)}"
-    style="--w-accent:${p.accent};--w-deep:${p.navy};--w-lift:${p.accentLift};--w-tint:${p.tint}">
-    <div class="ec-band">
-      <span class="ec-scene">${scene(ind.id, p, { height: 112 })}</span>
-      <span class="ec-mark">${brandMark(r.brand, 36)}</span>
-      <span class="ec-id"><b>${esc(ind.company)}</b><span>${esc(ind.short || ind.name)}</span></span>
-      <span class="ec-ico">${icon(INDUSTRY_ICON[ind.id] || 'grid', 19)}</span>
-    </div>
-    <div class="ec-figs">
-      ${r.figs.map(k => `<div><span>${esc(k.label)}</span><b>${F.figure(display(k))}</b></div>`).join('')}
-    </div>
-    <div class="ec-meta">
-      <span class="ec-trend">${spark(r.spark, { width: 72, height: 22, color: p.accent })}<small>Revenue, 12 months</small></span>
-      <span class="tag${r.tentative ? ' warn' : ' good'}">${r.tentative
-    ? `${esc(F.monthName(r.month, true))} tentative` : `Signed off through ${esc(F.monthName(r.q.closed, true))}`}</span>
-    </div>
-    <div class="ec-sub">${r.q.entities.length} ${r.q.entities.length === 1 ? 'company' : 'companies'}
-      · ${r.q.allUnits.length} ${esc(ind.unit.many)}${r.finance ? ` · ${esc(r.finance)}` : ''}</div>
-    <div class="ec-acts">
-      <button class="btn primary sm" data-act="staff-enter" data-arg="${esc(ind.id)}">Open at full access ${icon('arrow', 14)}</button>
-      <button class="btn ghost sm" data-act="signin" data-arg="${esc(ind.id)}">Client sign-in</button>
-    </div>
-  </article>`;
+  const n = r.q.entities.length;
+  return `<div class="ec-row" role="option" aria-selected="false" data-act="staff-enter" data-arg="${esc(ind.id)}"
+    data-client="${esc(ind.id)}" data-ind="${esc(ind.id)}" data-search="${esc(r.search)}"
+    data-name="${esc(ind.company.toLowerCase())}" data-rev="${r.revenue}" data-open="${r.tentative ? 1 : 0}"
+    style="--w-accent:${r.brand.palette.accent}">
+    <span class="ec-mark">${brandMark(r.brand, 32)}</span>
+    <span class="ec-id"><b>${esc(ind.company)}</b><span>${esc(ind.name)}</span></span>
+    <span class="ec-scope">${n} ${n === 1 ? 'company' : 'companies'}<small>${r.q.allUnits.length} ${esc(ind.unit.many)}</small></span>
+    <span class="ec-sys">${esc(r.finance || 'Not connected')}</span>
+    <span class="ec-close"><span class="ec-pill${r.tentative ? ' warn' : ' good'}">${r.tentative
+    ? `${esc(mon(r.month))} tentative` : `Closed ${esc(mon(r.q.closed))}`}</span></span>
+    <span class="ec-figs">${r.figs.map(k => `<span><small>${esc(k.label)}</small><b>${F.figure(display(k))}</b></span>`).join('')}</span>
+    <span class="ec-trend">${spark(r.spark, { width: 76, height: 24, color: r.brand.palette.accent })}</span>
+    <span class="ec-acts">
+      <button class="ec-open" data-act="staff-enter" data-arg="${esc(ind.id)}">Open ${icon('arrow', 13)}</button>
+      <button class="ec-alt" data-act="signin" data-arg="${esc(ind.id)}">Sign-in view</button>
+    </span>
+  </div>`;
 }
 
-/* The search filters cards already drawn. Nothing is refetched or redrawn. */
+/* --- the picker's behaviour: rows already drawn are filtered, sorted and
+   highlighted in place. Nothing is refetched or redrawn. */
+
+const RECENT = 'hub.console.recent';
+
+export function recent() {
+  try { return JSON.parse(localStorage.getItem(RECENT) || '[]').filter(x => typeof x === 'string'); }
+  catch (err) { return []; }
+}
+
+export function remember(id) {
+  try { localStorage.setItem(RECENT, JSON.stringify([id, ...recent().filter(x => x !== id)].slice(0, 4))); }
+  catch (err) { /* a private window keeps no history */ }
+}
+
+function rowsOf(host) { return [...host.querySelectorAll('.ec-row')]; }
+
+function mark(host, el) {
+  for (const r of rowsOf(host)) {
+    const on = r === el;
+    r.classList.toggle('on', on);
+    r.setAttribute('aria-selected', String(on));
+  }
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+/* `text` given (the probe, a script) sets the field too, so the screen and
+   the result never disagree. */
 export function filter(text) {
   const host = document.getElementById('gate');
   if (!host) return 0;
-  const want = String(text || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
-  let shown = 0;
-  for (const el of host.querySelectorAll('.ec-card')) {
-    const hit = want.every(w => el.dataset.search.includes(w));
+  const input = host.querySelector('[data-bind="gate-search"]');
+  if (text !== undefined && input) input.value = text;
+  const want = String(input ? input.value : text || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const only = host.dataset.ind || '*';
+  let shown = 0, first = null;
+  for (const el of rowsOf(host)) {
+    const hit = (only === '*' || el.dataset.ind === only) && want.every(w => el.dataset.search.includes(w));
     el.hidden = !hit;
-    if (hit) shown++;
+    if (hit) { shown++; first = first || el; }
   }
   const none = host.querySelector('.ec-none');
   if (none) none.hidden = shown > 0;
+  /* the first match is highlighted, so Enter right after typing opens it */
+  mark(host, want.length || only !== '*' ? first : null);
   return shown;
 }
+
+export function only(id) {
+  const host = document.getElementById('gate');
+  if (!host) return;
+  host.dataset.ind = id;
+  for (const b of host.querySelectorAll('.ec-ind')) b.classList.toggle('on', b.dataset.arg === id);
+  filter();
+}
+
+export function sort(by) {
+  const host = document.getElementById('gate');
+  const list = host && host.querySelector('.ec-rows');
+  const key = {
+    name: (a, b) => a.dataset.name.localeCompare(b.dataset.name),
+    rev: (a, b) => b.dataset.rev - a.dataset.rev,
+    close: (a, b) => b.dataset.open - a.dataset.open || a.dataset.name.localeCompare(b.dataset.name),
+  }[by];
+  if (!list || !key) return;
+  rowsOf(host).sort(key).forEach(r => list.appendChild(r));
+  for (const b of host.querySelectorAll('.ec-sort button')) b.classList.toggle('on', b.dataset.arg === by);
+}
+
+/* Arrow keys move the highlight, Enter opens it at full access, Escape
+   clears. True when the key was the picker's. */
+export function key(ev) {
+  const host = document.getElementById('gate');
+  if (!host || host.dataset.kind !== 'console') return false;
+  const shown = rowsOf(host).filter(r => !r.hidden);
+  const at = shown.findIndex(r => r.classList.contains('on'));
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    const step = ev.key === 'ArrowDown' ? 1 : -1;
+    const next = at < 0 ? (step > 0 ? 0 : shown.length - 1) : Math.min(shown.length - 1, Math.max(0, at + step));
+    mark(host, shown[next] || null);
+    return true;
+  }
+  if (ev.key === 'Enter') {
+    const el = shown[at] || (shown.length === 1 ? shown[0] : null);
+    if (el) el.click();
+    return true;
+  }
+  if (ev.key === 'Escape') { filter(''); return true; }
+  return false;
+}
+

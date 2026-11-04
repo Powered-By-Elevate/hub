@@ -537,42 +537,89 @@ async function main() {
   ok(await page.evaluate('window.__hub.gate()') === null, 'a page link closes the sign-in');
   ok(await page.evaluate('window.__hub.page()') === 'home', 'a page link lands on its page');
 
-  /* the console: every client, figures from each one's own extract */
+  /* the console: Elevate's staff picker, a row per client, figures from each
+     one's own extract, search first, the keyboard all the way in */
   errors.length = 0;
+  await page.evaluate(() => { try { localStorage.removeItem('hub.console.recent'); } catch (e) { /* */ } });
   await page.evaluate("window.__hub.openGate('console')");
   await page.waitForTimeout(260);
+  const clientIds = await page.evaluate(() => {
+    const cfg = window.__hub.industries();
+    return cfg;
+  });
   const cs = await page.evaluate(() => ({
     gate: window.__hub.gate(),
-    cards: [...document.querySelectorAll('#gate .ec-card')].map(c => ({
+    rows: [...document.querySelectorAll('#gate .ec-row')].map(c => ({
       id: c.dataset.client,
       figs: [...c.querySelectorAll('.ec-figs b')].map(b => b.textContent.trim()),
       name: c.querySelector('.ec-id b').textContent,
+      pill: !!c.querySelector('.ec-pill'),
+      spark: !!c.querySelector('.ec-trend svg'),
+      open: !!c.querySelector('.ec-open[data-act="staff-enter"]'),
+      signin: !!c.querySelector('.ec-alt[data-act="signin"]'),
     })),
+    stats: document.querySelectorAll('#gate .ec-stat').length,
+    logo: !!document.querySelector('#gate img.ec-logo'),
+    focused: document.activeElement && document.activeElement.dataset.bind === 'gate-search',
+    shell: getComputedStyle(document.getElementById('shell')).display,
+    ground: getComputedStyle(document.getElementById('gate')).backgroundColor,
     text: document.getElementById('gate').innerText,
   }));
   ok(cs.gate === 'console', 'the Elevate console draws', String(cs.gate));
-  ok(cs.cards.length === indsNow.length, 'the console has a card for every client',
-    `${cs.cards.length} of ${indsNow.length}`);
-  ok(cs.cards.every(c => c.figs.length >= 2 && c.figs.every(f => /\d/.test(f))),
-    'every client card carries live figures', JSON.stringify(cs.cards.map(c => c.figs.length)));
+  ok(cs.rows.length === clientIds.length && clientIds.every(id => cs.rows.some(r => r.id === id)),
+    'the console has a row for every client in the config', `${cs.rows.length} of ${clientIds.length}`);
+  ok(cs.rows.every(c => c.figs.length >= 2 && c.figs.every(f => /\d/.test(f))),
+    'every client row carries live figures', JSON.stringify(cs.rows.map(c => c.figs.length)));
+  ok(cs.rows.every(c => c.pill && c.spark && c.open && c.signin),
+    'every row has its close, its spark, Open and Sign-in view');
+  ok(cs.stats === 4, 'the console keeps its four stats', String(cs.stats));
+  ok(cs.logo, 'the console wears the Elevate wordmark');
+  ok(cs.ground === 'rgb(241, 241, 241)', 'the console stands on Elevate light grey, not the front door', cs.ground);
+  ok(cs.focused, 'the console search has the focus on arrival');
+  ok(cs.shell === 'none', 'the shell steps aside for the console', cs.shell);
   ok(!/NaN|undefined|Infinity/.test(cs.text), 'the console has no NaN, undefined or Infinity');
   ok(await gateOverflow() <= 1, 'the console does not scroll sideways at 1440');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(120);
   ok(await gateOverflow() <= 1, 'the console does not scroll sideways at 390', String(await gateOverflow()));
   await page.setViewportSize({ width: 1440, height: 950 });
-  const found = await page.evaluate(n => window.__hub.search(n), cs.cards[cs.cards.length - 1].name);
+  const found = await page.evaluate(n => window.__hub.search(n), cs.rows[cs.rows.length - 1].name);
   ok(found === 1, 'the console search finds one client by name', String(found));
   const noMatch = await page.evaluate(() => window.__hub.search('zzqx no such client'));
   ok(noMatch === 0 && await page.evaluate(() => !document.querySelector('#gate .ec-none').hidden),
     'a search with no match says so');
   await page.evaluate(() => window.__hub.search(''));
+  /* the chips and the sort act on rows already drawn */
+  await page.evaluate(id => document.querySelector(`#gate .ec-ind[data-arg="${id}"]`).click(), cs.rows[0].id);
+  ok(await page.evaluate(() => [...document.querySelectorAll('#gate .ec-row')].filter(r => !r.hidden).length) === 1,
+    'an industry chip narrows the list to that industry');
+  await page.evaluate(() => document.querySelector('#gate .ec-ind[data-arg="*"]').click());
+  await page.evaluate(() => document.querySelector('#gate .ec-sort [data-arg="rev"]').click());
+  const revs = await page.evaluate(() => [...document.querySelectorAll('#gate .ec-row')].map(r => +r.dataset.rev));
+  ok(revs.every((v, i) => i === 0 || revs[i - 1] >= v), 'sorting by revenue puts the largest first');
   ok(errors.length === 0, 'the console is console clean', errors[0] || '');
 
-  /* staff entry: one click into a client at the top level, and a way back */
-  const target = cs.cards[1] ? cs.cards[1].id : cs.cards[0].id;
+  /* staff entry by keyboard: type, arrow down, Enter opens the highlighted
+     client at the top level, and the way back reopens the console */
+  const target = cs.rows[1] ? cs.rows[1] : cs.rows[0];
   errors.length = 0;
-  await page.evaluate(id => document.querySelector(`#gate [data-act="staff-enter"][data-arg="${id}"]`).click(), target);
+  await page.focus('#gate [data-bind="gate-search"]');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  const litRow = await page.evaluate(() => {
+    const on = document.querySelector('#gate .ec-row.on');
+    return on ? on.dataset.client : null;
+  });
+  const order = await page.evaluate(() => [...document.querySelectorAll('#gate .ec-row')].map(r => r.dataset.client));
+  ok(litRow === order[1], 'arrow keys move the highlight down the list', `${litRow} vs ${order[1]}`);
+  await page.keyboard.press('ArrowUp');
+  ok(await page.evaluate(() => document.querySelector('#gate .ec-row.on').dataset.client) === order[0],
+    'arrow up moves it back');
+  await page.keyboard.type(target.name);
+  ok(await page.evaluate(() => document.querySelector('#gate .ec-row.on').dataset.client) === target.id,
+    'typing highlights the first match');
+  await page.keyboard.press('Enter');
   await page.waitForTimeout(320);
   const staff = await page.evaluate(() => {
     const s = window.__hub.settings();
@@ -582,7 +629,7 @@ async function main() {
       back: !!document.querySelector('#bar [data-act="console"]'),
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth };
   });
-  ok(staff.industry === target, 'staff entry opens the client picked', staff.industry);
+  ok(staff.industry === target.id, 'Enter opens the client highlighted', staff.industry);
   ok(staff.role === staff.top && staff.money === 'full', 'staff entry gives full access', staff.role);
   ok(staff.session && staff.session.kind === 'staff', 'staff entry is remembered as staff');
   ok(staff.gate === null, 'staff entry closes the console');
@@ -591,6 +638,14 @@ async function main() {
   await page.evaluate(() => document.querySelector('#bar [data-act="console"]').click());
   await page.waitForTimeout(260);
   ok(await page.evaluate('window.__hub.gate()') === 'console', 'the way back reopens the console');
+  ok(await page.evaluate(id => !!document.querySelector(`#gate .ec-recent [data-arg="${id}"]`), target.id),
+    'the client just opened is under Recently opened');
+  /* a click on a row's Open does the same as Enter */
+  const other = cs.rows[0].id;
+  await page.evaluate(id => document.querySelector(`#gate .ec-open[data-arg="${id}"]`).click(), other);
+  await page.waitForTimeout(320);
+  ok(await page.evaluate(() => window.__hub.settings().industry) === other && await page.evaluate('window.__hub.gate()') === null,
+    'a row\'s Open opens that client');
   ok(errors.length === 0, 'staff entry console clean', errors[0] || '');
 
   /* leave as the walk below expects to find the Hub: nobody signed in */
