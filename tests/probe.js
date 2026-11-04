@@ -1363,6 +1363,50 @@ async function main() {
         ok(design.length === 0, `${ind}/${role}/${p}: no clipped, crushed, flat or rainbow panel`,
           design.slice(0, 3).join(' | '));
 
+        /* ⛔ A BAR LIST WHOSE SCALE HAS STOPPED DESCRIBING IT.
+
+           "Where the money goes" is seven categories of which cost of revenue
+           is 86%, so six rendered under 4% of their track and the reader took
+           the order from the sort rather than from the bars. That was the
+           reason the donut was replaced, and the bar chart inherited it: a
+           sliver is a sliver whether it is a wedge or a bar. Seven lists were
+           in this state, two of them on the financial dashboard, which is the
+           page this build is sold on.
+
+           ⚖️ The CASCADE is exempt and says so here rather than being quietly
+           skipped: its bars are a running total shrinking down the page, so a
+           small bar IS the message, and it already carries a declared 3px
+           floor so the smallest stay visible. Rescaling its tail would delete
+           the thing it exists to show. Every other form has to earn its
+           scale. */
+        const flattened = await page.evaluate(() => {
+          const out = [];
+          for (const pn of document.querySelectorAll('#page .panel')) {
+            const h = pn.querySelector('h3');
+            const title = (h ? h.textContent.trim() : '?').slice(0, 30);
+            for (const sel of ['.hb-stack .bar-cell', '.rows .bar-cell', '.fun-track']) {
+              const cells = [...pn.querySelectorAll(sel)];
+              if (cells.length < 5) continue;
+              const shares = [];
+              for (const c of cells) {
+                const track = c.getBoundingClientRect().width;
+                const fill = [...c.children].find(x => x.tagName === 'I');
+                if (!track || !fill) continue;
+                shares.push(fill.getBoundingClientRect().width / track);
+              }
+              if (shares.length < 5) break;
+              const tiny = shares.filter(v => v < 0.04).length;
+              if (tiny / shares.length > 0.5) {
+                out.push(`${title}: ${tiny} of ${shares.length} bars under 4% of their track`);
+              }
+              break;
+            }
+          }
+          return out;
+        });
+        ok(flattened.length === 0, `${ind}/${role}/${p}: every bar list earns its scale`,
+          flattened.slice(0, 2).join(' | '));
+
         /* ⛔ THE CASCADE'S CUT NEVER PAINTS OVER ITS KEPT BAR.
 
            Two rules fought: `.casc-keep` has a declared 3px rendering floor so

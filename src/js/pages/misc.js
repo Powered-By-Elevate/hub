@@ -280,6 +280,9 @@ export function people(ctx) {
       body: C.line({
         series: [{ name: 'Headcount', values: last12.map(m => m.head) }],
         labels: last12.map(m => F.monthName(m.m)), fmt: v => F.num(v), height: 170,
+        rule: (() => { const v = last12.map(m => m.head).filter(Number.isFinite);
+          return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; })(),
+        ruleLabel: 'average over the year',
         /* ⛔ Headcount is never zero-based. A team of 148 that lost 11 people
            drew as a perfectly flat line against an axis starting at zero, which
            is the opposite of what happened. A count that never approaches zero

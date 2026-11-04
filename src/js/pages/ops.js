@@ -192,10 +192,16 @@ export function home(ctx) {
     }) +
     U.panel({
       col: 12, title: 'The whole picture, month by month', ico: 'clock',
-      body: C.line({
-        series: [{ name: headlineName(ind), values: q.months.slice(-18).map(m => headlineTotal(q, ind, m)) }],
-        labels: q.months.slice(-18).map(mN), fmt: v => headlineFmt(ind, v), height: 240, legend: false,
-      }),
+      body: (() => {
+        const vs = q.months.slice(-18).map(m => headlineTotal(q, ind, m));
+        const fin = vs.filter(Number.isFinite);
+        const avg = fin.length ? fin.reduce((a, b) => a + b, 0) / fin.length : null;
+        return C.line({
+          series: [{ name: headlineName(ind), values: vs }],
+          labels: q.months.slice(-18).map(mN), fmt: v => headlineFmt(ind, v), height: 240, legend: false,
+          rule: avg, ruleLabel: `average month ${headlineFmt(ind, avg || 0)}`,
+        });
+      })(),
     }) + `</div>`;
 }
 

@@ -278,6 +278,14 @@ export function line(opts) {
   const {
     series = [], labels = [], height = 230, fmt = v => v, area = true,
     zeroBase = true, legend = true, markers = [],
+    /* ⛔ A SINGLE LINE OVER MONTHS ANSWERS "WHAT HAPPENED" AND NOT "IS THAT
+       GOOD". Five charts in the build were one bare series with nothing to
+       read them against: net income over 24 months, cash over 18, the month by
+       month picture, the team, and each contract on one scale. The figure is
+       there and the shape is there, and a reader still cannot tell an ordinary
+       month from a bad one. `rule` draws that line across the plot and names
+       it, which is the same job the scatter's house-margin line already did. */
+    rule = null, ruleLabel = '',
   } = opts;
   const id = 'c' + (++uid);
   const padL = 56, padR = 14, padT = 14, padB = 26;
@@ -346,6 +354,14 @@ export function line(opts) {
     if (i % step) return;
     svg += `<text x="${x(i).toFixed(1)}" y="${height - 7}" text-anchor="middle">${esc(l)}</text>`;
   });
+
+  if (Number.isFinite(rule) && rule >= lo && rule <= hi) {
+    const ry = y(rule);
+    svg += `<line class="sc-rule" x1="${padL}" x2="${W - padR}"
+      y1="${ry.toFixed(1)}" y2="${ry.toFixed(1)}"/>`;
+    svg += `<text class="sc-rule-t" x="${W - padR - 4}" y="${(ry - 6).toFixed(1)}"
+      text-anchor="end">${esc(ruleLabel || fmt(rule))}</text>`;
+  }
 
   for (const m of markers) {
     const mx = x(m.at);
@@ -741,9 +757,51 @@ export function hbars(opts) {
      ever broken mid-word whatever the panel does. */
   const longest = Math.max(...rows.map(r => String(r.name || '').length));
   const stack = stacked === null ? longest > 18 : stacked;
+
+  /* ⛔ ONE DOMINANT ROW FLATTENS EVERY OTHER BAR, AND A RANKING IS NOT A CHART.
+
+     "Where the money goes" is seven categories of which cost of revenue is
+     86%, so the other six render under 4% of their track and the reader gets
+     the order from the sort rather than from the bars. That was the reason the
+     donut was replaced, and the replacement inherited it: a sliver is a sliver
+     whether it is a wedge or a bar. Measured across the build, 7 bar lists in
+     this state, including two on the financial dashboard.
+
+     So where MOST rows would be invisible, the tail is given its own scale and
+     the chart SAYS SO on the divider. Every row keeps its real figure and its
+     share, nothing is redrawn to a size it is not, and the alternative is six
+     bars that carry no information at all. A long tail alone is left as it is:
+     this only fires when the majority has stopped being drawn. */
+  let tailHi = 0, tailAt = -1;
+  if (rows.length >= 5) {
+    const mags = rows.map(r => Math.abs(r.value));
+    if (mags.filter(v => v / hi < 0.04).length / mags.length > 0.5) {
+      /* ⚠️ THE TAIL IS A CONTIGUOUS GROUP, NOT A TEST APPLIED ROW BY ROW.
+         Picking rows individually put "Kept" (5.9% of the largest, so above
+         the threshold) BELOW a divider reading "the rest, scaled against each
+         other" while it was still drawn on the main scale: it rendered as a
+         stub beside tail bars at full width, which is the divider telling the
+         reader something untrue about the row under it. The group runs from
+         the first small row to the end and is scaled to its own largest
+         member, so the label describes every row beneath it. */
+      /* ⚠️ The split is "the dominant row, then everything else", not "the
+         rows under 4%". Starting the tail at the first sliver left Payroll on
+         the main scale at 5% of it, directly above a tail row of nearly the
+         same value drawn at 100%: two bars whose sizes invert their figures,
+         one line apart. The main scale keeps only rows that are legible ON it,
+         so the tail begins at the first row under a quarter of the largest. */
+      tailAt = rows.findIndex(r => Math.abs(r.value) / hi < 0.25);
+      tailHi = Math.max(...rows.slice(tailAt).map(r => Math.abs(r.value))) || 0;
+    }
+  }
+  const scaleFor = (r, i) => (tailAt >= 0 && i >= tailAt) ? tailHi : hi;
+  const tailHead = (r, i) => (tailAt >= 0 && i === tailAt)
+    ? `the rest, scaled against each other` : null;
   if (stack) {
-    return `<div class="hb-stack" style="gap:${gap + 3}px">` + rows.map(r => {
-      const w = Math.abs(r.value) / hi * 100;
+    return `<div class="hb-stack" style="gap:${gap + 3}px">` + rows.map((r, ri) => {
+      /* ⚠️ the index comes from map, never `indexOf`: two rows of equal value
+         resolve to the same index and would take the wrong scale */
+      const w = Math.abs(r.value) / scaleFor(r, ri) * 100;
       const neg = r.value < 0 && showNeg;
       /* ⛔ THE STACKED FORM CARRIES THE MARK TOO. It did not, and the panel
          that most needed stacking is the one whose note reads "The mark is the
@@ -753,7 +811,8 @@ export function hbars(opts) {
          what the prose promises is worse than the clipping it fixes.
 
          `head` starts a named group, which is how one list draws two sides. */
-      return (r.head ? `<div class="hb-s-head">${esc(r.head)}</div>` : '') + `<div class="hb-s">
+      const head = r.head || tailHead(r, ri);
+      return (head ? `<div class="hb-s-head">${esc(head)}</div>` : '') + `<div class="hb-s">
         <div class="hb-s-top">
           <span class="hb-s-n">${esc(r.name)}</span>
           <b class="hb-s-v">${esc(fmt(r.value))}</b>
@@ -767,9 +826,18 @@ export function hbars(opts) {
     }).join('') + `</div>`;
   }
   return `<div class="rows" style="gap:${gap}px">` + rows.map((r, i) => {
-    const w = Math.abs(r.value) / hi * 100;
+    const w = Math.abs(r.value) / scaleFor(r, i) * 100;
     const neg = r.value < 0 && showNeg;
-    return `<div class="row-item" style="padding:6px 10px;gap:10px">
+    /* ⚠️ A GROUP HEAD BELONGS TO BOTH FORMS. It was built only into the
+       stacked one, so a panel that needed headings had to stack to get them,
+       and stacking doubles a list's height: "The two sides" grew tall enough
+       at col-4 to trip `go-wide`, went full width, and left the cash chart
+       alone on its row with a third of it empty. The heading was the thing
+       that panel needed; the height was a side effect of the only route to
+       it. */
+    const head = r.head || tailHead(r, i);
+    return (head ? `<div class="hb-s-head">${esc(head)}</div>` : '')
+      + `<div class="row-item" style="padding:6px 10px;gap:10px">
       <span class="grow hb-n" title="${esc(r.name)}">${esc(r.name)}</span>
       <span class="bar-cell" style="flex:1;height:${height}px">
         <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.color || seriesColour(r.band ?? 0))}"></i>

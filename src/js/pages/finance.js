@@ -152,11 +152,18 @@ export function dash(ctx) {
       col: 7,
       title: 'Net income, 24 months',
       note: 'The shape of the business, not one month of it.',
-      body: C.line({
-        series: [{ name: 'Net income', values: q.series('ni', q.months.slice(-24)) }],
-        labels: q.months.slice(-24).map(mN), fmt: v => F.money(v), height: 270, legend: false,
-        markers: [{ at: q.months.slice(-24).indexOf(q.closed), label: 'signed off' }].filter(x => x.at >= 0),
-      }),
+      body: (() => {
+        /* the line alone says what happened and not whether it was ordinary */
+        const vs = q.series('ni', q.months.slice(-24));
+        const fin = vs.filter(Number.isFinite);
+        const avg = fin.length ? fin.reduce((a, b) => a + b, 0) / fin.length : null;
+        return C.line({
+          series: [{ name: 'Net income', values: vs }],
+          labels: q.months.slice(-24).map(mN), fmt: v => F.money(v), height: 270, legend: false,
+          rule: avg, ruleLabel: `average month ${F.money(avg || 0)}`,
+          markers: [{ at: q.months.slice(-24).indexOf(q.closed), label: 'signed off' }].filter(x => x.at >= 0),
+        });
+      })(),
     }));
 
     const cash = q.bal('cash'), ar = q.bal('ar'), ap = q.bal('ap'), inv = q.bal('inv');
@@ -559,16 +566,27 @@ export function cash(ctx) {
       <b>${F.num(dpo(q), 0)} days</b>.`,
   }) + U.fresh(q, s) + `<div class="grid">` +
     U.panel({
-      col: 8, title: 'Cash, eighteen months',
-      body: C.line({
-        series: [{ name: 'Cash', values: q.balSeries('cash', months) }],
-        labels: months.map(mN), fmt: v => F.money(v), height: 250, legend: false,
-      }),
+      /* ⚠️ 8/4 put the two sides in a 297px column, where its wrapped names
+         made it ~700px tall against a 325px chart and `go-wide` widened it,
+         stranding the cash chart alone on a row a third empty. 7/5 gives the
+         names room to sit on one line, so the panel stays short and the pair
+         shares its row as intended. */
+      col: 7, title: 'Cash, eighteen months',
+      body: (() => {
+        const vs = q.balSeries('cash', months);
+        const fin = vs.filter(Number.isFinite);
+        const avg = fin.length ? fin.reduce((a, b) => a + b, 0) / fin.length : null;
+        return C.line({
+          series: [{ name: 'Cash', values: vs }],
+          labels: months.map(mN), fmt: v => F.money(v), height: 250, legend: false,
+          rule: avg, ruleLabel: `average ${F.money(avg || 0)}`,
+        });
+      })(),
       foot: `The low point over these months was
         ${F.money(Math.min(...q.balSeries('cash', months)))}.`,
     }) +
     U.panel({
-      col: 4, title: 'The two sides',
+      col: 5, title: 'The two sides',
       note: 'What working capital is made of, not just what it totals.',
       /* ⛔ A PANEL CALLED "THE TWO SIDES" HAS TO DRAW TWO SIDES. This put all
          seven lines in one list on one scale, so what the company owns and
@@ -578,7 +596,11 @@ export function cash(ctx) {
       body: C.hbars({
         rows: sides.map((x, i) => ({ ...x, band: 0, head: i ? null : 'What it owns' }))
           .concat(owed.map((x, i) => ({ ...x, value: -x.value, head: i ? null : 'What it owes' }))),
-        fmt: v => F.money(Math.abs(v)), stacked: true,
+        /* ⚠️ NOT stacked: the single-line form carries group heads too now, and
+           its names wrap rather than clip, so the panel keeps the compact
+           height that lets it sit beside the cash chart instead of tripping
+           `go-wide` and stranding that chart on a row of its own. */
+        fmt: v => F.money(Math.abs(v)), stacked: false,
       }),
       foot: `Current ratio ${F.ratio(current(q))}, quick ratio ${F.ratio(quick(q))}.`,
     }) +
