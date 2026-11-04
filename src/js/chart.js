@@ -8,6 +8,7 @@
    a brand accent, because a brand color has no contrast guarantee. */
 
 import { esc, hash } from './icons.js';
+import { mix } from './color.js';
 
 const W = 720;
 let uid = 0;
@@ -16,6 +17,38 @@ export function seriesColour(i) {
   const css = getComputedStyle(document.documentElement);
   const v = css.getPropertyValue(`--s${i % 6}`).trim();
   return v || ['#2B7CC4', '#B87D0C', '#0093A1', '#8B5CD6', '#C2408B', '#A2551F'][i % 6];
+}
+
+/* ⛔ A STACK OF PARTS IS ONE MATERIAL IN STEPS, NOT A RAINBOW.
+
+   `seriesColour()` cycles six unrelated hues, which is right for six unrelated
+   series and wrong for the parts of one thing. The balance sheet drew its two
+   columns in orange, blue, magenta, purple and teal: five hues saying nothing
+   about which side is which, and the only colours in the build that come from
+   no brand. Measured on three panels across Finance, Operations and Pipeline.
+
+   A ramp keeps one hue per group and steps it toward the page, so the eye
+   reads "these belong together, and this is the biggest" without a legend. */
+/* ⛔ AN SVG `fill` ATTRIBUTE IS NOT CSS: it resolves no `var()` and no
+   `color-mix()`, and an unresolvable value falls back to BLACK with no error.
+   The first cut returned `color-mix(in srgb, var(--accent) 54%, var(--panel))`
+   and every bubble on every scatter in the build painted solid black, which
+   the rainbow check then passed, because black has no hue to count. A detector
+   cannot see a fault that makes its subject invisible to it.
+
+   So the colour is resolved here, the way `seriesColour()` already does it,
+   and what reaches the attribute is a plain rgb. */
+export function ramp(base, n, i) {
+  const css = getComputedStyle(document.documentElement);
+  const one = v => {
+    const m = /var\(\s*(--[\w-]+)\s*\)/.exec(v || '');
+    const raw = m ? css.getPropertyValue(m[1]).trim() : v;
+    return raw || '#2B7CC4';
+  };
+  const col = one(base);
+  if (n <= 1 || i <= 0) return col;
+  const t = Math.min(0.46, (i / (n - 1)) * 0.46);
+  return mix(col, one('var(--panel)') || '#ffffff', t);
 }
 
 export function niceMax(v) {
@@ -67,6 +100,14 @@ function labelValue(str) {
   return (neg && n > 0 ? -n : n) * mul;
 }
 
+/* Can this formatter tell these two values apart? A zoom that the labels
+   cannot express is a zoom that removes the axis. */
+function fmtSplits(fmt, lo, hi) {
+  if (typeof fmt !== 'function') return true;
+  const a = String(fmt(lo)), b = String(fmt(hi)), m = String(fmt((lo + hi) / 2));
+  return a !== b && (a !== m || b !== m);
+}
+
 function readsEvenly(list, fmt) {
   if (typeof fmt !== 'function' || list.length < 3) return true;
   const vals = list.map(v => labelValue(fmt(v)));
@@ -75,6 +116,13 @@ function readsEvenly(list, fmt) {
   const d = [];
   for (let i = 1; i < vals.length; i++) d.push(vals[i] - vals[i - 1]);
   const big = Math.max(...d.map(Math.abs));
+  /* ⚠️ An axis whose labels all read the same is not an UNEVEN axis, and
+     answering false here sent `niceScale` hunting a step that could never fix
+     it: the fallback multiplied until the tick loop asked for an array of
+     impossible length and every page carrying a scatter died with "That page
+     could not be drawn." The degenerate axis is real, but it is made upstream
+     by zooming into a band the formatter cannot resolve, so it is prevented
+     there (see `fmtSplits`) rather than chased here. */
   if (!(big > 0)) return true;
   return d.every(x => Math.abs(Math.abs(x) - big) <= big * 0.001);
 }
@@ -239,11 +287,32 @@ export function line(opts) {
   let lo = Math.min(...all), hi = Math.max(...all);
   if (zeroBase && lo > 0) lo = 0;
   if (lo === hi) { hi = hi || 1; lo = Math.min(0, lo); }
+
+  /* ⛔ A ZERO BASELINE THAT HIDES THE MOVEMENT IS NOT HONESTY, IT IS A FLAT
+     LINE. Cash ran $12.4M to $13.5M on an axis to $15M, so the whole series
+     drew inside 14% of its own plot and eighteen months of movement read as a
+     straight line with a large blue block under it. Measured at 14%, 28% and
+     33% on three charts.
+
+     The area fill is what makes zero mandatory: a filled shape says "this much
+     of something", so its base has to be nothing. A bare line says only where
+     the value went, and can start the axis where the data lives. So a series
+     occupying less than two fifths of a zero-based plot drops the fill and
+     brackets its own range, and the bottom gridline then prints a real figure
+     rather than $0, which is the reader's signal that the axis moved. Nothing
+     is hidden and nothing is implied that is not there. */
+  let zoomed = false;
+  if (zeroBase && lo === 0 && hi > 0 && (hi - Math.min(...all)) / hi < 0.4) {
+    const dLo = Math.min(...all), band = hi - dLo;
+    lo = Math.max(0, dLo - band * 0.45);
+    zoomed = lo > 0;
+  }
   /* ⛔ A ROUND AXIS, NOT max x 0.75, AND THE SAME SOURCE AS THE GRIDLINES.
      The ticks were interpolated between the raw extremes, so a series peaking
      at $255K printed $255K, $191K, $128K and $64K up the side. `niceScale`
      settles the range and its ticks together, so the top gridline is always
      the top of the plot and no mark can sit above every line. */
+  const drawArea = area && !zoomed;
   const sc = niceScale(lo, hi, 4, ih, fmt);
   lo = sc.lo; hi = sc.hi;
   const axisTicks = sc.ticks;
@@ -290,7 +359,7 @@ export function line(opts) {
     const pts = s.values.map((v, i) => Number.isFinite(v) ? `${x(i).toFixed(1)},${y(v).toFixed(1)}` : null)
       .filter(Boolean);
     if (!pts.length) return;
-    if (area && series.length <= 2 && s.area !== false) {
+    if (drawArea && series.length <= 2 && s.area !== false) {
       const base = y(Math.max(lo, 0)).toFixed(1);
       svg += `<path d="M${pts[0].split(',')[0]},${base} L${pts.join(' L')} L${pts[pts.length - 1].split(',')[0]},${base} Z"
         fill="${c}" opacity=".1"/>`;
@@ -643,7 +712,7 @@ export function cascade(opts) {
 
 export function hbars(opts) {
   const { rows = [], fmt = v => v, max = null, showNeg = true, height = 18, gap = 7,
-    stacked = false } = opts;
+    stacked = null } = opts;
   if (!rows.length) return `<div class="empty">Nothing to draw yet.</div>`;
   const hi = max !== null ? max : Math.max(...rows.map(r => Math.abs(r.value)), 1);
 
@@ -655,11 +724,36 @@ export function hbars(opts) {
 
      Stacked puts the name and value on one line with the bar beneath, which
      needs no horizontal budget for the label at all. */
-  if (stacked) {
+  /* ⛔ THE FORM FOLLOWS THE NAMES, AND IT DECIDES FOR ITSELF.
+
+     The single-line row caps its name at 40% of the width, so the same chart
+     reads fine at full width and cuts names to "Birmingham to Jackso",
+     "Core Platform" and "Stonebridge Logistic" in a half panel. Three more
+     panels were fixed one caller at a time before it was obvious that the
+     chart already knows the names and should choose: anything long enough to
+     be at risk gets the stacked form, which needs no horizontal budget for a
+     label at all. A caller can still force either with true or false. */
+  /* ⚠️ 18 WAS A CONSTANT FITTED TO THE THREE PANELS MEASURED FIRST, and the
+     fourth was "Core Platform" at thirteen, clipped in a narrow panel because
+     the cap is a share of a width this function never sees. So the length only
+     decides which form READS better, and the cut is prevented structurally:
+     the single-line name wraps instead of ellipsising (`.hb-n`), so no name is
+     ever broken mid-word whatever the panel does. */
+  const longest = Math.max(...rows.map(r => String(r.name || '').length));
+  const stack = stacked === null ? longest > 18 : stacked;
+  if (stack) {
     return `<div class="hb-stack" style="gap:${gap + 3}px">` + rows.map(r => {
       const w = Math.abs(r.value) / hi * 100;
       const neg = r.value < 0 && showNeg;
-      return `<div class="hb-s">
+      /* ⛔ THE STACKED FORM CARRIES THE MARK TOO. It did not, and the panel
+         that most needed stacking is the one whose note reads "The mark is the
+         average, so a bar short of it is carrying less than its share": making
+         it stacked to stop the names clipping would have deleted the thing the
+         sentence points at and left the sentence behind. A form that drops
+         what the prose promises is worse than the clipping it fixes.
+
+         `head` starts a named group, which is how one list draws two sides. */
+      return (r.head ? `<div class="hb-s-head">${esc(r.head)}</div>` : '') + `<div class="hb-s">
         <div class="hb-s-top">
           <span class="hb-s-n">${esc(r.name)}</span>
           <b class="hb-s-v">${esc(fmt(r.value))}</b>
@@ -667,6 +761,7 @@ export function hbars(opts) {
         </div>
         <span class="bar-cell" style="height:${height}px">
           <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.color || seriesColour(r.band ?? 0))}"></i>
+          ${r.mark !== undefined ? `<u style="left:${(Math.abs(r.mark) / hi * 100).toFixed(1)}%"></u>` : ''}
         </span>
       </div>`;
     }).join('') + `</div>`;
@@ -675,8 +770,7 @@ export function hbars(opts) {
     const w = Math.abs(r.value) / hi * 100;
     const neg = r.value < 0 && showNeg;
     return `<div class="row-item" style="padding:6px 10px;gap:10px">
-      <span class="grow nowrap" style="max-width:40%;overflow:hidden;text-overflow:ellipsis"
-        title="${esc(r.name)}">${esc(r.name)}</span>
+      <span class="grow hb-n" title="${esc(r.name)}">${esc(r.name)}</span>
       <span class="bar-cell" style="flex:1;height:${height}px">
         <i style="width:${w.toFixed(1)}%;background:${neg ? 'var(--bad)' : (r.color || seriesColour(r.band ?? 0))}"></i>
         ${r.mark !== undefined ? `<u style="left:${(Math.abs(r.mark) / hi * 100).toFixed(1)}%"></u>` : ''}
@@ -747,7 +841,33 @@ export function scatter(opts) {
      above the top line with nothing above it. Measured at +47px on
      construction's "Load against margin", the worst case anywhere in the
      build. */
-  const yMin = Math.min(0, ...ys), yMax = Math.max(...ys);
+  /* ⛔ THE SAME THIN-BAND RULE AS `line()`. A scatter forced through zero put
+     "Revenue against margin" inside 11% of its own plot: every point in one
+     stripe with nine tenths of the panel empty below it, which is a chart that
+     has drawn nothing a reader can use. A scatter has no area fill to imply a
+     base, so it may simply bracket its own data, and the axis labels say so. */
+  const yDataLo = Math.min(...ys), yDataHi = Math.max(...ys);
+  /* The chart says so itself when its series is flat because the DATA is
+     flat and not because the axis wasted the plot, so a sweep can tell the
+     two apart without a threshold fitted to one of them. */
+  let flatByData = false;
+  let yMin = Math.min(0, yDataLo);
+  const yMax = Math.max(...ys);
+  /* ⚠️ The band is judged against the range an anchored axis WOULD draw, not
+     against the top alone: a margin series that dips negative anchors at its
+     own minimum, not at zero, and the first cut of this tested `yMin === 0`
+     and so skipped every chart with one negative point. */
+  if ((yDataHi - yDataLo) / ((yMax - yMin) || 1) < 0.4) {
+    const pad = (yDataHi - yDataLo) * 0.45 || Math.abs(yDataHi) * 0.1 || 1;
+    const want = yDataLo >= 0 ? Math.max(0, yDataLo - pad) : yDataLo - pad;
+    /* ⛔ ONLY ZOOM INTO A BAND THE FORMATTER CAN STILL TELL APART. Education's
+       margins all sit near 21% and print at whole percents, so bracketing them
+       gave four gridlines reading 21%, 21%, 21%, 21%: an axis that has stopped
+       answering the only question an axis answers. Where the labels collapse,
+       the anchored range stays and the series is simply flat, which is what
+       the data is. */
+    if (fmtSplits(yFmt, want, yMax)) yMin = want;
+  }
   let ysc = niceScale(yMin, yMax, 4, ih, yFmt);
   /* ⛔ PADDING CANNOT FIX A DISC ON THE TOP GRIDLINE, because padding moves the
      gridline and the dot down together. The first attempt reserved maxR in
@@ -755,11 +875,43 @@ export function scatter(opts) {
      to come from the SCALE: the top gridline is pushed up until the largest
      bubble's rim clears it. Two passes settle it, because extending the range
      can change the step. */
-  for (let i = 0; i < 3; i++) {
+  /* ⚠️ AND THE BOTTOM NEEDS IT TOO, ONCE THE AXIS STOPS AT A REAL FIGURE.
+     While every scatter sat on zero the lowest bubble had the whole plot
+     beneath it, so only the top could overflow. Bracketing the data put the
+     bottom gridline right under the lowest point and six charts then hung
+     20px below it. A rule written for one end of an axis is a rule that has
+     only been tested at one end, which is the third time that has cost
+     something on this chart. */
+  /* ⛔ EACH BUBBLE'S OWN RADIUS, NOT THE EXTREME POINT'S. The loop asked
+     whether the HIGHEST value cleared the top gridline using the LARGEST
+     radius drawn anywhere, which is two different bubbles: a big disc on a
+     middling value overflows while a small dot at the maximum reports clear.
+     Six charts stayed 20px out through a fix that looked right. */
+  const rOf = p => Math.max(6, Number(p.r) || 0);
+  for (let i = 0; i < 5; i++) {
     const span = ysc.hi - ysc.lo || 1;
-    if (yMax + maxR / ih * span <= ysc.hi) break;
-    ysc = niceScale(yMin, yMax + maxR / ih * span, 4, ih, yFmt);
+    let needHi = -Infinity, needLo = Infinity;
+    for (const p of points) {
+      const room = rOf(p) / ih * span;
+      needHi = Math.max(needHi, p.y + room);
+      needLo = Math.min(needLo, p.y - room);
+    }
+    const overTop = needHi > ysc.hi;
+    const underBot = ysc.lo > 0 && needLo < ysc.lo;
+    if (!overTop && !underBot) break;
+    ysc = niceScale(underBot ? Math.max(0, needLo) : ysc.lo,
+      overTop ? needHi : ysc.hi, 4, ih, yFmt);
   }
+  /* ⛔ WHETHER THE PLOT IS WASTED IS SETTLED BY THE AXIS THAT WAS DRAWN, not
+     by whether the formatter could tell two numbers apart. Tech's margins all
+     sit between 70% and 71%, and `fmtSplits` happily separates 70.5 from 80,
+     so the zoom ran. But whole-percent labels cannot carry a grid finer than
+     2%, so `niceScale` widened the range back to 70-80 and the points still
+     filled 11% of it. The chart could not have done better: that is the data.
+     Reading the mark off the settled scale says so for every such case at
+     once, instead of naming them one at a time. */
+  if ((yDataHi - yDataLo) / ((ysc.hi - ysc.lo) || 1) < 0.4) flatByData = true;
+
   const xsc = niceScale(Math.min(0, ...xs), Math.max(...xs), 4, iw / 2, xFmt);
   const xhi = xsc.hi, yhi = ysc.hi;
   const xlo = xsc.lo, ylo = ysc.lo;
@@ -770,7 +922,8 @@ export function scatter(opts) {
      points and must share the list. */
   const placedLabels = [];
 
-  let svg = `<svg class="chart" viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
+  let svg = `<svg class="chart"${flatByData ? ' data-flat="data"' : ''}
+    viewBox="0 0 ${W} ${height}" style="width:100%;height:auto" role="img">`;
   svg += `<g class="axis">`;
   for (const t of ysc.ticks) {
     svg += `<line x1="${padL}" x2="${W - padR}" y1="${Y(t).toFixed(1)}" y2="${Y(t).toFixed(1)}"/>`;
@@ -823,10 +976,16 @@ export function scatter(opts) {
       byX[0], byX[byX.length - 1]].filter(i => i !== undefined));
   }
   const many = points.length > LABEL_ALL;
+  /* ⛔ COLOUR HERE CARRIES NOTHING THE POSITION DOES NOT ALREADY SAY, so six
+     unrelated hues were five more than the chart needed and the only rainbow
+     left in the build. One hue stepped by rank keeps the dots distinguishable
+     and stops the panel competing with the brand. */
+  const rank = new Map(points.map((p, i) => [i, p])
+    .sort((a, b) => b[1].y - a[1].y).map(([i], r) => [i, r]));
   points.forEach((p, i) => {
     const who = p.name || p.label || '';
     svg += `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="${p.r || (many ? 5 : 6)}"
-      fill="${p.color || (many ? 'var(--accent)' : seriesColour(i % 6))}"
+      fill="${p.color || (many ? 'var(--accent)' : ramp('var(--accent)', points.length, rank.get(i) || 0))}"
       opacity="${many ? '.6' : '.78'}" stroke="var(--paper)" stroke-width="1.4">
       <title>${esc(who)} · ${esc(xLabel)} ${esc(xFmt(p.x))} · ${esc(yLabel)} ${esc(yFmt(p.y))}</title></circle>`;
     if (who && labelled.has(i)) {
@@ -1175,7 +1334,11 @@ export function multiples(opts) {
    what a table of thirty rows says slowly: what the money is in, what it is
    owed to, and that the two sides are the same height. */
 export function twoSided(opts) {
-  const { left = {}, right = {}, fmt = v => v, height = 340 } = opts;
+  /* `tints` names one base colour per side, so each column is one hue in
+     steps. Without it the two columns shared a six-hue cycle and the sides
+     were indistinguishable: see ramp(). */
+  const { left = {}, right = {}, fmt = v => v, height = 340,
+    tints = ['var(--accent)', 'var(--navy)'] } = opts;
   const lTotal = left.parts.reduce((a, p) => a + Math.max(0, p.value), 0);
   const rTotal = right.parts.reduce((a, p) => a + Math.max(0, p.value), 0);
   const hi = Math.max(lTotal, rTotal) || 1;
@@ -1196,7 +1359,7 @@ export function twoSided(opts) {
       const h = v / hi * ih;
       const y = padT + ih - (acc + v) / hi * ih;
       out += `<rect x="${x}" y="${y.toFixed(1)}" width="${colW}" height="${Math.max(1, h).toFixed(1)}"
-        fill="${seriesColour(i)}" rx="2"
+        fill="${ramp(side.tint || tints[offset ? 1 : 0], side.parts.length, idx)}" rx="2"
         ><title>${esc(p.name)}: ${esc(fmt(v))} (${(v / total * 100).toFixed(1)}%)</title></rect>`;
       if (h > 26) {
         const tx = labelsOn === 'left' ? x - 14 : x + colW + 14;

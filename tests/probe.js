@@ -1236,6 +1236,133 @@ async function main() {
         ok(uneven.length === 0, `${ind}/${role}/${p}: axis labels read evenly spaced`,
           uneven.slice(0, 2).join(', '));
 
+        /* ⛔ THE DESIGN PASS, AS FOUR MEASUREMENTS.
+
+           Matt, 2026-11-04, after the financial dashboard round: *"can this be
+           done for every object on every tab. i want to make sure it all has
+           the same attention and care"*. 73 panels over 20 tabs, so each class
+           was found by eye on a Finance tab, then written down here and swept
+           over all of them. 13 panels flagged, 0 after, A/B'd against the
+           build before the fixes rather than taken on trust.
+
+           CLIPPED  a label the box cut off, measured as scrollWidth past
+                    clientWidth on an element whose overflow actually hides.
+           CRUSHED  prose wrapping to lines of almost nothing. The pack cards
+                    printed "Monthly / reporting / pack" and "What the /
+                    finance / team issues / after a / close." because the head
+                    is a flex row and the buttons never shrink.
+           FLAT     data sitting in a thin band of its own plot. Cash drew
+                    inside 14% of a zero-based axis, so eighteen months of
+                    movement read as a straight line.
+           RAINBOW  more than three unrelated hues on data that has structure.
+                    The balance sheet's two columns were orange, blue, magenta,
+                    purple and teal.
+
+           ⚠️ FLAT reported nothing on its first two cuts, on the very chart
+           that prompted it. The line charts carry a full-plot `rect` with fill
+           `rgba(0, 0, 0, 0)` as their hover target: invisible, but its fill is
+           not the string 'none', so it counted as data and every flat chart
+           filled 100% of its own plot. Alpha, not the keyword. A mark that
+           paints nothing is not data, which is the same lesson the `.cursor`
+           guideline taught the night before in a costume you could at least
+           see. */
+        const design = await page.evaluate(() => {
+          const out = [];
+          const paints = c => c && c !== 'none' && !/^rgba\([^)]*,\s*0(\.0+)?\)$/.test(c);
+          const hue = c => {
+            const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
+            if (!m) return null;
+            const [r, g, b] = [+m[1], +m[2], +m[3]];
+            const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            if (mx - mn < 26 || mx < 40) return null;
+            let h;
+            if (mx === r) h = ((g - b) / (mx - mn)) % 6;
+            else if (mx === g) h = (b - r) / (mx - mn) + 2;
+            else h = (r - g) / (mx - mn) + 4;
+            return Math.round(((h * 60) + 360) % 360 / 30) * 30;
+          };
+          for (const pn of document.querySelectorAll('#page .panel')) {
+            const h3 = pn.querySelector('h3');
+            const title = (h3 ? h3.textContent.trim() : '(untitled)').slice(0, 30);
+            const flag = f => out.push(`${title}: ${f}`);
+
+            for (const e of pn.querySelectorAll('*')) {
+              if (e.children.length || !(e.textContent || '').trim()) continue;
+              const cs = getComputedStyle(e);
+              if (cs.overflow === 'visible' && cs.overflowX === 'visible') continue;
+              if (e.scrollWidth - e.clientWidth > 3) {
+                flag(`CLIPPED "${(e.textContent || '').trim().slice(0, 20)}"`); break;
+              }
+            }
+
+            /* ⛔ COUNT THE LINE BOXES, NOT THE ELEMENT'S HEIGHT OVER ITS
+               LINE-HEIGHT. That arithmetic counts PADDING as text: the empty
+               state "Nothing is outside its band. The month is clean." sets
+               34px above and below one 13.5px line and read as nine words over
+               four lines, failing eight role-pages that were perfectly fine. A
+               Range over the text returns one rect per line it actually
+               occupies, which is the only count that means anything. */
+            for (const e of pn.querySelectorAll('p, .sub, .note, h3, div')) {
+              if (e.children.length) continue;
+              const words = (e.textContent || '').trim().split(/\s+/).filter(Boolean);
+              if (words.length < 5) continue;
+              const rg = document.createRange();
+              rg.selectNodeContents(e);
+              const lines = [...rg.getClientRects()]
+                .filter(r => r.height > 1 && r.width > 1).length;
+              if (lines >= 3 && words.length / lines < 3.2) {
+                flag(`CRUSHED ${words.length}w over ${lines} lines`); break;
+              }
+            }
+
+            for (const svg of pn.querySelectorAll('svg.chart')) {
+              const lines = [...svg.querySelectorAll('.axis line')]
+                .filter(l => l.getBoundingClientRect().height < 2);
+              if (lines.length < 3) continue;
+              const ys = lines.map(l => l.getBoundingClientRect().top);
+              const plot = Math.max(...ys) - Math.min(...ys);
+              if (plot < 60) continue;
+              let top = Infinity, bot = -Infinity;
+              for (const m of svg.querySelectorAll('polyline, path, circle, rect')) {
+                if (m.closest('.axis') || m.closest('.cursor')) continue;
+                const cs = getComputedStyle(m);
+                const stroked = paints(cs.stroke) && parseFloat(cs.strokeWidth) > 0;
+                if (m.tagName === 'path' || m.tagName === 'polyline') { if (!stroked) continue; }
+                else if (!paints(cs.fill) && !stroked) continue;
+                const b = m.getBoundingClientRect();
+                if (b.height < 0.5 && b.width < 0.5) continue;
+                top = Math.min(top, b.top); bot = Math.max(bot, b.bottom);
+              }
+              if (!Number.isFinite(top)) continue;
+              /* ⚠️ A SERIES CAN BE FLAT BECAUSE THE DATA IS FLAT. Education's
+                 campus margins all sit near 21% and the page prints whole
+                 percents, so there is no tighter axis to draw: bracketing them
+                 gave four gridlines reading 21%, 21%, 21%, 21%. The chart
+                 marks itself when it declined to zoom for that reason, so this
+                 can tell a wasted plot from an honest one without a threshold
+                 fitted to whichever case was measured first. */
+              if (svg.dataset.flat === 'data') continue;
+              const fill = (bot - top) / plot;
+              if (fill < 0.4) { flag(`FLAT ${Math.round(fill * 100)}% of its plot`); break; }
+            }
+
+            for (const svg of pn.querySelectorAll('svg.chart')) {
+              const hues = new Set();
+              for (const m of svg.querySelectorAll('rect, path, circle')) {
+                if (m.closest('.axis')) continue;
+                const b = m.getBoundingClientRect();
+                if (b.width * b.height < 400) continue;
+                const h = hue(getComputedStyle(m).fill);
+                if (h !== null) hues.add(h);
+              }
+              if (hues.size > 3) { flag(`RAINBOW ${hues.size} hues`); break; }
+            }
+          }
+          return out;
+        });
+        ok(design.length === 0, `${ind}/${role}/${p}: no clipped, crushed, flat or rainbow panel`,
+          design.slice(0, 3).join(' | '));
+
         /* ⛔ THE CASCADE'S CUT NEVER PAINTS OVER ITS KEPT BAR.
 
            Two rules fought: `.casc-keep` has a declared 3px rendering floor so

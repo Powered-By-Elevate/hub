@@ -1461,7 +1461,7 @@ export function people(ctx) {
           note: `${o.units} ${o.units === 1 ? ind.unit.one : ind.unit.many}`,
           color: o.flags ? 'var(--warn)' : 'var(--accent)',
         })),
-        fmt: v => F.money(v),
+        fmt: v => F.money(v), stacked: true,
       }),
       foot: `Amber marks someone with at least one flagged ${unit1}.`,
     }) + `</div>`;

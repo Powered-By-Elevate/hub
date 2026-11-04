@@ -498,7 +498,20 @@ export function pipeline(ctx) {
         for (const r of p.rows) by[r.source] = (by[r.source] || 0) + r.value;
         const parts = Object.entries(by).map(([name, value]) => ({ name, value }))
           .sort((a, b) => b.value - a.value);
-        return C.donut({ parts, fmt: v => F.money(v) }) + C.donutLegend(parts, v => F.money(v));
+        /* ⛔ A RANKED BREAKDOWN IS A RANKING, NOT A RING. Five sources in five
+           rainbow hues made the reader match a colour to a legend to learn an
+           order the chart already knew. This is the treatment the financial
+           dashboard took: the total said once, then the parts in rank with
+           their share, one hue in steps. */
+        const total = parts.reduce((a, x) => a + x.value, 0) || 1;
+        return C.hbars({
+          rows: parts.map((x, i) => ({
+            name: x.name, value: x.value,
+            note: `${(x.value / total * 100).toFixed(0)}%`,
+            color: C.ramp('var(--accent)', parts.length, i),
+          })),
+          fmt: v => F.money(v), stacked: true,
+        });
       })(),
     }) +
 

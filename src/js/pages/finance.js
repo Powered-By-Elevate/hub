@@ -570,9 +570,15 @@ export function cash(ctx) {
     U.panel({
       col: 4, title: 'The two sides',
       note: 'What working capital is made of, not just what it totals.',
+      /* ⛔ A PANEL CALLED "THE TWO SIDES" HAS TO DRAW TWO SIDES. This put all
+         seven lines in one list on one scale, so what the company owns and
+         what it owes read as a single ranking, and at this width the names
+         were cut to "Inventory …" and "Current d…". `stacked` gives each name
+         its own line, and `head` marks where the second side starts. */
       body: C.hbars({
-        rows: sides.map(x => ({ ...x, band: 0 })).concat(owed.map(x => ({ ...x, value: -x.value }))),
-        fmt: v => F.money(Math.abs(v)),
+        rows: sides.map((x, i) => ({ ...x, band: 0, head: i ? null : 'What it owns' }))
+          .concat(owed.map((x, i) => ({ ...x, value: -x.value, head: i ? null : 'What it owes' }))),
+        fmt: v => F.money(Math.abs(v)), stacked: true,
       }),
       foot: `Current ratio ${F.ratio(current(q))}, quick ratio ${F.ratio(quick(q))}.`,
     }) +
