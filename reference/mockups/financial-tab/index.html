@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hub Financials Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#176599; --accent-deep:#12507A; --tint:#EFF5FA; --navy:#132644;
+  --paper:#fff; --ground:#eef2f7; --ink:#16202e; --ink-soft:#3a4860; --ink-faint:#5b6a7a;
+  --rule:#d8e0ea; --rule-soft:#e8edf4;
+  --good:#1a7d4f; --warn:#9a6512; --bad:#ad2f32;
+  --good-t:#e7f3ec; --warn-t:#fbf2e2; --bad-t:#fbeaea;
+  --serif:"Newsreader",Georgia,serif; --sans:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif;
+  --shadow:0 1px 2px rgba(19,38,68,.05),0 6px 20px rgba(19,38,68,.06);
+  --r:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:var(--sans);color:var(--ink);background:var(--ground);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(rgba(19,38,68,.07) 1px,transparent 1px);background-size:22px 22px}
+.num,.money{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+
+/* top bar */
+.bar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--rule)}
+.bar-in{max-width:1320px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.mark{width:34px;height:34px;border-radius:9px;background:var(--navy);color:#fff;display:grid;place-items:center;font-family:var(--serif);font-weight:600;font-size:15px;flex:none}
+.ctx{font-family:var(--serif);font-size:19px;color:var(--ink-soft);flex:1;min-width:300px}
+.ctx b{color:var(--ink);font-weight:500;border-bottom:1px dashed var(--rule);cursor:pointer}
+.seg{display:inline-flex;background:var(--rule-soft);border-radius:999px;padding:3px;vertical-align:middle;font-family:var(--sans);font-size:13px}
+.seg button{border:0;background:none;padding:4px 12px;border-radius:999px;color:var(--ink-faint)}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(19,38,68,.15);font-weight:500}
+.fresh{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink-faint);flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;background:var(--rule-soft);font-size:12.5px;color:var(--ink-soft)}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--good);display:block}
+.pill.live i{animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+.btn{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:500}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.primary:hover{background:var(--accent-deep);color:#fff}
+.sub{max-width:1320px;margin:0 auto;padding:0 24px;display:flex;gap:20px;align-items:center;border-top:1px solid var(--rule-soft);height:44px}
+.sub nav a{text-decoration:none;color:var(--ink-faint);font-size:13.5px;padding:12px 2px;margin-right:18px;border-bottom:2px solid transparent}
+.sub nav a.on{color:var(--ink);border-color:var(--accent);font-weight:500}
+.sub .sp{flex:1}
+.chips{display:flex;gap:6px}
+.chip{border:1px solid var(--rule);background:#fff;border-radius:999px;padding:3px 11px;font-size:12.5px;color:var(--ink-soft)}
+.chip.on{background:var(--tint);border-color:var(--accent);color:var(--accent-deep);font-weight:500}
+.credit-t{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-faint)}
+.sw{width:30px;height:17px;border-radius:999px;background:var(--rule);position:relative;border:0;padding:0}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#fff;transition:transform .2s}
+.sw.on{background:var(--accent)}
+.sw.on::after{transform:translateX(13px)}
+
+main{max-width:1320px;margin:0 auto;padding:28px 24px 120px}
+.panel{background:var(--paper);border:1px solid var(--rule-soft);border-radius:var(--r);box-shadow:var(--shadow);position:relative}
+.ph{display:flex;align-items:baseline;gap:8px 12px;padding:18px 22px 0;flex-wrap:wrap}
+.ph h2{font-family:var(--serif);font-weight:500;font-size:20px;margin:0}
+.ph .meta{font-size:12.5px;color:var(--ink-faint)}
+.ph .sp{flex:1}
+.pb{padding:16px 22px 20px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;margin-bottom:22px}
+.hero h1{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1.22;letter-spacing:-.01em;margin:0;max-width:900px}
+.tok{border-bottom:1.5px solid currentColor;cursor:pointer;font-weight:500;transition:background .15s;padding:0 1px;border-radius:2px}
+.tok:hover{background:var(--tint)}
+.tok.good{color:var(--good)} .tok.bad{color:var(--bad)}
+.hero .by{font-size:12.5px;color:var(--ink-faint);text-align:right;line-height:1.6}
+.hero .by b{color:var(--ink-soft);font-weight:500}
+
+/* kpis */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:14px}
+.kpi{padding:16px 18px 14px;cursor:pointer;transition:transform .18s,box-shadow .18s}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(19,38,68,.06),0 14px 30px rgba(19,38,68,.10)}
+.kpi .lab{font-size:12.5px;color:var(--ink-faint)}
+.kpi .lab b{color:var(--ink-soft);font-weight:500}
+.kpi .val{font-size:30px;font-weight:500;margin:6px 0 2px;letter-spacing:-.02em}
+.kpi .val small{font-size:17px;color:var(--ink-faint);font-weight:400;margin-left:1px}
+.kpi .cmp{font-size:12.5px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.d{display:inline-block;padding:1px 7px;border-radius:999px;font-size:12px;font-weight:500;background:var(--rule-soft);color:var(--ink-soft)}
+.d.good{background:var(--good-t);color:var(--good)} .d.bad{background:var(--bad-t);color:var(--bad)} .d.warn{background:var(--warn-t);color:var(--warn)}
+.kpi svg{display:block;width:100%;height:34px;margin-top:10px}
+.kpi .why{font-size:12.5px;color:var(--ink-soft);margin-top:6px;border-top:1px solid var(--rule-soft);padding-top:8px}
+
+/* changes */
+.changes{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.chg{padding:14px 16px;display:flex;gap:11px;cursor:pointer}
+.chg:hover .go{color:var(--accent)}
+.dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.dot.good{background:var(--good)} .dot.bad{background:var(--bad)} .dot.warn{background:#d39a2c}
+.chg p{margin:0;font-size:13.5px;color:var(--ink)}
+.chg .go{font-size:12px;color:var(--ink-faint);margin-top:6px;display:block}
+
+.grid2{display:grid;grid-template-columns:1.7fr 1fr;gap:14px;margin-bottom:14px}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink-faint);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw-a{width:10px;height:10px;border-radius:2px;background:var(--accent)}
+.sw-f{width:10px;height:10px;border-radius:2px;border:1.5px dashed var(--accent);background:var(--tint)}
+.sw-p{width:14px;border-top:2px dotted var(--ink-faint)}
+.sw-c{width:14px;border-top:2px solid var(--navy)}
+#chart{position:relative}
+#chart svg{width:100%;height:270px;display:block}
+.readout{position:absolute;pointer-events:none;background:var(--navy);color:#fff;border-radius:9px;padding:8px 11px;font-size:12px;line-height:1.5;opacity:0;transition:opacity .12s;white-space:nowrap}
+.readout b{font-weight:500}
+.verdict{font-size:13px;color:var(--ink-soft);border-top:1px solid var(--rule-soft);padding-top:12px;margin-top:6px}
+#bridge svg{width:100%;height:250px;display:block}
+
+/* statement */
+table{width:100%;border-collapse:collapse}
+.st th{font-size:11.5px;font-weight:500;color:var(--ink-faint);text-align:right;padding:8px 10px;border-bottom:1px solid var(--rule);white-space:nowrap}
+.st th:first-child{text-align:left}
+.st td{padding:9px 10px;border-bottom:1px solid var(--rule-soft);text-align:right;white-space:nowrap}
+.st td:first-child{text-align:left}
+.st tr.g td{font-weight:500}
+.st tr.c td:first-child{padding-left:30px;color:var(--ink-soft)}
+.st tr.c td{color:var(--ink-soft);font-size:13px}
+.st tr.c{display:none}
+.st tr.c.open{display:table-row}
+.st tr.tot td{font-weight:600;border-bottom:3px double var(--ink)}
+.st tr.gpr td{background:#fafbfd}
+.car{display:inline-block;width:14px;color:var(--ink-faint);transition:transform .15s;cursor:pointer}
+.car.open{transform:rotate(90deg)}
+.drl{cursor:pointer;border-bottom:1px dotted var(--ink-faint)}
+.drl:hover{color:var(--accent);border-color:var(--accent)}
+.v-good{color:var(--good)} .v-bad{color:var(--bad)}
+.note{text-align:left!important;white-space:normal!important;font-size:12.5px;color:var(--ink-soft);min-width:230px;max-width:300px}
+.note .st8{font-size:11px;padding:1px 6px;border-radius:999px;margin-left:4px}
+.st8.ok{background:var(--good-t);color:var(--good)} .st8.dr{background:var(--warn-t);color:var(--warn)}
+.cm{position:relative}
+.cm::before{content:"";position:absolute;top:0;right:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent #d39a2c transparent transparent}
+td svg.spk{width:72px;height:18px;vertical-align:middle}
+
+/* jobs */
+.jobs td,.jobs th{padding:11px 10px;border-bottom:1px solid var(--rule-soft);text-align:right;white-space:nowrap}
+.jobs th{font-size:11.5px;font-weight:500;color:var(--ink-faint);border-bottom:1px solid var(--rule)}
+.jobs th small{display:block;font-weight:400;font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-faint);opacity:.85}
+.jobs td:first-child,.jobs th:first-child{text-align:left}
+.jobs tbody tr{cursor:pointer;transition:background .12s}
+.jobs tbody tr:hover{background:var(--tint)}
+.jn{font-weight:500} .jn small{display:block;color:var(--ink-faint);font-weight:400;font-size:12px}
+.cbar{width:170px;height:8px;border-radius:99px;background:var(--rule-soft);display:flex;overflow:hidden;margin-left:auto}
+.cbar i{display:block;height:100%}
+.cbar .s{background:var(--accent)} .cbar .c{background:#8bb7d6}
+.verd{display:inline-flex;align-items:center;gap:6px;font-weight:500}
+.cleg{font-size:11px;color:var(--ink-faint);margin-top:4px}
+
+/* cash */
+.grid2b{display:grid;grid-template-columns:1.4fr 1fr;gap:14px}
+#cashw svg{width:100%;height:240px;display:block}
+.aging{display:flex;height:12px;border-radius:99px;overflow:hidden;margin:10px 0 6px}
+.aging i{display:block}
+.agl{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-faint)}
+.chase{margin-top:14px}
+.chase div{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--rule-soft);font-size:13px;cursor:pointer}
+.chase div:hover{color:var(--accent)}
+.big{font-family:var(--serif);font-size:44px;line-height:1;font-weight:400}
+.big small{font-size:20px;color:var(--ink-faint)}
+
+/* pack bar */
+.pack{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:15;background:var(--navy);color:#dfe7f1;border-radius:999px;padding:8px 8px 8px 20px;display:flex;align-items:center;gap:14px;box-shadow:0 10px 30px rgba(19,38,68,.3);font-size:13px;white-space:nowrap}
+.pack .ok{color:#8fd3ae}
+.pack button{border:0;border-radius:999px;padding:7px 14px;background:rgba(255,255,255,.1);color:#fff;font-size:13px}
+.pack button:hover{background:rgba(255,255,255,.2)}
+.pack button.w{background:#fff;color:var(--navy);font-weight:500}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(19,38,68,.22);opacity:0;pointer-events:none;transition:opacity .2s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(520px,100%);background:#fff;z-index:41;transform:translateX(102%);transition:transform .32s cubic-bezier(.2,.8,.2,1),visibility 0s .32s;visibility:hidden;box-shadow:-20px 0 50px rgba(19,38,68,.18);display:flex;flex-direction:column}
+.drawer.on{transform:none;visibility:visible;transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.dh{padding:20px 24px 14px;border-bottom:1px solid var(--rule-soft)}
+.crumb{font-size:12px;color:var(--ink-faint);margin-bottom:6px}
+.dh h3{font-family:var(--serif);font-weight:500;font-size:22px;margin:0}
+.dh .dv{font-size:30px;font-weight:500;margin-top:6px;letter-spacing:-.02em}
+.dh .x{position:absolute;top:16px;right:18px;border:0;background:var(--rule-soft);width:30px;height:30px;border-radius:50%}
+.db{padding:6px 24px 24px;overflow:auto;flex:1}
+.db h4{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:500;margin:20px 0 8px}
+.tree div{display:flex;justify-content:space-between;padding:6px 0;font-size:13.5px;border-bottom:1px dashed var(--rule-soft)}
+.tree div.l2{padding-left:18px;color:var(--ink-soft)}
+.tree div.res{font-weight:600;border-bottom:0;border-top:1px solid var(--ink);margin-top:2px}
+.ledger div{display:grid;grid-template-columns:54px 1fr auto;gap:10px;padding:8px 0;border-bottom:1px solid var(--rule-soft);font-size:13px}
+.ledger div span:first-child{color:var(--ink-faint)}
+.ledger .more{display:block;color:var(--accent);border:0;padding-top:10px}
+.tie{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--good);background:var(--good-t);padding:8px 12px;border-radius:9px;margin-top:14px}
+.df{padding:14px 24px;border-top:1px solid var(--rule-soft);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.df .src{font-size:12px;color:var(--ink-faint);flex:1;min-width:200px}
+.toast{position:fixed;left:50%;top:120px;transform:translate(-50%,-10px);background:var(--navy);color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.2s;z-index:60;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* credits */
+[data-src]{position:relative}
+body.credits [data-src]::after{content:attr(data-src);position:absolute;top:-9px;right:10px;z-index:5;background:#fff4d6;color:#7a5200;border:1px solid #ecd28c;font-size:10.5px;font-weight:500;padding:1px 8px;border-radius:999px;white-space:nowrap;pointer-events:none;font-family:var(--sans);letter-spacing:0}
+
+section{scroll-margin-top:120px}
+.sec-t{font-family:var(--serif);font-size:15px;color:var(--ink-faint);margin:30px 0 10px;display:flex;align-items:center;gap:10px}
+.sec-t::after{content:"";flex:1;border-top:1px solid var(--rule)}
+.rise{opacity:0;transform:translateY(8px);animation:rise .6s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.rise{animation:none;opacity:1;transform:none}.pill.live i{animation:none}}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.changes{grid-template-columns:repeat(2,1fr)}.grid2,.grid2b{grid-template-columns:1fr}}
+@media (max-width:640px){.kpis{grid-template-columns:1fr 1fr}.changes{grid-template-columns:1fr}.hero{grid-template-columns:1fr}.hero h1{font-size:26px}.hero .by{text-align:left}.scroll{overflow-x:auto}.pack{left:16px;right:16px;width:auto;max-width:calc(100vw - 32px);transform:none;justify-content:center;padding:8px}.pack .lbl{display:none}main{padding:20px 16px 120px}.bar-in,.sub{padding-left:16px;padding-right:16px}.sub nav a{margin-right:10px}.chips,.sub .credit-t{display:none}.ph .legend{width:100%}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <div class="mark">GR</div>
+    <div class="ctx" data-src="Fathom header sentence · Anaplan pinned bar">
+      <b>All companies</b> in <b>September 2026</b> against
+      <span class="seg" id="cmp"><button class="on" data-c="bud">Budget</button><button data-c="py">Last year</button></span>
+    </div>
+    <div class="fresh" data-src="Jirav close month · LiveFlow live pill · Stripe freshness">
+      <span class="pill"><i></i>Closed through Sep 30</span>
+      <span class="pill live"><i></i>Live · Sage Intacct · synced 9:42 AM</span>
+    </div>
+    <button class="btn" data-toast="Present mode: arrow keys step through each section">Present</button>
+    <button class="btn primary" data-toast="Shared with your access: they see what you see, read only">Share</button>
+  </div>
+  <div class="sub">
+    <nav data-src="Restaurant365: one tab, not five dashboards">
+      <a href="#overview" class="on">Overview</a><a href="#statement">Statement</a><a href="#jobs">Jobs</a><a href="#cash">Cash</a>
+    </nav>
+    <div class="chips" data-src="Mercury saved views · Jirav date anchors">
+      <button class="chip on">Month</button><button class="chip" data-toast="YTD keeps the same layout, Jan to Sep">Year to date</button><button class="chip" data-toast="Trailing 12 months, Oct 2025 to Sep 2026">Trailing 12</button>
+    </div>
+    <span class="sp"></span>
+    <span class="credit-t">Show where each idea came from <button class="sw" id="credits" aria-label="Show sources"></button></span>
+  </div>
+</header>
+
+<main>
+<section id="overview">
+  <div class="hero rise">
+    <h1 id="hero" data-src="Fathom live tokens · Copilot one sentence · Reach live sentences"></h1>
+    <div class="by">Summary written from the closed books<br><b>Controller · Approved Oct 3</b></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="changes" data-src="Mercury what changed · Ramp insight cards · Shopify ranked findings · Planful flags">
+    <div class="panel chg rise" data-drill="j24118"><span class="dot good"></span><div><p>Riverside Medical billed <b>$410K</b> ahead of the work, which carried most of the month.</p><span class="go">See the job →</span></div></div>
+    <div class="panel chg rise" data-drill="dc"><span class="dot bad"></span><div><p>Steel on Oak Street Lofts ran <b>11% over</b> its estimate. Materials are $130K over budget.</p><span class="go">See the rows →</span></div></div>
+    <div class="panel chg rise" data-drill="under"><span class="dot warn"></span><div><p>Billing sits <b>$620K behind</b> the work, up $40K in a month. Lakeside Elementary holds most of it.</p><span class="go">See by job →</span></div></div>
+    <div class="panel chg rise" data-drill="j25031"><span class="dot warn"></span><div><p>Two jobs have faded <b>more than 2 points</b> of margin since bid.</p><span class="go">See the jobs →</span></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel" data-src="Runway solid vs dashed · Copilot dotted ghost · Jirav cash line · Shopify event markers">
+      <div class="ph"><h2>Revenue and cash, 2026</h2><span class="sp"></span>
+        <div class="legend"><span><i class="sw-a"></i>Actual</span><span><i class="sw-f"></i>Forecast</span><span><i class="sw-p"></i>Last year</span><span><i class="sw-c"></i>Cash</span></div></div>
+      <div class="pb"><div id="chart"></div>
+        <div class="verdict">September revenue was the year's high. Forecast eases into winter, and cash holds above $2.2M through December.</div></div>
+    </div>
+    <div class="panel" id="bridgeP" data-src="Pigment & Cube bridge · Datarails walkthrough mode">
+      <div class="ph"><h2>Why net income moved</h2><span class="sp"></span>
+        <span class="seg" id="bmode"><button class="on" data-m="walk">Walkthrough</button><button data-m="brk">Breakdown</button></span></div>
+      <div class="pb"><div id="bridge"></div><div class="verdict" id="bverdict"></div></div>
+    </div>
+  </div>
+</section>
+
+<div class="sec-t">Statement</div>
+<section id="statement" class="panel" data-src="Jirav statement typography · Cube commentary · Pigment comment marks · Planful variance basis">
+  <div class="ph"><h2>Income statement</h2><span class="meta" id="stmeta"></span><span class="sp"></span>
+    <span class="meta">Variance coloured only past 3%, by whether it helps</span></div>
+  <div class="pb scroll"><table class="st" id="st"></table></div>
+</section>
+
+<div class="sec-t">Jobs</div>
+<section id="jobs" class="panel" data-src="Procore verdict per row · Sage job health order · Ramp spent, committed, remaining · Foundation formula headers">
+  <div class="ph"><h2>Every open job</h2><span class="meta">5 jobs · $44.6M under contract</span><span class="sp"></span>
+    <span class="credit-t">Include bid jobs <button class="sw" data-toast="Bid jobs are left out by default"></button></span></div>
+  <div class="pb scroll"><table class="jobs" id="jobsT"></table>
+    <div class="cleg"><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--accent);margin-right:5px"></i>Spent <i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#8bb7d6;margin:0 5px 0 12px"></i>Committed, not yet spent <i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--rule-soft);margin:0 5px 0 12px"></i>Left in the estimate</div></div>
+</section>
+
+<div class="sec-t">Cash</div>
+<section id="cash" class="grid2b">
+  <div class="panel" data-src="Fathom cash waterfall · Stripe roll-forward">
+    <div class="ph"><h2>From August's cash to September's</h2></div>
+    <div class="pb"><div id="cashw"></div><div class="verdict">Profit added $440K. Billing behind the work held back $210K of it.</div></div>
+  </div>
+  <div class="panel" data-src="Mosaic runway · Procore aging insight card">
+    <div class="ph"><h2>How long it lasts</h2></div>
+    <div class="pb">
+      <div class="big"><span class="tok" data-drill="cash">4.4</span> <small>months of overhead in the bank</small></div>
+      <div style="margin-top:22px;font-size:13px;color:var(--ink-soft)">Receivables <b class="money">$5.86M</b> · 82% under 30 days</div>
+      <div class="aging"><i style="width:82%;background:var(--accent)"></i><i style="width:11%;background:#8bb7d6"></i><i style="width:5%;background:#d39a2c"></i><i style="width:2%;background:var(--bad)"></i></div>
+      <div class="agl"><span>0 to 30 · $4.81M</span><span>31 to 60 · $0.64M</span><span>61 to 90 · $0.29M</span><span>90+ · $0.12M</span></div>
+      <div class="chase"><div style="color:var(--ink-faint);cursor:default;font-size:12px">Largest to chase</div>
+        <div data-drill="j24092"><span>Lakeside Elementary · retainage</span><span class="money">$118K · 94 days</span></div>
+        <div data-drill="j25007"><span>Harbor Point Retail · pay app 7</span><span class="money">$86K · 71 days</span></div>
+        <div data-drill="j25031"><span>Oak Street Lofts · change order 4</span><span class="money">$54K · 63 days</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<div class="pack" data-src="Jirav monthly package · Cube export status · Anaplan present mode">
+  <span class="lbl">September pack</span><span class="ok lbl">● 5 of 5 sections ready</span>
+  <button data-toast="Downloads a fit-to-page PDF with the cover in your brand">PDF</button>
+  <button data-toast="One tab per statement, values and formulas">Excel</button>
+  <button class="w" data-toast="A live deck that keeps today's filters">PowerPoint</button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dh"><button class="x" id="dx" aria-label="Close">✕</button><div class="crumb" id="dcrumb"></div><h3 id="dt"></h3><div class="dv money" id="dv"></div></div>
+  <div class="db" id="db"></div>
+  <div class="df"><span class="src" id="dsrc"></span><button class="btn" data-toast="Downloads every row, not just the first ten">Download rows</button><button class="btn" data-toast="Opens a question with this figure, period and company filled in">Ask about this</button><button class="btn" data-toast="Notes attach to this line, this month, this company">Comment</button></div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const K=v=>{const a=Math.abs(v);const s=v<0?'-':'';return a>=1000?s+'$'+(a/1000).toFixed(2).replace(/0$/,'')+'M':s+'$'+Math.round(a)+'K'};
+const U=v=>{const t=K(v);const m=t.match(/^(-?\$[\d.]+)([MK])$/);return m?m[1]+'<small>'+m[2]+'</small>':t};
+const sgn=v=>(v>0?'+':v<0?'-':'')+K(Math.abs(v)).replace('-','');
+let C='bud';
+
+/* months Oct 2025 to Sep 2026 */
+const S={
+  rev:{a:[3700,3650,3500,3100,3250,3600,3800,4050,4300,4400,4500,4820],bud:[3600,3600,3500,3200,3300,3500,3700,3900,4100,4300,4400,4550],py:[3200,3150,3000,2900,2950,3200,3300,3500,3700,3800,3950,4100]},
+  gm:{a:[18.2,18.0,17.6,17.1,17.5,18.3,18.8,19.0,19.4,19.1,19.6,19.9],bud:[19,19,19,19,19,19.1,19.1,19.1,19.1,19.1,19.1,19.1],py:[17.0,17.1,16.8,16.5,16.9,17.4,17.6,17.9,18.1,18.0,18.3,18.5]},
+  ni:{a:[280,260,210,150,180,240,280,320,370,380,400,440],bud:[250,250,230,170,190,230,260,290,300,310,315,320],py:[190,180,150,120,140,170,190,220,240,250,255,265]},
+  cash:{a:[1550,1580,1520,1620,1700,1750,1680,1800,1880,1950,2050,2310],py:[1300,1320,1290,1350,1400,1450,1420,1500,1560,1600,1650,1740]},
+  under:{a:[410,450,480,520,500,470,520,560,590,600,580,620]}
+};
+function spark(a,b,good){const all=a.concat(b||[]);const mn=Math.min(...all),mx=Math.max(...all),w=200,h=34;
+  const p=s=>s.map((v,i)=>`${(i/(s.length-1)*w).toFixed(1)},${(h-3-(v-mn)/(mx-mn||1)*(h-8)).toFixed(1)}`).join(' ');
+  const last=a[a.length-1],y=(h-3-(last-mn)/(mx-mn||1)*(h-8));
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${b?`<polyline points="${p(b)}" fill="none" stroke="#8a97a8" stroke-width="1.3" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>`:''}<polyline points="${p(a)}" fill="none" stroke="${good===false?'#ad2f32':'#176599'}" stroke-width="2" vector-effect="non-scaling-stroke"/><circle cx="${w}" cy="${y}" r="3" fill="${good===false?'#ad2f32':'#176599'}"/></svg>`}
+
+function kpis(){
+  const cl=C==='bud'?'budget':'Sep 2025';
+  const L=k=>S[k][C]?S[k][C][11]:null;
+  const cards=[
+    {k:'rev',lab:'Revenue',v:4820,c:L('rev'),fmt:U,why:C==='bud'?'Riverside billing early':'Two new jobs started in spring'},
+    {k:'gm',lab:'Gross margin',v:19.9,c:L('gm'),pct:true,why:'Steel overrun cost 0.4 points'},
+    {k:'ni',lab:'Net income',v:440,c:L('ni'),fmt:U,why:'Overhead $30K under plan'},
+    {k:'cash',lab:'Cash',v:2310,c:C==='bud'?2050:1740,cl:C==='bud'?'Aug 31':'Sep 2025',fmt:U,why:'Up $260K on the month'},
+    {k:'under',lab:'Billed behind the work',v:620,c:580,cl:'Aug 31',fmt:U,inv:true,why:'Lakeside holds $540K of it'}
+  ];
+  $('#kpis').innerHTML=cards.map((x,i)=>{
+    const diff=x.v-x.c, good=x.inv?diff<0:diff>0, pct=x.pct?(diff).toFixed(1)+' pts':((diff/Math.abs(x.c))*100).toFixed(1)+'%';
+    const val=x.pct?x.v.toFixed(1)+'<small>%</small>':x.fmt(x.v);
+    const cv=x.pct?x.c.toFixed(1)+'%':K(x.c);
+    const dl=x.pct?'':' · '+sgn(diff);
+    const basis=x.cl||cl;
+    return `<div class="panel kpi rise" style="animation-delay:${80+i*60}ms" data-drill="${x.k}" ${i==0?'data-src="Cube labelled card · Shopify value plus comparison · Pigment sparkline"':''}>
+      <div class="lab"><b>${x.lab}</b> · vs ${basis}</div>
+      <div class="val money">${val}</div>
+      <div class="cmp"><span class="money">${basis} ${cv}${dl}</span><span class="d ${good?'good':'bad'}">${diff>0?'+':''}${pct}</span></div>
+      ${spark(S[x.k].a,S[x.k][C]||null,x.inv?false:undefined)}
+      <div class="why">${x.why}</div></div>`}).join('');
+}
+
+function hero(){
+  const h=C==='bud'
+   ? `September closed at <span class="tok" data-drill="ni">$440K</span> of net income, <span class="tok good" data-drill="bridge">$120K ahead of budget</span>. Riverside Medical billing early did most of it. Cash ended at <span class="tok" data-drill="cash">$2.31M</span>, about <span class="tok" data-drill="cash">4.4 months</span> of overhead.`
+   : `September closed at <span class="tok" data-drill="ni">$440K</span> of net income, <span class="tok good" data-drill="ni">$175K more than last September</span>, on revenue <span class="tok good" data-drill="rev">up 18%</span>. Cash ended at <span class="tok" data-drill="cash">$2.31M</span>, about <span class="tok" data-drill="cash">4.4 months</span> of overhead.`;
+  $('#hero').innerHTML=h;
+}
+
+/* statement */
+const P=[
+  {id:'rev',n:'Revenue',a:4820,b:4550,p:4100,s:S.rev.a,kids:[['Contract revenue',4610,4380,3960],['Change orders',210,170,140]]},
+  {id:'dc',n:'Direct cost',a:3860,b:3680,p:3340,cost:true,s:[3020,2990,2880,2570,2680,2940,3080,3280,3470,3560,3620,3860],note:['Steel on Oak Street Lofts, see the job.','ok'],kids:[['Materials',1690,1560,1450],['Subcontractors',1540,1520,1330],['Direct labor',630,600,560]]},
+  {id:'gp',n:'Gross profit',a:960,b:870,p:760,sub:true,s:[680,660,620,530,570,660,720,770,830,840,880,960]},
+  {id:'oh',n:'Overhead',a:520,b:550,p:495,cost:true,s:[400,400,410,380,390,420,440,450,460,460,480,520],note:['Two open roles left unfilled. Drafted by Claude.','dr'],kids:[['Payroll and benefits',340,350,325],['Rent and office',70,72,68],['Insurance and bonding',62,65,58],['Other',48,63,44]]},
+  {id:'ni',n:'Net income',a:440,b:320,p:265,tot:true,s:S.ni.a}
+];
+function vcell(a,c,cost){const d=a-c,pc=d/Math.abs(c)*100,help=cost?d<0:d>0,cls=Math.abs(pc)>=3?(help?'v-good':'v-bad'):'';return `<td class="money ${cls}">${sgn(d)}</td><td class="${cls}">${(pc>0?'+':'')+pc.toFixed(1)}%</td>`}
+function statement(){
+  const cl=C==='bud'?'Budget':'Sep 2025';
+  $('#stmeta').textContent='September 2026 · in thousands';
+  let h=`<tr><th>Line</th><th>Actual</th><th>${cl}</th><th>Change</th><th>%</th><th>% of revenue</th><th>12 months</th><th style="text-align:left">Note</th></tr>`;
+  P.forEach(r=>{const c=C==='bud'?r.b:r.p;
+    h+=`<tr class="g ${r.sub?'gpr':''} ${r.tot?'tot':''}"><td>${r.kids?`<span class="car" data-k="${r.id}">▸</span>`:'<span class="car"></span>'}${r.n}</td>
+      <td class="money"><span class="drl" data-drill="${r.id}">${r.a.toLocaleString()}</span></td><td class="money">${c.toLocaleString()}</td>${vcell(r.a,c,r.cost)}
+      <td>${(r.a/4820*100).toFixed(1)}%</td><td>${spark(r.s,null).replace('<svg ','<svg class="spk" ')}</td>
+      <td class="note ${r.note?'cm':''}">${r.note?r.note[0]+`<span class="st8 ${r.note[1]}">${r.note[1]=='ok'?'Approved':'Draft'}</span>`:''}</td></tr>`;
+    (r.kids||[]).forEach(k=>{const kc=C==='bud'?k[2]:k[3];h+=`<tr class="c" data-p="${r.id}"><td>${k[0]}</td><td class="money"><span class="drl" data-drill="${r.id}">${k[1].toLocaleString()}</span></td><td class="money">${kc.toLocaleString()}</td>${vcell(k[1],kc,r.cost)}<td>${(k[1]/4820*100).toFixed(1)}%</td><td></td><td></td></tr>`});
+  });
+  $('#st').innerHTML=h;
+}
+
+/* jobs */
+const J=[
+  {id:'j24118',no:'24-118',n:'Riverside Medical Office',ct:12400,pc:62,ou:410,sp:62,cm:24,m:14.2,bid:13.5},
+  {id:'j25031',no:'25-031',n:'Oak Street Lofts',ct:8900,pc:41,ou:-280,sp:45,cm:38,m:9.8,bid:12.0},
+  {id:'j25007',no:'25-007',n:'Harbor Point Retail',ct:5200,pc:78,ou:-120,sp:76,cm:16,m:11.6,bid:11.0},
+  {id:'j24092',no:'24-092',n:'Lakeside Elementary',ct:15100,pc:88,ou:-540,sp:90,cm:7,m:11.9,bid:14.0},
+  {id:'j25044',no:'25-044',n:'Cedar Park Warehouse',ct:3000,pc:12,ou:-90,sp:11,cm:52,m:13.0,bid:13.0}
+];
+function jobs(){
+  let h=`<thead><tr><th>Job</th><th>Contract</th><th>Complete</th><th>Billed vs earned<small>billed − earned</small></th><th>Cost<small>spent · committed · left</small></th><th>Margin now<small>vs bid</small></th><th>Verdict</th></tr></thead><tbody>`;
+  J.forEach(j=>{const fade=j.m-j.bid;const v=fade<=-2?['bad','Fading']:fade<0?['warn','Watch']:['good','On track'];
+    h+=`<tr data-drill="${j.id}"><td class="jn">${j.n}<small>${j.no}</small></td><td class="money">${K(j.ct)}</td><td>${j.pc}%</td>
+    <td class="money ${j.ou<0?'':'v-good'}">${j.ou>0?'+':''}${K(j.ou)}</td>
+    <td><div class="cbar"><i class="s" style="width:${j.sp}%"></i><i class="c" style="width:${j.cm}%"></i></div></td>
+    <td>${j.m.toFixed(1)}% <span class="d ${fade<0?(fade<=-2?'bad':'warn'):'good'}">${fade>0?'+':''}${fade.toFixed(1)}</span></td>
+    <td><span class="verd"><span class="dot ${v[0]}" style="margin:0"></span>${v[1]}</span></td></tr>`});
+  $('#jobsT').innerHTML=h+'</tbody>';
+}
+
+/* main chart */
+function chart(){
+  const M=['J','F','M','A','M','J','J','A','S','O','N','D'],full=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const rev=[3100,3250,3600,3800,4050,4300,4400,4500,4820,4700,4500,4200],py=[2900,2950,3200,3300,3500,3700,3800,3950,4100,4050,3900,3700],
+        cash=[1620,1700,1750,1680,1800,1880,1950,2050,2310,2250,2300,2400];
+  const W=760,H=270,l=44,r=44,t=18,b=28,iw=W-l-r,ih=H-t-b,bw=iw/12;
+  const y=v=>t+ih-v/5500*ih, yc=v=>t+ih-v/3000*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  [0,1500,3000,4500].forEach(g=>{s+=`<line x1="${l}" x2="${W-r}" y1="${y(g)}" y2="${y(g)}" stroke="#e8edf4"/><text x="${l-8}" y="${y(g)+4}" text-anchor="end" font-size="11" fill="#5b6a7a">${g?'$'+(g/1000)+'M':'0'}</text>`});
+  rev.forEach((v,i)=>{const x=l+i*bw+bw*.2,w=bw*.6,f=i>8;
+    s+=`<rect class="bb" data-i="${i}" x="${x}" y="${y(v)}" width="${w}" height="${t+ih-y(v)}" rx="4" fill="${f?'#EFF5FA':'#176599'}" ${f?'stroke="#176599" stroke-dasharray="4 3" stroke-width="1.2"':''} style="transform-origin:${x}px ${t+ih}px;animation:grow .7s ${i*40}ms cubic-bezier(.2,.8,.2,1) both"/>`;
+    s+=`<text x="${l+i*bw+bw/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="#5b6a7a">${M[i]}</text>`});
+  s+=`<polyline points="${py.map((v,i)=>`${l+i*bw+bw/2},${y(v)}`).join(' ')}" fill="none" stroke="#7d8b9d" stroke-width="1.6" stroke-dasharray="1.5 4" stroke-linecap="round"/>`;
+  s+=`<polyline points="${cash.slice(0,9).map((v,i)=>`${l+i*bw+bw/2},${yc(v)}`).join(' ')}" fill="none" stroke="#132644" stroke-width="2.2"/>`;
+  s+=`<polyline points="${cash.slice(8).map((v,i)=>`${l+(i+8)*bw+bw/2},${yc(v)}`).join(' ')}" fill="none" stroke="#132644" stroke-width="2" stroke-dasharray="5 4"/>`;
+  s+=`<circle cx="${l+8*bw+bw/2}" cy="${yc(2310)}" r="4.5" fill="#132644" stroke="#fff" stroke-width="2"/>`;
+  [0,1000,2000,3000].forEach(g=>{s+=`<text x="${W-r+8}" y="${yc(g)+4}" font-size="11" fill="#132644" opacity=".6">${g?'$'+(g/1000)+'M':''}</text>`});
+  const cx=l+9*bw;
+  s+=`<line x1="${cx}" x2="${cx}" y1="${t-6}" y2="${t+ih}" stroke="#132644" stroke-width="1" stroke-dasharray="2 3"/><text x="${cx-6}" y="${t+4}" text-anchor="end" font-size="11" fill="#132644" font-weight="500">Closed through Sep</text>`;
+  s+=`<g transform="translate(${l+3*bw+bw/2},${y(5050)})"><circle r="3" fill="#9a6512"/><text x="7" y="-4" font-size="11" fill="#9a6512">Harbor Point awarded</text></g>`;
+  rev.forEach((v,i)=>{s+=`<rect class="hit" data-i="${i}" x="${l+i*bw}" y="${t}" width="${bw}" height="${ih}" fill="transparent"/>`});
+  s+=`</svg><div class="readout" id="ro"></div><style>@keyframes grow{from{transform:scaleY(0)}}</style>`;
+  $('#chart').innerHTML=s;
+  const ro=$('#ro');
+  $('#chart').querySelectorAll('.hit').forEach(h=>{
+    h.addEventListener('mousemove',e=>{const i=+h.dataset.i,rc=$('#chart').getBoundingClientRect();
+      ro.innerHTML=`<b>${full[i]} 2026${i>8?' · forecast':''}</b><br>Revenue ${K(rev[i])} · last year ${K(py[i])}<br>Cash ${K(cash[i])}`;
+      ro.style.opacity=1;ro.style.left=Math.min(e.clientX-rc.left+14,rc.width-190)+'px';ro.style.top=(e.clientY-rc.top-60)+'px'});
+    h.addEventListener('mouseleave',()=>ro.style.opacity=0);
+    h.addEventListener('click',()=>{if(+h.dataset.i<=8)openD('rev')});
+  });
+}
+
+/* bridge */
+let BM='walk';
+function bridge(){
+  const steps=BM==='walk'
+    ?(C==='bud'?[['Budget',320,'t'],['Riverside billed early',140],['Change order on Harbor Point',60],['Overhead under plan',30],['Steel on Oak Street',-90],['Everything else',-20],['Actual',440,'t']]
+              :[['Sep 2025',265,'t'],['More revenue',137],['Better margin',58],['Higher overhead',-25],['Everything else',5],['Sep 2026',440,'t']])
+    :[['Revenue',4820,'t'],['Direct cost',-3860],['Overhead',-520],['Net income',440,'t']];
+  const W=420,H=250,l=8,r=8,t=24,b=56,iw=W-l-r,ih=H-t-b,n=steps.length,bw=iw/n;
+  let rr=0,pk=0;steps.forEach(s=>{rr=s[2]?s[1]:rr+s[1];pk=Math.max(pk,rr)});const mx=pk*1.14, y=v=>t+ih-v/mx*ih;
+  let run=0,s=`<svg viewBox="0 0 ${W} ${H}">`;
+  steps.forEach((st,i)=>{let y0,y1,col;
+    if(st[2]){y0=y(st[1]);y1=y(0);col='#8a97a8';run=st[1]} else {const a=run,bv=run+st[1];y0=y(Math.max(a,bv));y1=y(Math.min(a,bv));col=st[1]>0?'#1a7d4f':'#ad2f32';run=bv}
+    const x=l+i*bw+bw*.18,w=bw*.64;
+    s+=`<rect x="${x}" y="${y0}" width="${w}" height="${Math.max(2,y1-y0)}" rx="3" fill="${col}" ${st[2]?'':'opacity=".9"'}/>`;
+    s+=`<text x="${x+w/2}" y="${y0-6}" text-anchor="middle" font-size="11.5" font-weight="500" fill="${st[2]?'#16202e':col}">${st[2]?K(st[1]):sgn(st[1])}</text>`;
+    const words=st[0].split(' ');let ln=[''];words.forEach(wd=>{if((ln[ln.length-1]+' '+wd).trim().length>11)ln.push(wd);else ln[ln.length-1]=(ln[ln.length-1]+' '+wd).trim()});
+    ln.slice(0,3).forEach((tx,k)=>{s+=`<text x="${x+w/2}" y="${H-b+16+k*13}" text-anchor="middle" font-size="10.5" fill="#5b6a7a">${tx}</text>`});
+    if(i<n-1&&!(BM==='brk'&&i==n-2)){s+=`<line x1="${x+w}" x2="${x+bw}" y1="${y(run)}" y2="${y(run)}" stroke="#b8c3d1" stroke-dasharray="2 2"/>`}
+  });
+  $('#bridge').innerHTML=s+'</svg>';
+  $('#bverdict').textContent=BM==='brk'?'Of every dollar billed, 80 cents went to the job and 11 to running the company. 9 cents stayed.'
+    :C==='bud'?'Three gains added $230K. Steel on Oak Street and the rest took back $110K.':'Last September to this one. More work did most of it, a better margin did the rest.';
+}
+
+/* cash waterfall */
+function cashw(){
+  const st=[['Aug 31',2050,'t'],['Profit',440],['Non-cash',60],['Billing behind',-210],['Equipment',-80],['Line draw',50],['Sep 30',2310,'t']];
+  const W=560,H=240,l=8,r=8,t=24,b=34,iw=W-l-r,ih=H-t-b,n=st.length,bw=iw/n,lo=1700,hi=2600,y=v=>t+ih-(v-lo)/(hi-lo)*ih;
+  let run=0,s=`<svg viewBox="0 0 ${W} ${H}">`;
+  st.forEach((x,i)=>{let y0,y1,col;if(x[2]){y0=y(x[1]);y1=t+ih;col='#132644';run=x[1]}else{const a=run,bb=run+x[1];y0=y(Math.max(a,bb));y1=y(Math.min(a,bb));col=x[1]>0?'#1a7d4f':'#ad2f32';run=bb}
+    const xx=l+i*bw+bw*.2,w=bw*.6;
+    s+=`<rect x="${xx}" y="${y0}" width="${w}" height="${Math.max(2,y1-y0)}" rx="3" fill="${col}"/><text x="${xx+w/2}" y="${y0-6}" text-anchor="middle" font-size="11.5" font-weight="500" fill="${x[2]?'#16202e':col}">${x[2]?K(x[1]):sgn(x[1])}</text><text x="${xx+w/2}" y="${H-12}" text-anchor="middle" font-size="11" fill="#5b6a7a">${x[0]}</text>`;
+  });
+  s+=`<text x="${W-r}" y="12" text-anchor="end" font-size="10" fill="#8a97a8">Axis starts at $1.7M</text>`;
+  $('#cashw').innerHTML=s+'</svg>';
+}
+
+/* drawer content */
+const D={
+  rev:{t:'Revenue',v:'$4,820K',crumb:'Financials › Statement › Revenue',
+    tree:[['Contract revenue',4610,1],['Change orders',210,1],['Revenue',4820,'res']],
+    drv:[['Riverside Medical Office','+$410K ahead of schedule'],['Harbor Point Retail','+$60K change order approved'],['Oak Street Lofts','-$120K, steel delivery slipped billing']],
+    led:[['Sep 30','INV 24118-09 · Riverside Medical · pay app 9','$1,240,000'],['Sep 30','INV 24092-14 · Lakeside Elementary · pay app 14','$1,080,000'],['Sep 29','INV 25031-05 · Oak Street Lofts · pay app 5','$760,000'],['Sep 26','INV 25007-07 · Harbor Point · pay app 7','$690,000'],['Sep 22','CO 25007-04 · Harbor Point · change order','$210,000']],more:38},
+  dc:{t:'Direct cost',v:'$3,860K',crumb:'Financials › Statement › Direct cost',
+    tree:[['Materials',1690,1],['Subcontractors',1540,1],['Direct labor',630,1],['Direct cost',3860,'res']],
+    drv:[['Oak Street Lofts · steel','+$118K over estimate'],['Lakeside Elementary · concrete','+$22K over estimate'],['Riverside Medical · labor','+$30K, ahead of schedule']],
+    led:[['Sep 28','Gulf States Steel · 25-031 · structural steel','$412,800'],['Sep 25','Piedmont Mechanical · 24-118 · draw 6','$388,000'],['Sep 24','Southern Ready Mix · 24-092 · slab pour','$146,300'],['Sep 19','Payroll · field labor · all jobs','$315,200'],['Sep 15','Carolina Glass · 25-007 · storefront','$122,900']],more:211},
+  gp:{t:'Gross profit',v:'$960K',crumb:'Financials › Statement › Gross profit',
+    tree:[['Revenue',4820,1],['Less direct cost',-3860,1],['Gross profit',960,'res']],
+    drv:[['More revenue than budget','+$51K at budget margin'],['Better margin on Riverside','+$39K'],['Steel on Oak Street','-$90K']],led:[],more:0},
+  gm:{t:'Gross margin',v:'19.9%',crumb:'Financials › Overview › Gross margin',
+    tree:[['Gross profit',960,1],['Divided by revenue',4820,1],['Gross margin','19.9%','res']],
+    drv:[['Riverside Medical at 14.2%','+0.5 points to the group'],['Oak Street Lofts at 9.8%','-0.4 points to the group'],['Harbor Point change order','+0.2 points']],led:[],more:0},
+  oh:{t:'Overhead',v:'$520K',crumb:'Financials › Statement › Overhead',
+    tree:[['Payroll and benefits',340,1],['Rent and office',70,1],['Insurance and bonding',62,1],['Other',48,1],['Overhead',520,'res']],
+    drv:[['Two open roles unfilled','-$18K vs budget'],['Software renewals moved to October','-$9K']],
+    led:[['Sep 30','Payroll · office staff','$212,400'],['Sep 15','Payroll · office staff','$127,600'],['Sep 01','Main St office lease','$58,000'],['Sep 01','Builders risk premium','$41,500']],more:64},
+  ni:{t:'Net income',v:'$440K',crumb:'Financials › Overview › Net income',
+    tree:[['Revenue',4820,1],['Less direct cost',-3860,2],['Gross profit',960,1],['Less overhead',-520,2],['Net income',440,'res']],
+    drv:[['Riverside billed early','+$140K'],['Harbor Point change order','+$60K'],['Steel on Oak Street','-$90K']],led:[],more:0},
+  bridge:{alias:'ni'},
+  cash:{t:'Cash',v:'$2,310K',crumb:'Financials › Cash',
+    tree:[['Cash on Aug 31',2050,1],['Profit',440,2],['Non-cash costs',60,2],['Billing behind the work',-210,2],['Equipment bought',-80,2],['Line of credit drawn',50,2],['Cash on Sep 30',2310,'res'],['Overhead a month',520,1],['Months covered','4.4','res']],
+    drv:[],led:[['Bank','Operating account ··4417','$1,880,000'],['Bank','Payroll account ··2290','$140,000'],['Bank','Money market ··8813','$290,000']],more:0},
+  under:{t:'Billed behind the work',v:'$620K',crumb:'Financials › Jobs › Billing',
+    tree:[['Riverside Medical',410,1],['Oak Street Lofts',-280,1],['Harbor Point Retail',-120,1],['Lakeside Elementary',-540,1],['Cedar Park Warehouse',-90,1],['Net billed ahead (behind)',-620,'res']],
+    drv:[['Lakeside Elementary','Pay app 15 held for retainage review'],['Oak Street Lofts','Steel installed, not yet billed']],led:[],more:0}
+};
+J.forEach(j=>{const earned=Math.round(j.ct*j.pc/100);D[j.id]={t:j.n,v:K(j.ct)+' contract',crumb:'Financials › Jobs › '+j.no,
+  tree:[['Contract with change orders',j.ct,1],['Earned to date ('+j.pc+'% complete)',earned,2],['Billed to date',earned+j.ou,2],['Billed ahead (behind)',j.ou,'res'],['Margin at bid',j.bid+'%',1],['Margin now',j.m+'%','res']],
+  drv:[['Spent',j.sp+'% of the estimate'],['Committed, not yet spent',j.cm+'% of the estimate'],['Left',(100-j.sp-j.cm)+'% of the estimate']],
+  led:[['Sep 30','Pay app · '+j.no,K(Math.round(j.ct*0.07))],['Sep 24','Subcontractor draw · '+j.no,K(Math.round(j.ct*0.035))],['Sep 12','Materials · '+j.no,K(Math.round(j.ct*0.02))]],more:24}});
+
+function fmtv(v){return typeof v==='number'?(v<0?'('+Math.abs(v).toLocaleString()+')':v.toLocaleString()):v}
+function openD(k){let d=D[k];if(!d)return;if(d.alias)d=D[d.alias];
+  $('#dcrumb').textContent=d.crumb;$('#dt').textContent=d.t;$('#dv').textContent=d.v;
+  let h=`<h4>How it is built</h4><div class="tree">${d.tree.map(r=>`<div class="${r[2]==='res'?'res':r[2]==2?'l2':''}"><span>${r[0]}</span><span class="money">${fmtv(r[1])}</span></div>`).join('')}</div>`;
+  if(d.drv.length)h+=`<h4>Behind the change</h4><div class="tree">${d.drv.map(r=>`<div><span>${r[0]}</span><span style="color:var(--ink-soft)">${r[1]}</span></div>`).join('')}</div>`;
+  if(d.led.length)h+=`<h4>The rows</h4><div class="ledger">${d.led.map(r=>`<div><span>${r[0]}</span><span>${r[1]}</span><span class="money">${r[2]}</span></div>`).join('')}${d.more?`<span class="more">+ ${d.more} more rows</span>`:''}</div>`;
+  h+=`<div class="tie">✓ The rows add up to the figure on the page</div>`;
+  $('#db').innerHTML=h;$('#dsrc').textContent='Source: Sage Intacct general ledger · synced 9:42 AM';
+  $('#drawer').classList.add('on');$('#scrim').classList.add('on');$('#drawer').setAttribute('aria-hidden','false')}
+function closeD(){$('#drawer').classList.remove('on');$('#scrim').classList.remove('on');$('#drawer').setAttribute('aria-hidden','true')}
+
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),2200)}
+
+document.addEventListener('click',e=>{
+  const car=e.target.closest('.car[data-k]');if(car){car.classList.toggle('open');document.querySelectorAll(`tr.c[data-p="${car.dataset.k}"]`).forEach(r=>r.classList.toggle('open'));return}
+  const ts=e.target.closest('[data-toast]');if(ts){toast(ts.dataset.toast);return}
+  const dr=e.target.closest('[data-drill]');if(dr){openD(dr.dataset.drill);return}
+});
+$('#scrim').onclick=closeD;$('#dx').onclick=closeD;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeD()});
+$('#cmp').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;C=b.dataset.c;$('#cmp').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));render()});
+$('#bmode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;BM=b.dataset.m;$('#bmode').querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));bridge()});
+$('#credits').onclick=function(){this.classList.toggle('on');document.body.classList.toggle('credits')};
+const navs=[...document.querySelectorAll('.sub nav a')];
+addEventListener('scroll',()=>{let cur='overview';['statement','jobs','cash'].forEach(id=>{if(document.getElementById(id).getBoundingClientRect().top<160)cur=id});navs.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+cur))},{passive:true});
+function render(){hero();kpis();statement();bridge()}
+render();chart();jobs();cashw();
+</script>
+</body>
+</html>
