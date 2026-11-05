@@ -92,7 +92,7 @@
       "scope": "company",
       "money": "operating",
       "approve": [],
-      "allow": ["people-home", "hr-home", "hr-inbox", "hr-attendance", "hr-payroll", "hr-directory", "hr-time", "hr-hiring", "hr-compliance", "hr-reviews", "hr-person"],
+      "allow": ["people-home", "hr-home", "hr-inbox", "hr-directory", "hr-org", "hr-attendance", "hr-payroll", "hr-time", "hr-hiring", "hr-onboarding", "hr-talent", "hr-compliance", "hr-reviews", "hr-reports", "hr-person"],
       "note": "Headcount, payroll, open roles and turnover for the whole company. No finance pages and no balance sheet."
     },
     {
@@ -104,7 +104,7 @@
       "money": "operating",
       "approve": [],
       "allow": ["fin-statements", "fin-covenants"],
-      "deny": ["ops-home", "people-home", "hr-home", "hr-inbox", "hr-attendance", "hr-payroll", "hr-directory", "hr-time", "hr-hiring", "hr-compliance", "hr-reviews", "hr-person", "pipeline-home"],
+      "deny": ["ops-home", "people-home", "hr-home", "hr-inbox", "hr-directory", "hr-org", "hr-attendance", "hr-payroll", "hr-time", "hr-hiring", "hr-onboarding", "hr-talent", "hr-compliance", "hr-reviews", "hr-reports", "hr-person", "pipeline-home"],
       "note": "A curated pack, not a dashboard. Signed-off periods only, which the close rules enforce rather than this list."
     }
   ],

@@ -17,6 +17,7 @@ import { financePages } from './pages/finance.js';
 import { opsPages } from './pages/ops.js';
 import { miscPages } from './pages/misc.js';
 import { hrPages } from './pages/hr.js';
+import { mashPages, hrAct, hrWire } from './pages/hrmash.js';
 import { settings as settingsPage, connectSheet, FONT_PAIRS } from './cms.js';
 import * as Chooser from './chooser.js';
 import * as Present from './present.js';
@@ -28,7 +29,7 @@ const BASIS = [
   { id: 'ttm', name: 'TTM' }, { id: 'fy', name: 'FY' },
 ];
 
-const PAGES = { ...financePages, ...opsPages, ...miscPages, ...hrPages, settings: settingsPage };
+const PAGES = { ...financePages, ...opsPages, ...miscPages, ...hrPages, ...mashPages, settings: settingsPage };
 
 const app = {
   cfg: null, s: null, q: null, data: {},
@@ -259,6 +260,7 @@ function render() {
   host.innerHTML = (s.data.showDemoNote && app.q.data.meta.notice ? demoNote() : '') + html;
   C.wire(host);
   U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
+  hrWire(host, render);
   World.arm(host);
   /* After the markup is in and the charts are wired, so the measurement sees
      real geometry. Again on resize, because a row that fits at 1440 can be
@@ -276,7 +278,7 @@ function render() {
 const NEEDS = {
   'fin-budget': ['budget', 'a budget', 'finance'],
   'people-home': ['people', 'payroll and headcount', 'people'],
-  ...Object.fromEntries(['hr-home', 'hr-inbox', 'hr-attendance', 'hr-payroll', 'hr-directory', 'hr-time', 'hr-hiring', 'hr-compliance', 'hr-reviews']
+  ...Object.fromEntries(['hr-home', 'hr-inbox', 'hr-attendance', 'hr-payroll', 'hr-directory', 'hr-time', 'hr-hiring', 'hr-compliance', 'hr-reviews', 'hr-org', 'hr-talent', 'hr-onboarding', 'hr-reports']
     .map(id => [id, ['people', 'employee records', 'people']])),
   'pipeline-home': ['pipeline', 'the pipeline', 'crm'],
   'docs-home': ['docs', 'documents', 'docs'],
@@ -942,6 +944,8 @@ async function onClick(ev) {
       await useIndustry(arg);
       go('fin-dash'); render(); break;
     case 'settab': app.subtab = arg; render(); break;
+    /* The HR screens' own view state (a picked inbox item, a payroll step, an org-chart move). */
+    case 'hr': hrAct(arg); render(); break;
     case 'connect': {
       const c = app.s.connector(arg);
       if (c) openSheet(connectSheet(c, app.s));

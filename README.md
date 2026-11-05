@@ -35,11 +35,13 @@ thing that sells; everything else is there when a company wants it.
   the three are independent: a supervisor can see every operational page for
   their own crew with no money on any of them, and People & HR sees the people
   page and no finance page.
-- **An HR tab, Paycor-style at our scale** (Matt, 2026-11-04). People & labor plus Directory, Time off
-  (approvals that go back to payroll, who is out, balances and liability), Hiring & onboarding, Compliance &
-  training, and Reviews & benefits, all read from one generated roster that adds up to People & labor's
-  headcount (`build_hr` in `data/gen.py`, pages in `src/js/pages/hr.js`). Payroll tax and money movement stay
-  with the payroll provider (`os-vault/wiki/research/paycor-teardown.md`).
+- **An HR tab that copies the best screen in each HR platform** (Matt, 2026-11-04 and 11-05). HR home
+  laid out like BambooHR's, the Inbox like Workday's, the employee record and Reports like Rippling's, Timecards
+  like ADP and UKG's team grid, Run payroll and Onboarding like Gusto's, plus an org chart with a what-if and a
+  calibration nine-box (`src/js/pages/hrmash.js`), beside Directory, Time off, Hiring, Compliance and Reviews
+  (`src/js/pages/hr.js`). One generated roster feeds every page (`build_hr` in `data/gen.py`). No vendor name or
+  logo ships. Payroll tax and money movement stay with the payroll provider. The spec and the side by side are in
+  `os-vault/wiki/research/hr-mashup-spec.md`.
 - **It exports its own configuration.** The settings console produces the JSON
   file a real deployment is built from. No per-client code, no branch, no fork.
 

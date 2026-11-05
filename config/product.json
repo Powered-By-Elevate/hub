@@ -6,7 +6,10 @@
     "pitch": "The financial dashboard your leadership already wanted, wired to the software you already run, in your own brand, with each person seeing exactly their level.",
     "vendor": "Powered by Elevate",
     "lead": "Built first for construction and retail, where most of the companies we serve do their work. Every other world below runs on the same engine.",
-    "leads": ["construction", "retail"],
+    "leads": [
+      "construction",
+      "retail"
+    ],
     "version": "0.1.0"
   },
   "demoNotice": "Sample company. Every figure on this page is generated, and every company, person and project name is invented.",
@@ -128,27 +131,27 @@
       "rank": 70,
       "icon": "check"
     },
-    "people-home": {
-      "module": "people",
-      "name": "People & labor",
-      "rank": 70,
-      "icon": "people"
-    },
     "hr-directory": {
       "module": "people",
       "name": "Directory",
       "rank": 70,
       "icon": "list"
     },
+    "hr-org": {
+      "module": "people",
+      "rank": 70,
+      "name": "Org chart",
+      "icon": "people"
+    },
     "hr-attendance": {
       "module": "people",
-      "name": "Time & attendance",
+      "name": "Timecards",
       "rank": 70,
       "icon": "clock"
     },
     "hr-payroll": {
       "module": "people",
-      "name": "Payroll preview",
+      "name": "Run payroll",
       "rank": 70,
       "icon": "wallet"
     },
@@ -160,9 +163,21 @@
     },
     "hr-hiring": {
       "module": "people",
-      "name": "Hiring & onboarding",
+      "name": "Hiring",
       "rank": 70,
       "icon": "funnel"
+    },
+    "hr-onboarding": {
+      "module": "people",
+      "rank": 70,
+      "name": "Onboarding",
+      "icon": "check"
+    },
+    "hr-talent": {
+      "module": "people",
+      "rank": 70,
+      "name": "Talent review",
+      "icon": "grid"
     },
     "hr-compliance": {
       "module": "people",
@@ -175,6 +190,18 @@
       "name": "Reviews & benefits",
       "rank": 70,
       "icon": "target"
+    },
+    "hr-reports": {
+      "module": "people",
+      "rank": 70,
+      "name": "Reports",
+      "icon": "bars"
+    },
+    "people-home": {
+      "module": "people",
+      "name": "People & labor",
+      "rank": 70,
+      "icon": "people"
     },
     "hr-person": {
       "module": "people",
