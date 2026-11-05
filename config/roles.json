@@ -1,4 +1,5 @@
 {
+  "$comment": "View levels. A page is offered to a role when page.rank <= role.rank, unless the page id is in role.deny; role.allow overrides the rank either way. scope decides how much of the company the figures cover, money decides whether currency is shown at all. Every field here is editable in the Hub settings console, which is the point: a company renames these to its own titles and moves the ranks without a build.",
   "scopes": {
     "all": "Every company in the group",
     "company": "One company, all of its units",
@@ -15,91 +16,48 @@
     {
       "id": "owner",
       "name": "Owner / Board",
-      "titles": [
-        "Owner",
-        "Managing Partner",
-        "Board member",
-        "Chairman"
-      ],
+      "titles": ["Owner", "Managing Partner", "Board member", "Chairman"],
       "rank": 100,
       "scope": "all",
       "money": "full",
-      "approve": [
-        "close",
-        "budget",
-        "distribution"
-      ],
+      "approve": ["close", "budget", "distribution"],
       "note": "Sees every company in the group and the consolidation. The only level that sees distributions."
     },
     {
       "id": "exec",
       "name": "Chief Executive",
-      "titles": [
-        "CEO",
-        "President",
-        "Executive Director",
-        "Superintendent",
-        "General Manager"
-      ],
+      "titles": ["CEO", "President", "Executive Director", "Superintendent", "General Manager"],
       "rank": 90,
       "scope": "all",
       "money": "full",
-      "approve": [
-        "close",
-        "budget"
-      ],
+      "approve": ["close", "budget"],
       "note": "Everything operational and financial. Where a group has several companies, this level still sees them all."
     },
     {
       "id": "cfo",
       "name": "Finance leadership",
-      "titles": [
-        "CFO",
-        "Controller",
-        "VP Finance",
-        "Business Manager",
-        "Director of Finance"
-      ],
+      "titles": ["CFO", "Controller", "VP Finance", "Business Manager", "Director of Finance"],
       "rank": 85,
       "scope": "all",
       "money": "full",
-      "approve": [
-        "close",
-        "budget"
-      ],
+      "approve": ["close", "budget"],
       "note": "Owns the close. This level and the chief executive are the two signatures a month needs."
     },
     {
       "id": "ops",
       "name": "Operations leadership",
-      "titles": [
-        "COO",
-        "VP Operations",
-        "Director of Operations",
-        "Plant Director",
-        "Terminal Manager"
-      ],
+      "titles": ["COO", "VP Operations", "Director of Operations", "Plant Director", "Terminal Manager"],
       "rank": 70,
       "scope": "company",
       "money": "operating",
-      "approve": [
-        "forecast"
-      ],
-      "deny": [
-        "fin-balance",
-        "fin-equity"
-      ],
+      "approve": ["forecast"],
+      "deny": ["fin-balance", "fin-equity"],
       "note": "Revenue, cost and margin across the whole company. The balance sheet is not theirs."
     },
     {
       "id": "analyst",
       "name": "Analyst",
-      "titles": [
-        "Financial Analyst",
-        "FP&A",
-        "Business Analyst",
-        "Accountant"
-      ],
+      "titles": ["Financial Analyst", "FP&A", "Business Analyst", "Accountant"],
       "rank": 60,
       "scope": "all",
       "money": "full",
@@ -109,14 +67,7 @@
     {
       "id": "manager",
       "name": "Unit manager",
-      "titles": [
-        "Project Manager",
-        "Store Manager",
-        "Principal",
-        "Plant Manager",
-        "Dispatch Manager",
-        "Product Manager"
-      ],
+      "titles": ["Project Manager", "Store Manager", "Principal", "Plant Manager", "Dispatch Manager", "Product Manager"],
       "rank": 45,
       "scope": "units",
       "money": "unit",
@@ -126,13 +77,7 @@
     {
       "id": "lead",
       "name": "Team lead",
-      "titles": [
-        "Superintendent",
-        "Shift Supervisor",
-        "Department Head",
-        "Team Lead",
-        "Driver Manager"
-      ],
+      "titles": ["Superintendent", "Shift Supervisor", "Department Head", "Team Lead", "Driver Manager"],
       "rank": 30,
       "scope": "units",
       "money": "none",
@@ -142,128 +87,46 @@
     {
       "id": "hr",
       "name": "People & HR",
-      "titles": [
-        "HR Manager",
-        "HR Director",
-        "People Partner",
-        "Payroll Manager"
-      ],
+      "titles": ["HR Manager", "HR Director", "People Partner", "Payroll Manager"],
       "rank": 25,
       "scope": "company",
       "money": "operating",
       "approve": [],
-      "allow": [
-        "people-home"
-      ],
+      "allow": ["people-home", "hr-home", "hr-inbox", "hr-attendance", "hr-payroll", "hr-directory", "hr-time", "hr-hiring", "hr-compliance", "hr-reviews", "hr-person"],
       "note": "Headcount, payroll, open roles and turnover for the whole company. No finance pages and no balance sheet."
     },
     {
       "id": "stakeholder",
       "name": "Outside stakeholder",
-      "titles": [
-        "Lender",
-        "Investor",
-        "Board guest",
-        "Auditor"
-      ],
+      "titles": ["Lender", "Investor", "Board guest", "Auditor"],
       "rank": 20,
       "scope": "company",
       "money": "operating",
       "approve": [],
-      "allow": [
-        "fin-statements",
-        "fin-covenants"
-      ],
-      "deny": [
-        "ops-home",
-        "people-home",
-        "pipeline-home"
-      ],
+      "allow": ["fin-statements", "fin-covenants"],
+      "deny": ["ops-home", "people-home", "hr-home", "hr-inbox", "hr-attendance", "hr-payroll", "hr-directory", "hr-time", "hr-hiring", "hr-compliance", "hr-reviews", "hr-person", "pipeline-home"],
       "note": "A curated pack, not a dashboard. Signed-off periods only, which the close rules enforce rather than this list."
     }
   ],
+  "$signin": "The demo sign-in (src/js/gate.js). Each sample person is tied to one of the levels above by its id and lands on one page. A level deleted in the console drops its person. A null title means the industry's own unit owner (Project manager, Store manager). The names are invented and handed out in turn, so each company has its own people.",
   "signin": {
     "people": [
-      {
-        "role": "exec",
-        "title": "Chief executive",
-        "lands": "home"
-      },
-      {
-        "role": "cfo",
-        "title": "Chief financial officer",
-        "lands": "fin-dash"
-      },
-      {
-        "role": "hr",
-        "title": "HR manager",
-        "lands": "people-home"
-      },
-      {
-        "role": "ops",
-        "title": "Director of operations",
-        "lands": "ops-home"
-      },
-      {
-        "role": "manager",
-        "title": null,
-        "lands": "ops-units"
-      },
-      {
-        "role": "lead",
-        "title": "Supervisor",
-        "lands": "ops-watch"
-      }
+      { "role": "exec", "title": "Chief executive", "lands": "home" },
+      { "role": "cfo", "title": "Chief financial officer", "lands": "fin-dash" },
+      { "role": "hr", "title": "HR manager", "lands": "hr-home" },
+      { "role": "ops", "title": "Director of operations", "lands": "ops-home" },
+      { "role": "manager", "title": null, "lands": "ops-units" },
+      { "role": "lead", "title": "Supervisor", "lands": "ops-watch" }
     ],
     "names": [
-      "Dana Whitfield",
-      "Marcus Oyelaran",
-      "Priya Natarajan",
-      "Colin Ashby",
-      "Renata Solis",
-      "Teo Lindqvist",
-      "Harriet Vance",
-      "Desmond Achebe",
-      "Lucia Ferreira",
-      "Owen Prescott",
-      "Mina Takahara",
-      "Jalen Brooks",
-      "Corinne Delacroix",
-      "Samuel Okafor",
-      "Ines Varga",
-      "Wesley Thorne",
-      "Amara Quist",
-      "Rafael Montoya",
-      "Elise Hartmann",
-      "Grant Mabry",
-      "Noor Haddad",
-      "Felix Ambrose",
-      "Tamsin Reyes",
-      "Dmitri Kovach",
-      "Beatrix Lowe",
-      "Kofi Mensah",
-      "Sloane Pemberton",
-      "Arjun Mehta",
-      "Celeste Moreau",
-      "Hugo Brandt",
-      "Yara Castellanos",
-      "Miles Fairbanks",
-      "Odette Kimura",
-      "Silas Ferrand",
-      "Leona Adair",
-      "Tobias Wren",
-      "Freya Lindholm",
-      "Mateo Arrieta",
-      "Imogen Hale",
-      "Caleb Strand",
-      "Zainab Idris",
-      "Rowan Ellery",
-      "Paloma Serrano",
-      "Jasper Coyle",
-      "Nadia Petrova",
-      "Emmett Draper",
-      "Talia Okonkwo",
-      "Quentin Ash"
+      "Dana Whitfield", "Marcus Oyelaran", "Priya Natarajan", "Colin Ashby", "Renata Solis", "Teo Lindqvist",
+      "Harriet Vance", "Desmond Achebe", "Lucia Ferreira", "Owen Prescott", "Mina Takahara", "Jalen Brooks",
+      "Corinne Delacroix", "Samuel Okafor", "Ines Varga", "Wesley Thorne", "Amara Quist", "Rafael Montoya",
+      "Elise Hartmann", "Grant Mabry", "Noor Haddad", "Felix Ambrose", "Tamsin Reyes", "Dmitri Kovach",
+      "Beatrix Lowe", "Kofi Mensah", "Sloane Pemberton", "Arjun Mehta", "Celeste Moreau", "Hugo Brandt",
+      "Yara Castellanos", "Miles Fairbanks", "Odette Kimura", "Silas Ferrand", "Leona Adair", "Tobias Wren",
+      "Freya Lindholm", "Mateo Arrieta", "Imogen Hale", "Caleb Strand", "Zainab Idris", "Rowan Ellery",
+      "Paloma Serrano", "Jasper Coyle", "Nadia Petrova", "Emmett Draper", "Talia Okonkwo", "Quentin Ash"
     ]
   }
 }

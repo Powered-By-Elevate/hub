@@ -2470,3 +2470,34 @@ body.gated #shell { display: none; }
 .menu-who small { display: block; color: var(--ink-faint); font-size: 11.5px; margin-top: 2px; }
 .ch-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (prefers-reduced-motion: reduce) { [data-rise].enter { animation: none; } }
+
+/* The HR tab (src/js/pages/hr.js): a progress meter, the who-is-out calendar, a decided request. */
+.meter { height: 8px; border-radius: 99px; background: var(--rule-soft); overflow: hidden; min-width: 80px; }
+.meter i { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+.meter.warn i { background: var(--warn); }
+.meter.bad i { background: var(--bad); }
+.t.cal td.n, .t.cal th.n { text-align: center; padding-left: 2px; padding-right: 2px; }
+.cal-on { display: inline-block; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); vertical-align: middle; }
+.t tr.muted td { opacity: .62; }
+.person-head { display: flex; gap: 18px; align-items: center; }
+.avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--accent); color: var(--on-accent, #fff); display: grid; place-items: center; font-weight: 700; font-size: 22px; flex: none; }
+.kv { display: grid; gap: 7px; align-content: start; }
+.kv > div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--rule-soft); padding-bottom: 6px; }
+.kv span { color: var(--muted, #6b6f78); }
+.face { border-radius: 50%; background: var(--accent-tint, var(--rule-soft)); color: var(--accent-deep, var(--ink)); display: inline-grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+.row-item[data-click] { cursor: pointer; }
+.steps { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 6px 0 4px; font-size: 12px; }
+.step { display: inline-flex; align-items: center; gap: 6px; color: var(--muted, #6b6f78); }
+.step i { width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--rule); }
+.step.done i { background: var(--good); border-color: var(--good); }
+.step.now i { border-color: var(--accent); background: var(--accent-lift, var(--accent)); }
+.step.now { color: var(--ink); font-weight: 600; }
+.step em { font-style: normal; opacity: .8; }
+.kv-total { display: flex; justify-content: space-between; padding-top: 8px; font-size: 16px; border-top: 2px solid var(--ink); }
+.paydates { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 14px; margin: 0 0 16px; }
+.paydates > div { background: var(--card, #fff); border-radius: 14px; padding: 14px 18px; box-shadow: var(--lift, var(--shadow)); display: flex; flex-direction: column; gap: 2px; }
+.paydates span { font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted, #6b6f78); }
+.paydates b { font-size: 24px; }
+.paydates em { font-style: normal; font-size: 12px; color: var(--muted, #6b6f78); }
+.paydates .go { justify-content: center; align-items: flex-start; gap: 6px; }
+@media (max-width: 760px) { .paydates { grid-template-columns: 1fr; } }

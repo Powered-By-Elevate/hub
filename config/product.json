@@ -1,18 +1,17 @@
 {
+  "$comment": "Product-level identity. The one file that changes when the product is renamed.",
   "product": {
     "name": "Hub",
     "tagline": "One place a company reads itself",
     "pitch": "The financial dashboard your leadership already wanted, wired to the software you already run, in your own brand, with each person seeing exactly their level.",
     "vendor": "Powered by Elevate",
     "lead": "Built first for construction and retail, where most of the companies we serve do their work. Every other world below runs on the same engine.",
-    "leads": [
-      "construction",
-      "retail"
-    ],
+    "leads": ["construction", "retail"],
     "version": "0.1.0"
   },
   "demoNotice": "Sample company. Every figure on this page is generated, and every company, person and project name is invented.",
   "pages": {
+    "$comment": "The page catalog. rank is the view level a page needs. An industry profile keeps, drops or relabels these.",
     "home": {
       "module": "start",
       "name": "Start here",
@@ -23,7 +22,8 @@
       "module": "finance",
       "name": "Financial dashboard",
       "rank": 45,
-      "icon": "gauge"
+      "icon": "gauge",
+      "$note": "45, not 30: the dashboard is money end to end, and a level with no currency permission reading a page of em dashes is worse than not being offered it."
     },
     "fin-pl": {
       "module": "finance",
@@ -116,11 +116,72 @@
       "rank": 30,
       "icon": "pulse"
     },
+    "hr-home": {
+      "module": "people",
+      "name": "HR home",
+      "rank": 70,
+      "icon": "compass"
+    },
+    "hr-inbox": {
+      "module": "people",
+      "name": "Inbox",
+      "rank": 70,
+      "icon": "check"
+    },
     "people-home": {
       "module": "people",
       "name": "People & labor",
       "rank": 70,
       "icon": "people"
+    },
+    "hr-directory": {
+      "module": "people",
+      "name": "Directory",
+      "rank": 70,
+      "icon": "list"
+    },
+    "hr-attendance": {
+      "module": "people",
+      "name": "Time & attendance",
+      "rank": 70,
+      "icon": "clock"
+    },
+    "hr-payroll": {
+      "module": "people",
+      "name": "Payroll preview",
+      "rank": 70,
+      "icon": "wallet"
+    },
+    "hr-time": {
+      "module": "people",
+      "name": "Time off",
+      "rank": 70,
+      "icon": "clock"
+    },
+    "hr-hiring": {
+      "module": "people",
+      "name": "Hiring & onboarding",
+      "rank": 70,
+      "icon": "funnel"
+    },
+    "hr-compliance": {
+      "module": "people",
+      "name": "Compliance & training",
+      "rank": 70,
+      "icon": "shield"
+    },
+    "hr-reviews": {
+      "module": "people",
+      "name": "Reviews & benefits",
+      "rank": 70,
+      "icon": "target"
+    },
+    "hr-person": {
+      "module": "people",
+      "name": "Employee",
+      "rank": 70,
+      "icon": "people",
+      "hidden": true
     },
     "pipeline-home": {
       "module": "pipeline",
@@ -155,7 +216,7 @@
       "order": 3
     },
     "people": {
-      "name": "People",
+      "name": "HR",
       "order": 4
     },
     "pipeline": {

@@ -1,4 +1,5 @@
 {
+  "$comment": "Seven industry profiles, in the order a prospect sees them. Construction and retail lead because they are the market Elevate sells to first, and education comes last. Each one is a complete Hub: its own sample company, brand, unit of work, measures, pages and connected software. The financial model is the same engine in all seven. What changes is the unit the money is divided by, which is the whole argument for the product.",
   "industries": [
     {
       "id": "construction",

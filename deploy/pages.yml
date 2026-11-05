@@ -1,0 +1,74 @@
+# GitHub Pages for the Hub demo.
+#
+# The repository carries the SOURCE, not the built site, and this workflow
+# builds it. That keeps the demo reproducible in public, keeps the 2 MB of
+# generated sample data out of the repository's history, and means an update
+# is a push of the handful of files that actually changed.
+#
+# The build needs nothing but Python's standard library: data/gen.py generates
+# the sample data deterministically and build.py assembles dist/.
+#
+# Set Settings > Pages > Source to "GitHub Actions" once. The first run then
+# creates the site itself (see enablement below), and every push to main
+# republishes.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build the site
+        run: python3 build.py
+
+      - name: Check what was built
+        run: |
+          test -f dist/index.html
+          test -f dist/data/summary.json
+          test -f dist/.nojekyll
+          echo "files: $(find dist -type f | wc -l)"
+          du -sh dist
+
+      # enablement: true creates the Pages site if it does not exist yet.
+      # Choosing "GitHub Actions" as the Source in Settings does NOT create the
+      # site record: that happens on first deployment, and without this the
+      # action refuses to deploy because no site exists, which is circular.
+      # Measured 2026-10-30: has_pages stayed false and every run failed on
+      # "Get Pages site failed ... Not Found" until this was set.
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

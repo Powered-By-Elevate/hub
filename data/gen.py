@@ -455,7 +455,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
         "bs": bs_rows,
         "cash": cash_rows,
         "unitFacts": unit_facts,
-        "people": build_people(ind, rnd, months, labor12, cor12),
+        "people": (lambda p: {**p, "hr": build_hr(ind, p, units)})(build_people(ind, rnd, months, labor12, cor12)),
         "pipeline": build_pipeline(ind, rnd, months, trailing12),
         "docs": build_docs(ind, rnd, units),
     }
@@ -625,6 +625,8 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
 
     parts = spread_to_total([rnd.around(1, 0.5) for _ in depts], heads)
     ftes = [max(1, int(x)) for x in parts]
+    # The departments add to the headcount, so the HR roster built from them is the same team.
+    ftes[ftes.index(max(ftes))] += heads - sum(ftes)
     # Cost follows the people, with a little spread for seniority mix, then is
     # scaled so the departments sum to all_in to the dollar.
     raw = [ftes[i] * rnd.around(1, 0.25) for i in range(len(depts))]
@@ -701,6 +703,256 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
         "departments": department,
         "history": hist,
         "roles": roles,
+        "titles": {d["name"]: titles[i] for i, d in enumerate(department)},
+    }
+
+
+# ----------------------------------------------------------------------- HR
+
+HR_FIRST = FIRST + ["Avery", "Jordan", "Tessa", "Malik", "Hannah", "Diego", "Kara", "Luis",
+                    "Brooke", "Isaac", "Rosa", "Theo", "Wren", "Andre", "Camille", "Felix",
+                    "Joy", "Kendall", "Leah", "Micah", "Noelle", "Paul", "Quinn", "Simone"]
+HR_LAST = LAST + ["Brennan", "Calloway", "Delgado", "Ellison", "Foster", "Garrity", "Hollis",
+                  "Iverson", "Jett", "Kowalski", "Lockhart", "Mercer", "Novak", "Ortega",
+                  "Prentice", "Quarles", "Rourke", "Sato", "Tolliver", "Underwood"]
+
+HR_CERTS = {
+    "construction": ["OSHA 30", "First aid & CPR", "Forklift operator", "Fall protection"],
+    "education": ["Teaching license", "Background check", "First aid & CPR", "Mandated reporter"],
+    "retail": ["Forklift operator", "First aid & CPR", "Food handler"],
+    "industrial": ["Forklift operator", "Lockout/tagout", "First aid & CPR", "Confined space"],
+    "logistics": ["CDL class A", "DOT medical card", "Hazmat endorsement", "First aid & CPR"],
+    "tech": ["Security awareness", "First aid & CPR"],
+    "restaurants": ["Food handler", "Alcohol server", "Food protection manager"],
+}
+HR_COURSES = {
+    "construction": ["Harassment prevention", "Site safety orientation", "Heat illness prevention", "Cyber security basics"],
+    "education": ["Harassment prevention", "Student privacy (FERPA)", "Bloodborne pathogens", "Cyber security basics"],
+    "retail": ["Harassment prevention", "Loss prevention", "Customer data privacy", "Workplace safety"],
+    "industrial": ["Harassment prevention", "Machine guarding", "Hazard communication", "Cyber security basics"],
+    "logistics": ["Harassment prevention", "Hours of service", "Defensive driving", "Hazard communication"],
+    "tech": ["Harassment prevention", "Secure coding", "Data privacy", "Incident response"],
+    "restaurants": ["Harassment prevention", "Allergen awareness", "Food safety", "Workplace safety"],
+}
+HR_ONBOARD = ["Offer signed", "I-9 and E-Verify", "Tax forms", "Direct deposit", "Handbook acknowledged",
+              "Benefits enrollment", "Equipment and accounts", "Training assigned"]
+
+
+def build_hr(ind: dict, people: dict, units: list[dict]) -> dict:
+    """The HR tab: who works here, who is out, who is joining, what is due, how reviews stand.
+
+    Matt, 2026-11-04: *"i want to build a paycor dupe but one that makes more sense for our
+    build in the demo"*. Its own seed, so adding it moves no figure on any other page, and
+    every count is built from one roster so the pages cannot disagree with each other or
+    with People & labor's headcount."""
+    import datetime as dt
+    rnd = Rand(seed_of(ind["id"] + ":hr"))
+    y, m = LAST_MONTH
+    today = dt.date(y, m, 28)
+    iso = lambda d: d.isoformat()
+    depts = people["departments"]
+    sites = [u.get("short") or u["name"] for u in units][:8] or ["Main office"]
+    hourly = people["costPerHead"] / 2080
+
+    titles = people.get("titles", {})
+    # Office departments sit at the head office. The ones that do the work sit at a site.
+    on_site = {"construction": [0], "education": [0, 1, 2, 4], "retail": [0], "industrial": [0, 1, 2, 3],
+               "logistics": [0, 2], "tech": [], "restaurants": [0, 1, 2, 3]}[ind["id"]]
+    used: set[str] = set()
+
+    def name() -> str:
+        for _ in range(60):
+            n = f"{rnd.pick(HR_FIRST)} {rnd.pick(HR_LAST)}"
+            if n not in used:
+                used.add(n)
+                return n
+        n = f"{rnd.pick(HR_FIRST)} {rnd.pick(HR_LAST)} {len(used)}"
+        used.add(n)
+        return n
+
+    roster = []
+    for di, d in enumerate(depts):
+        pool = titles.get(d["name"]) or [d["name"] + " specialist"]
+        lead = name()
+        for i in range(d["fte"]):
+            nm = lead if i == 0 else name()
+            years = rnd.next() ** 1.8 * 14 + (4 if i == 0 else 0)
+            start = today - dt.timedelta(days=int(years * 365) + 1)
+            kind = "Full time" if i == 0 or rnd.next() < 0.82 else ("Part time" if rnd.next() < 0.75 else "Seasonal")
+            roster.append({
+                "id": f"E{1000 + len(roster)}", "n": nm, "d": d["name"],
+                "t": f"{d['name']} lead" if i == 0 else rnd.pick(pool),
+                "ty": kind, "s": iso(start), "loc": rnd.pick(sites) if di in on_site else "Head office",
+                "mgr": None if i == 0 else lead,
+                "st": "On leave" if rnd.next() < 0.015 else "Active",
+                "pto": round(rnd.around(64, 0.7)) if kind == "Full time" else 0,
+            })
+
+    def pick_people(k):
+        out, seen = [], set()
+        while len(out) < k and len(seen) < len(roster):
+            r = rnd.pick(roster)
+            if r["id"] not in seen:
+                seen.add(r["id"]); out.append(r)
+        return out
+
+    # Time off: requests waiting on a manager, who is out in the next two weeks, the balances.
+    kinds = ["Vacation", "Vacation", "Sick", "Personal", "Bereavement", "Jury duty"]
+    pending = []
+    for r in pick_people(rnd.int_between(5, 9)):
+        f = today + dt.timedelta(days=rnd.int_between(3, 40))
+        n = rnd.int_between(1, 5)
+        pending.append({"id": r["id"], "n": r["n"], "d": r["d"], "k": rnd.pick(kinds[:4]),
+                        "from": iso(f), "to": iso(f + dt.timedelta(days=n - 1)), "days": n,
+                        "asked": rnd.int_between(0, 9)})
+    out = []
+    for r in pick_people(rnd.int_between(9, 16)):
+        f = today + dt.timedelta(days=rnd.int_between(0, 12))
+        n = rnd.int_between(1, 5)
+        out.append({"n": r["n"], "d": r["d"], "k": rnd.pick(kinds),
+                    "from": iso(f), "to": iso(f + dt.timedelta(days=n - 1))})
+    out.sort(key=lambda o: o["from"])
+    bal = []
+    for d in depts:
+        mine = [r for r in roster if r["d"] == d["name"] and r["pto"]]
+        hrs = sum(r["pto"] for r in mine)
+        bal.append({"d": d["name"], "avg": round(hrs / max(1, len(mine)), 1),
+                    "liability": round(hrs * hourly * rnd.around(1, 0.2)),
+                    "used": round(rnd.around(62, 0.25), 1)})
+
+    # Hiring: each open seat from People & labor carries a pipeline, plus the last 60 days of hires.
+    reqs = []
+    for r in people["roles"]:
+        applied = rnd.int_between(6, 60)
+        screen = rnd.int_between(1, max(1, applied // 3))
+        inter = rnd.int_between(0, max(0, screen // 2))
+        offer = 1 if inter and rnd.next() < 0.35 else 0
+        reqs.append({"t": r["title"], "d": r["dept"], "days": r["days"],
+                     "stages": [applied, screen, inter, offer],
+                     "src": rnd.pick(["Indeed", "Referral", "LinkedIn", "Careers page", "Job fair"])})
+    recent = sorted([r for r in roster if (today - dt.date.fromisoformat(r["s"])).days <= 60],
+                    key=lambda r: r["s"], reverse=True)
+    if len(recent) < 4:
+        for r in pick_people(4 - len(recent)):
+            r["s"] = iso(today - dt.timedelta(days=rnd.int_between(3, 55)))
+            recent.append(r)
+        recent.sort(key=lambda r: r["s"], reverse=True)
+    onboarding = []
+    for r in recent[:8]:
+        age = (today - dt.date.fromisoformat(r["s"])).days
+        done = min(len(HR_ONBOARD), max(2, int(age / 6) + rnd.int_between(0, 2)))
+        onboarding.append({"n": r["n"], "t": r["t"], "d": r["d"], "s": r["s"], "done": done})
+
+    # Compliance: certifications due, paperwork gaps, required training.
+    certs = HR_CERTS[ind["id"]]
+    expiring = []
+    for r in pick_people(rnd.int_between(7, 14)):
+        expiring.append({"n": r["n"], "d": r["d"], "c": rnd.pick(certs),
+                         "due": iso(today + dt.timedelta(days=rnd.int_between(-20, 90)))})
+    expiring.sort(key=lambda e: e["due"])
+    hc = len(roster)
+    gaps = [
+        {"k": "I-9 not complete", "n": rnd.int_between(0, 3)},
+        {"k": "Handbook not acknowledged", "n": rnd.int_between(2, max(3, hc // 25))},
+        {"k": "No emergency contact", "n": rnd.int_between(1, max(2, hc // 30))},
+        {"k": "W-4 older than 3 years", "n": rnd.int_between(3, max(4, hc // 12))},
+    ]
+    courses = [{"c": c, "pct": round(rnd.around(84, 0.14), 1), "due": iso(today + dt.timedelta(days=rnd.int_between(10, 75)))}
+               for c in HR_COURSES[ind["id"]]]
+
+    # Reviews and benefits.
+    reviews = [{"d": d["name"], "self": round(min(100, rnd.around(78, 0.25))), "mgr": round(min(100, rnd.around(58, 0.4)))}
+               for d in depts]
+    ratings = [int(round(x)) for x in spread_to_total([0.05, 0.18, 0.52, 0.2, 0.05], hc)]
+    ratings[2] += hc - sum(ratings)
+    eligible = sum(1 for r in roster if r["ty"] == "Full time")
+    benefits = {"eligible": eligible, "medical": round(eligible * rnd.around(0.81, 0.08)),
+                "dental": round(eligible * rnd.around(0.74, 0.1)), "retire": round(eligible * rnd.around(0.63, 0.15)),
+                "window": [iso(dt.date(y, 11, 3)), iso(dt.date(y, 11, 21))],
+                "elected": round(eligible * rnd.around(0.34, 0.3))}
+    # Time and attendance: the hourly team's cards for the open pay period, with the exceptions
+    # that block approval (ADP) and a trailing 30-day attendance points balance (UKG).
+    period_end = today + dt.timedelta(days=(4 - today.weekday()) % 7 or 7)
+    period_start = period_end - dt.timedelta(days=13)
+    hourly_staff = [r for r in roster if r["ty"] != "Full time" or r["d"] == depts[0]["name"]][:40]
+    ex_kinds = [("Missed punch", 0), ("Late in", 2), ("Early out", 2), ("Long break", 1), ("Absent, no call", 10)]
+    cards = []
+    for r in hourly_staff:
+        reg = round(rnd.around(72 if r["ty"] == "Full time" else 44, 0.12), 1)
+        ot = round(max(0.0, rnd.around(4, 1.0)), 1) if r["ty"] == "Full time" and rnd.next() < 0.45 else 0.0
+        exc = [rnd.pick(ex_kinds)[0] for _ in range(rnd.int_between(0, 2) if rnd.next() < 0.35 else 0)]
+        pts = sum(dict(ex_kinds)[e] for e in exc) + rnd.int_between(0, 9)
+        cards.append({"id": r["id"], "n": r["n"], "d": r["d"], "mgr": r["mgr"], "reg": reg, "ot": ot,
+                      "exc": exc, "pts": pts, "approved": not exc and rnd.next() < 0.4})
+
+    # Payroll preview: the next run, what the provider will debit, and the people whose pay moved.
+    per_run = people["payroll"]["allIn"] / 26
+    gross = round(per_run * 0.84)
+    taxes_ee = round(gross * 0.205)
+    deductions = round(gross * 0.072)
+    net = gross - taxes_ee - deductions
+    taxes_er = round(gross * 0.0765 + gross * 0.008)
+    run_by = period_end + dt.timedelta(days=3)
+    payday = period_end + dt.timedelta(days=7)
+    reasons = [("Overtime", "OT +{h}h"), ("Bonus", "Spot bonus"), ("Raise", "Raise effective this run"),
+               ("Garnishment", "New garnishment order"), ("Unpaid leave", "{h}h unpaid leave"), ("New hire", "First check, partial period")]
+    variances = []
+    for r in pick_people(rnd.int_between(5, 9)):
+        k, label = rnd.pick(reasons)
+        last = round(rnd.around(people["costPerHead"] / 26, 0.3))
+        move = {"Overtime": 0.22, "Bonus": 0.35, "Raise": 0.06, "Garnishment": -0.18, "Unpaid leave": -0.25, "New hire": -0.4}[k]
+        variances.append({"id": r["id"], "n": r["n"], "d": r["d"], "k": k, "why": label.format(h=rnd.int_between(6, 18)),
+                          "last": last, "now": round(last * (1 + move * rnd.around(1, 0.3)))})
+
+    # One inbox for every approval (Workday), each with its route and its history so far.
+    inbox = []
+    for p_ in pending:
+        r = next(x for x in roster if x["id"] == p_["id"])
+        inbox.append({"id": f"pto-{p_['id']}-{p_['from']}", "kind": "Time off", "who": p_["n"], "pid": p_["id"],
+                      "what": f"{p_['k']}, {p_['days']} day{'s' if p_['days'] > 1 else ''} from {p_['from']}",
+                      "route": f"Manager ({r['mgr'] or 'Leadership'})", "age": p_["asked"],
+                      "steps": [["Submitted", p_["n"], p_["asked"]], ["Manager approval", r["mgr"] or "Leadership", None]]})
+    for r in pick_people(rnd.int_between(2, 4)):
+        pct = round(rnd.around(4.5, 0.4), 1)
+        inbox.append({"id": f"comp-{r['id']}", "kind": "Pay change", "who": r["n"], "pid": r["id"],
+                      "what": f"Merit increase of {pct}%", "route": "Manager, then HR, then Finance over 5%" if pct > 5 else "Manager, then HR",
+                      "age": rnd.int_between(1, 6),
+                      "steps": [["Proposed", r["mgr"] or "Leadership", rnd.int_between(3, 8)], ["Manager approval", r["mgr"] or "Leadership", rnd.int_between(1, 3)],
+                                ["HR review", "HR", None]] + ([["Finance approval", "Finance", None]] if pct > 5 else [])})
+    for r in pick_people(rnd.int_between(1, 3)):
+        inbox.append({"id": f"job-{r['id']}", "kind": "Job change", "who": r["n"], "pid": r["id"],
+                      "what": f"Promotion to senior {r['t'].lower()}, effective the 1st", "route": "Manager, then HR",
+                      "age": rnd.int_between(0, 5), "steps": [["Proposed", r["mgr"] or "Leadership", rnd.int_between(1, 5)], ["HR review", "HR", None]]})
+    for c in [c for c in cards if c["exc"]][:4]:
+        inbox.append({"id": f"tc-{c['id']}", "kind": "Timecard", "who": c["n"], "pid": c["id"],
+                      "what": f"{len(c['exc'])} exception{'s' if len(c['exc']) > 1 else ''} to clear: {', '.join(c['exc'])}",
+                      "route": f"Manager ({c['mgr'] or 'Leadership'})", "age": rnd.int_between(0, 2),
+                      "steps": [["Period closed", "System", 0], ["Clear exceptions", c["mgr"] or "Leadership", None], ["Approve card", c["mgr"] or "Leadership", None]]})
+    inbox.sort(key=lambda i: -i["age"])
+
+    # Health score with next-best actions (Paylocity), and the latest pulse survey (BambooHR eNPS).
+    enps_hist = [round(rnd.around(22, 0.5)) for _ in range(6)]
+    pulse = {"enps": enps_hist[-1], "history": enps_hist, "responded": round(rnd.around(68, 0.15)),
+             "promoters": round(rnd.around(44, 0.15)), "detractors": round(rnd.around(20, 0.3)),
+             "themes": [["Pay and benefits", round(rnd.around(-0.3, 0.8), 2)], ["Managers", round(rnd.around(0.4, 0.6), 2)],
+                        ["Workload", round(rnd.around(-0.2, 0.9), 2)], ["Growth", round(rnd.around(0.1, 1.5), 2)],
+                        ["Tools and equipment", round(rnd.around(0.2, 1.2), 2)]]}
+
+    return {
+        "asOf": iso(today), "roster": roster,
+        "timeoff": {"pending": pending, "out": out, "balances": bal},
+        "hiring": {"reqs": reqs, "onboarding": onboarding, "steps": HR_ONBOARD,
+                   "timeToFill": round(rnd.around(41, 0.3)), "accept": round(rnd.around(82, 0.1))},
+        "compliance": {"expiring": expiring, "gaps": gaps, "courses": courses},
+        "reviews": {"cycle": f"{y} annual review", "due": iso(dt.date(y, 12, 12)), "byDept": reviews,
+                    "ratings": [int(x) for x in ratings], "goals": [round(hc * 0.61), round(hc * 0.27), round(hc * 0.12)]},
+        "benefits": benefits,
+        "attendance": {"from": iso(period_start), "to": iso(period_end), "cards": cards,
+                       "ladder": [[10, "Verbal warning"], [20, "Written warning"], [30, "Final warning"]]},
+        "payroll": {"runBy": iso(run_by), "payday": iso(payday), "people": len(roster), "gross": gross,
+                    "taxesEe": taxes_ee, "deductions": deductions, "net": net, "taxesEr": taxes_er,
+                    "debit": net + taxes_ee + taxes_er + deductions, "variances": variances},
+        "inbox": inbox, "pulse": pulse,
     }
 
 

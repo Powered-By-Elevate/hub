@@ -16,6 +16,7 @@ import { esc, icon, brandMark } from './icons.js';
 import { financePages } from './pages/finance.js';
 import { opsPages } from './pages/ops.js';
 import { miscPages } from './pages/misc.js';
+import { hrPages } from './pages/hr.js';
 import { settings as settingsPage, connectSheet, FONT_PAIRS } from './cms.js';
 import * as Chooser from './chooser.js';
 import * as Present from './present.js';
@@ -27,7 +28,7 @@ const BASIS = [
   { id: 'ttm', name: 'TTM' }, { id: 'fy', name: 'FY' },
 ];
 
-const PAGES = { ...financePages, ...opsPages, ...miscPages, settings: settingsPage };
+const PAGES = { ...financePages, ...opsPages, ...miscPages, ...hrPages, settings: settingsPage };
 
 const app = {
   cfg: null, s: null, q: null, data: {},
@@ -232,7 +233,9 @@ function render() {
   q.setView({ role: s.role, entity: s.data.entity, basis: s.data.basis, month: s.data.month });
 
   const pages = s.pages();
-  if (!pages.find(p => p.id === app.page) && app.page !== 'ops-detail') {
+  /* the employee profile is a drill-down too, offered to whoever can open the directory */
+  const drill = app.page === 'ops-detail' || (app.page === 'hr-person' && pages.find(p => p.id === 'hr-directory'));
+  if (!pages.find(p => p.id === app.page) && !drill) {
     app.page = pages[0] ? pages[0].id : 'home';
   }
 
@@ -273,6 +276,8 @@ function render() {
 const NEEDS = {
   'fin-budget': ['budget', 'a budget', 'finance'],
   'people-home': ['people', 'payroll and headcount', 'people'],
+  ...Object.fromEntries(['hr-home', 'hr-inbox', 'hr-attendance', 'hr-payroll', 'hr-directory', 'hr-time', 'hr-hiring', 'hr-compliance', 'hr-reviews']
+    .map(id => [id, ['people', 'employee records', 'people']])),
   'pipeline-home': ['pipeline', 'the pipeline', 'crm'],
   'docs-home': ['docs', 'documents', 'docs'],
   'fin-close': ['closedThrough', 'a close record', 'finance'],
@@ -364,6 +369,17 @@ function tabs(pages) {
         ${esc(u.short || u.name)}
         <button class="tab-x" data-act="go" data-arg="${esc(back)}"
           aria-label="Close ${esc(u.short || u.name)}">${icon('close', 12)}</button></span>`;
+    }
+  }
+  if (app.page === 'hr-person' && app.arg && app.q) {
+    const hr = (app.q.data.people || {}).hr;
+    const r = hr && hr.roster.find(x => x.id === app.arg);
+    if (r) {
+      const back = app.detailFrom && app.cfg.product.pages[app.detailFrom] && app.detailFrom !== 'hr-person'
+        ? app.detailFrom : 'hr-directory';
+      open_unit = `<span class="tab open-unit" aria-current="true">${esc(r.n)}
+        <button class="tab-x" data-act="go" data-arg="${esc(back)}"
+          aria-label="Close ${esc(r.n)}">${icon('close', 12)}</button></span>`;
     }
   }
   return `<div class="tabs-title">${esc(mod ? mod.name : '')}</div>` + open_unit +
@@ -794,6 +810,7 @@ async function onClick(ev) {
   if (row && !el) {
     const [kind, arg] = row.dataset.click.split(':');
     if (kind === 'unit') { app.detailFrom = app.page; go('ops-detail', arg); }
+    if (kind === 'person') { if (app.page !== 'hr-person') app.detailFrom = app.page; go('hr-person', arg); }
     return;
   }
 
