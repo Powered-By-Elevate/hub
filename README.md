@@ -36,9 +36,9 @@ thing that sells; everything else is there when a company wants it.
   their own crew with no money on any of them, and People & HR sees the people
   page and no finance page.
 - **An HR tab that copies the best screen in each HR platform** (Matt, 2026-11-04 and 11-05). HR home
-  laid out like BambooHR's, the Inbox like Workday's, the employee record and Reports like Rippling's, Timecards
-  like ADP and UKG's team grid, Run payroll and Onboarding like Gusto's, plus an org chart with a what-if and a
-  calibration nine-box (`src/js/pages/hrmash.js`), beside Directory, Time off, Hiring, Compliance and Reviews
+  laid out like BambooHR's, the Inbox like Workday's, the employee record like Rippling's, Timecards like ADP's,
+  Run payroll like Gusto's, the org chart and nine-box like Workday's (drawn with the open-source d3-org-chart and
+  SortableJS, pinned in `src/js/vendor/` with their licences), Onboarding and Reports like BambooHR's (`src/js/pages/hrmash.js`), beside Directory, Time off, Hiring, Compliance and Reviews
   (`src/js/pages/hr.js`). One generated roster feeds every page (`build_hr` in `data/gen.py`). No vendor name or
   logo ships. Payroll tax and money movement stay with the payroll provider. The spec and the side by side are in
   `os-vault/wiki/research/hr-mashup-spec.md`.
