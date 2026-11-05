@@ -104,7 +104,33 @@ def build(no_data: bool = False, dist: Path = DIST,
     return _finish(DIST, [i["id"] for i in industries])
 
 
+def _stamp_assets(DIST: Path) -> str:  # noqa: N803
+    """Put this build's stamp on every script and stylesheet address.
+
+    Pages tells browsers to keep JS and CSS for ten minutes while the config is
+    fetched fresh, so after a publish a browser could pair the new menu with the
+    old code: the rail offered HR, the old app.js had no HR pages, and the click
+    fell back to Start here (Matt, 2026-11-05). A stamped address is a new file
+    to the browser, so a page can only ever load code from one build.
+    """
+    import re
+    parts = sorted(p for p in DIST.rglob("*") if p.suffix in (".js", ".css") and p.is_file())
+    stamp = hashlib.sha256(b"".join(p.read_bytes() for p in parts)).hexdigest()[:10]
+    imp = re.compile(r"""((?:\bfrom|\bimport)\s*\(?\s*)(['"])(\.{1,2}/[^'"?]+\.js)\2""")
+    for p in DIST.joinpath("js").rglob("*.js"):
+        s = p.read_text(encoding="utf-8")
+        t = imp.sub(lambda m: f"{m[1]}{m[2]}{m[3]}?v={stamp}{m[2]}", s)
+        if t != s:
+            p.write_text(t, encoding="utf-8")
+    idx = DIST / "index.html"
+    html = re.sub(r"""((?:src|href)=")((?:js/)?[\w./-]+\.(?:js|css))(")""",
+                  lambda m: f"{m[1]}{m[2]}?v={stamp}{m[3]}", idx.read_text(encoding="utf-8"))
+    idx.write_text(html, encoding="utf-8")
+    return stamp
+
+
 def _finish(DIST: Path, industries: list[str]) -> dict:  # noqa: N803
+    stamp = _stamp_assets(DIST)
     # Pages serves the repo as-is; .nojekyll stops it hiding anything underscored
     (DIST / ".nojekyll").write_text("")
 
