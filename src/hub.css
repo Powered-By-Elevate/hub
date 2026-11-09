@@ -2719,7 +2719,8 @@ table.wd-t th { background: var(--hx-head); }
 .rp-edit { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
 .rp-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--hx-line-soft);
   font: inherit; font-size: 13.5px; width: 100%; background: none; color: var(--ink); text-align: left; }
-.rp-line span { display: flex; gap: 8px; align-items: center; min-width: 0; flex-wrap: wrap; }
+.rp-line > span { display: flex; gap: 8px; align-items: center; min-width: 0; flex-wrap: wrap; }
+.rp-line .hx-face { display: grid; place-items: center; flex: none; }
 .rp-line i { font-style: normal; color: var(--ink-faint); font-size: 12.5px; }
 .rp-person { cursor: pointer; } .rp-person:hover b { color: var(--hx-link); text-decoration: underline; }
 .rp-apps { display: flex; flex-wrap: wrap; gap: 6px; }
