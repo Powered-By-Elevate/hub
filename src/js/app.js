@@ -56,6 +56,11 @@ async function boot() {
   if (!product.tenant) await Chooser.loadCards(base);
   app.s = new Settings(app.cfg).load();
   app.s.apply();
+  /* `#/demo/<industry>` opens that industry's demo on its Start here page, so
+     a website can link straight to one company (elevatemanagedservices.com's
+     industry chips do). It counts as a choice, so the front door stays shut. */
+  const demo = demoHash();
+  if (demo) { app.s.useIndustry(demo); app.s.save(); firstVisit = false; history.replaceState(null, '', '#/home'); }
   await useIndustry(app.s.data.industry, true);
 
   World.start();
@@ -68,7 +73,12 @@ async function boot() {
     if (balanceFrame) return;
     balanceFrame = requestAnimationFrame(() => { balanceFrame = 0; balanceRows(); });
   }, { passive: true });
-  window.addEventListener('hashchange', () => {
+  window.addEventListener('hashchange', async () => {
+    const demo = demoHash();
+    if (demo) {
+      if (demo !== app.s.data.industry) { app.s.useIndustry(demo); await useIndustry(demo); } else app.s.save();
+      go('home'); return;
+    }
     const gate = readHash();
     if (gate) { openGate(gate.kind, gate.arg); return; }
     if (Gate.open()) closeGate();
@@ -108,6 +118,14 @@ async function useIndustry(id, first = false) {
   app.q.setView({ role: app.s.role, entity: d.entity, basis: d.basis, month: d.month });
   F.setMoneyLevel(app.s.role.money);
   if (!first) app.s.save();
+}
+
+/* The industry named by `#/demo/<industry>`, or null. A client's own Hub
+   (a tenant) has no other demos, so it never takes one. */
+function demoHash() {
+  const m = location.hash.match(/^#\/?demo\/([a-z-]+)/);
+  if (!m || (app.cfg.product && app.cfg.product.tenant)) return null;
+  return app.cfg.industries.industries.some(i => i.id === m[1]) ? m[1] : null;
 }
 
 /* A page route sets the page. `#/signin`, `#/signin/<industry>` and
