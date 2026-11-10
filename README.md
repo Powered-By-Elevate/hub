@@ -13,13 +13,14 @@ thing that sells; everything else is there when a company wants it.
 
 ## What it does
 
-- **Every demo is read only outside Brand & identity** (`src/js/site.js`).
-  Name, logo, colours and type change in the viewer's browser and nowhere
-  else. Connectors cannot be switched, and no page takes data entry, because
-  every figure is read from outside software (finance, CRM, marketing,
-  pipeline) and documents and HR are hosted in the Hub. Each page says where
-  its figures come from under its title. The copy the Elevate website serves at
-  `/demo/` has no staff console at all: the picker and the demos only.
+- **The public demo is read only outside Brand & identity** (`src/js/site.js`).
+  The copy the Elevate website serves at `/demo/` lets a visitor change name,
+  logo, colours and type in their own browser and nothing else: connectors
+  cannot be switched and no page takes data entry, because every figure is read
+  from outside software (finance, CRM, marketing, pipeline) and documents and HR
+  are hosted in the Hub. It has no staff console at all, only the picker and the
+  demos. The Hub's own site is the team's demo and stays fully adjustable. Every
+  page says where its figures come from under its title.
 - **Eight industries ship as working demos**, each with its own sample company,
   brand and connected software, in this order (`product.order`): construction,
   schools, retail, restaurants, manufacturing, freight, software and healthcare.
