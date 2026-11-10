@@ -34,6 +34,10 @@ export function show(cfg, onPick, current = null) {
   }
   host.innerHTML = markup(cfg, current);
   host.hidden = false;
+  /* The picker belongs to no company, so the tab must not name the one loaded
+     behind it (Matt, 2026-11-10: the tab still read "Granite Ridge Builders · Hub"). */
+  if (prevTitle === null) prevTitle = document.title;
+  document.title = `Choose an industry · ${cfg.product.product.name}`;
   document.body.classList.add('choosing');
 
   const quiet = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -57,9 +61,12 @@ export function show(cfg, onPick, current = null) {
   document.addEventListener('keydown', esc0);
 }
 
+let prevTitle = null;
+
 export function hide() {
   const host = document.getElementById('chooser');
   if (host) host.hidden = true;
+  if (prevTitle !== null) { document.title = prevTitle; prevTitle = null; }
   document.body.classList.remove('choosing');
 }
 
