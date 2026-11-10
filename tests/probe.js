@@ -410,12 +410,11 @@ async function main() {
   ok(firstScreen.showing, 'a first visit opens on the chooser');
   ok(firstScreen.cards === firstScreen.shipped, 'the chooser reads a card per industry', `${firstScreen.cards} of ${firstScreen.shipped}`);
   ok(firstScreen.worlds === firstScreen.shipped, 'the chooser draws a world per industry', `${firstScreen.worlds} of ${firstScreen.shipped}`);
-  /* Matt, 2026-11-10: construction and education lead, healthcare ends the
-     top lines. The front door draws them in that order and marks the leads. */
-  const lastId = firstScreen.order[firstScreen.order.length - 1];
-  ok(firstScreen.order[0] === 'construction' && firstScreen.order[1] === 'education'
-    && (lastId === 'healthcare' || !firstScreen.order.includes('healthcare')),
-    'the front door leads with construction and education and ends on healthcare', firstScreen.order.join(','));
+  /* Matt, 2026-11-10: construction and education lead and are marked. */
+  /* Matt, later the same day: healthcare takes retail's place, third. */
+  ok(firstScreen.order.slice(0, 3).join(',') === 'construction,education,healthcare'
+    && firstScreen.order[firstScreen.order.length - 1] === 'retail',
+    'the front door leads with construction, education and healthcare and ends on retail', firstScreen.order.join(','));
   ok(firstScreen.leads.join(',') === 'construction,education', 'the industries we lead with are marked', firstScreen.leads.join(','));
   ok(firstScreen.overflow <= 1, 'the chooser does not scroll sideways at 1440',
     String(firstScreen.overflow));

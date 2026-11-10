@@ -13,12 +13,12 @@
     "order": [
       "construction",
       "education",
-      "retail",
+      "healthcare",
       "restaurants",
       "industrial",
       "logistics",
       "tech",
-      "healthcare"
+      "retail"
     ],
     "version": "0.1.0"
   },

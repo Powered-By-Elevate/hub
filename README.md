@@ -23,7 +23,7 @@ thing that sells; everything else is there when a company wants it.
   page says where its figures come from under its title.
 - **Eight industries ship as working demos**, each with its own sample company,
   brand and connected software, in this order (`product.order`): construction,
-  schools, retail, restaurants, manufacturing, freight, software and healthcare.
+  schools, healthcare, restaurants, manufacturing, freight, software and retail.
   Construction and schools lead and carry a "Where we lead" mark on the front
   door (Matt, 2026-11-10), because that is where most of the companies Elevate
   serves do their work. The financial engine is
