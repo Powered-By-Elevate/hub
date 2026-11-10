@@ -62,6 +62,9 @@ async function main() {
 
   const server = await serve();
   const base = `http://127.0.0.1:${server.address().port}/`;
+  /* ?edit keeps the full settings console the rest of this file walks; a
+     plain demo is read only outside Brand & identity (src/js/site.js) */
+  const entry = base + '?edit';
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
 
@@ -69,7 +72,7 @@ async function main() {
   page.on('pageerror', e => errors.push(String(e)));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
 
-  await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.goto(entry, { waitUntil: 'domcontentloaded' });
   /* ⛔ A BOOT FAILURE IS NOT A CHECK FAILURE, AND IT HAS ITS OWN WITNESS.
 
      An import once landed inside a block comment: `node --check` passed,
@@ -399,7 +402,7 @@ async function main() {
     showing: window.__hub.choosing(),
     cards: (window.__hub.cards() || []).length,
     shipped: window.__hub.industries().length,
-    order: (window.__hub.cards() || []).map(c => c.id),
+    order: [...document.querySelectorAll('#chooser .world')].map(w => w.dataset.world),
     leads: [...document.querySelectorAll('#chooser .world')].filter(w => w.querySelector('.w-lead')).map(w => w.dataset.world),
     worlds: document.querySelectorAll('#chooser .world').length,
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -407,12 +410,13 @@ async function main() {
   ok(firstScreen.showing, 'a first visit opens on the chooser');
   ok(firstScreen.cards === firstScreen.shipped, 'the chooser reads a card per industry', `${firstScreen.cards} of ${firstScreen.shipped}`);
   ok(firstScreen.worlds === firstScreen.shipped, 'the chooser draws a world per industry', `${firstScreen.worlds} of ${firstScreen.shipped}`);
-  /* Education is not the target market, construction
-     and retail are. The front door leads with them and says so. */
-  ok(firstScreen.order[0] === 'construction' && firstScreen.order[1] === 'retail'
-    && firstScreen.order[firstScreen.order.length - 1] === 'education',
-    'the front door leads with construction and retail and ends on education', firstScreen.order.join(','));
-  ok(firstScreen.leads.join(',') === 'construction,retail', 'the industries we lead with are marked', firstScreen.leads.join(','));
+  /* Matt, 2026-11-10: construction and education lead, healthcare ends the
+     top lines. The front door draws them in that order and marks the leads. */
+  const lastId = firstScreen.order[firstScreen.order.length - 1];
+  ok(firstScreen.order[0] === 'construction' && firstScreen.order[1] === 'education'
+    && (lastId === 'healthcare' || !firstScreen.order.includes('healthcare')),
+    'the front door leads with construction and education and ends on healthcare', firstScreen.order.join(','));
+  ok(firstScreen.leads.join(',') === 'construction,education', 'the industries we lead with are marked', firstScreen.leads.join(','));
   ok(firstScreen.overflow <= 1, 'the chooser does not scroll sideways at 1440',
     String(firstScreen.overflow));
 
@@ -915,7 +919,7 @@ async function main() {
 
   const industries = await page.evaluate('window.__hub.industries()');
   const roles = await page.evaluate('window.__hub.roles()');
-  ok(industries.length === 7, 'seven industries ship', industries.join(','));
+  ok(industries.length === 8, 'eight industries ship', industries.join(','));
   ok(roles.length >= 8, 'at least eight view levels', String(roles.length));
 
   /* --only <id> walks one named industry, which is how a new one is proven alone */

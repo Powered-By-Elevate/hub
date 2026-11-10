@@ -68,6 +68,13 @@
       "palette": { "accent": "#5B3FC4", "accentDeep": "#432D96", "accentLift": "#8673DC", "tint": "#F1EEFB", "navy": "#1B1535" },
       "type": { "display": "\"Space Grotesk\", Helvetica, sans-serif", "body": "\"Inter\", -apple-system, sans-serif", "google": "Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700" },
       "shape": "beam"
+    },
+    "bluewater": {
+      "name": "Bluewater Health Partners",
+      "mono": "BH",
+      "palette": { "accent": "#0F6E7A", "accentDeep": "#0B525B", "accentLift": "#3C9AA6", "tint": "#EAF5F6", "navy": "#0E2A33" },
+      "type": { "display": "\"Fraunces\", Georgia, serif", "body": "\"Inter\", -apple-system, sans-serif", "google": "Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700" },
+      "shape": "circle"
     }
   }
 }

@@ -225,6 +225,11 @@ function verdictLine(ctx, m) {
       return `<b>${F.num(e.value)}</b> students fill <b>${F.pct(fr.value, 0)}</b> of the seats,
         at <b>${F.exact(ps.value)}</b> of revenue each.`;
     },
+    healthcare: () => {
+      const v = q.kpi('visits'), pv = q.kpi('perVisit'), cr = q.kpi('collectRate');
+      return `<b>${F.num(v.value)}</b> patient visits at <b>${F.exact(pv.value, 2)}</b> each,
+        with <b>${F.pct(cr.value, 1)}</b> of what payers allowed collected.`;
+    },
     retail: () => {
       const sp = q.kpi('salesPerSqft'), bk = q.kpi('basket');
       return `Trading at <b>${F.exact(sp.value)}</b> per square foot on an average basket of

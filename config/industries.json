@@ -1,5 +1,5 @@
 {
-  "$comment": "Seven industry profiles, in the order a prospect sees them. Construction and retail lead because they are the market Elevate sells to first, and education comes last. Each one is a complete Hub: its own sample company, brand, unit of work, measures, pages and connected software. The financial model is the same engine in all seven. What changes is the unit the money is divided by, which is the whole argument for the product.",
+  "$comment": "Eight industry profiles, in the order a prospect sees them. The picker's own order is product.order: construction and education lead, healthcare ends the top lines. Each one is a complete Hub: its own sample company, brand, unit of work, measures, pages and connected software. The financial model is the same engine in all eight. What changes is the unit the money is divided by, which is the whole argument for the product.",
   "industries": [
     {
       "id": "construction",
@@ -1009,7 +1009,7 @@
           "name": "Campus"
         },
         "pipeline-home": {
-          "name": "Enrolment pipeline"
+          "name": "Marketing & enrollment"
         },
         "ops-grid": {
           "name": "Enrolment grid"
@@ -1080,7 +1080,10 @@
           "zoom"
         ],
         "crm": [
-          "hubspot"
+          "hubspot",
+          "google-ads",
+          "meta-ads",
+          "google-analytics"
         ],
         "people": [
           "paylocity"
@@ -1128,6 +1131,171 @@
           [
             "staff",
             "Staff"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare & clinics",
+      "short": "Healthcare",
+      "tagline": "A visit only counts once it is seen, coded and collected",
+      "company": "Bluewater Health Partners",
+      "brand": "bluewater",
+      "entities": [
+        {
+          "id": "BHP",
+          "name": "Bluewater Health Partners",
+          "kind": "Clinics"
+        },
+        {
+          "id": "BRH",
+          "name": "Bluewater Rehab",
+          "kind": "Physical therapy"
+        }
+      ],
+      "unit": {
+        "one": "clinic",
+        "many": "clinics",
+        "collection": "Clinics",
+        "key": "Clinic",
+        "owner": "Practice manager"
+      },
+      "pages": {
+        "ops-home": {
+          "name": "Clinic network"
+        },
+        "ops-units": {
+          "name": "Clinics"
+        },
+        "ops-second": {
+          "name": "Visits & revenue cycle"
+        },
+        "ops-detail": {
+          "name": "Clinic"
+        },
+        "pipeline-home": {
+          "name": "Growth pipeline"
+        },
+        "ops-grid": {
+          "name": "Visits grid"
+        },
+        "ops-people": {
+          "name": "Practice managers"
+        }
+      },
+      "headline": {
+        "metric": "visits",
+        "label": "Patient visits this year",
+        "says": "{v} patient visits this year"
+      },
+      "kpis": [
+        "revenue",
+        "visits",
+        "perVisit",
+        "collectRate",
+        "arDays",
+        "noShow"
+      ],
+      "measures": [
+        {
+          "id": "visits",
+          "name": "Patient visits",
+          "unit": "num"
+        },
+        {
+          "id": "providers",
+          "name": "Providers (FTE)",
+          "unit": "num"
+        },
+        {
+          "id": "perVisit",
+          "name": "Revenue per visit",
+          "unit": "usd"
+        },
+        {
+          "id": "collect",
+          "name": "Collection rate",
+          "unit": "pct"
+        },
+        {
+          "id": "arDays",
+          "name": "Days in A/R",
+          "unit": "num"
+        },
+        {
+          "id": "noShow",
+          "name": "No-show rate",
+          "unit": "pct"
+        },
+        {
+          "id": "nps",
+          "name": "Patient satisfaction",
+          "unit": "num"
+        }
+      ],
+      "connected": {
+        "finance": "quickbooks",
+        "systems": [
+          "athenahealth"
+        ],
+        "projects": [],
+        "tasks": [
+          "ms-planner"
+        ],
+        "docs": [
+          "sharepoint"
+        ],
+        "comms": [
+          "ms-teams",
+          "outlook"
+        ],
+        "crm": [
+          "hubspot"
+        ],
+        "people": [
+          "gusto"
+        ],
+        "inventory": []
+      },
+      "model": {
+        "revM0": 2600000,
+        "growth": 0.006,
+        "season": [
+          1.08,
+          1.06,
+          1.02,
+          0.98,
+          0.96,
+          0.94,
+          0.92,
+          0.97,
+          1.02,
+          1.03,
+          1.0,
+          1.02
+        ],
+        "gm": 0.41,
+        "ohPct": 0.29,
+        "units": 8,
+        "dso": 42,
+        "dpo": 27,
+        "capex": 0.018,
+        "debt": 9400000
+      },
+      "portfolio": {
+        "barLabel": "Collection rate",
+        "bar": "collect",
+        "size": "visits",
+        "sizeLabel": "Visits",
+        "chips": [
+          [
+            "providers",
+            "Providers"
+          ],
+          [
+            "noShow",
+            "No-shows"
           ]
         ]
       }

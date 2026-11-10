@@ -23,6 +23,7 @@ import * as Chooser from './chooser.js';
 import * as Present from './present.js';
 import * as World from './world.js';
 import * as Gate from './gate.js';
+import * as Site from './site.js';
 
 const BASIS = [
   { id: 'month', name: 'Month' }, { id: 'ytd', name: 'YTD' },
@@ -136,6 +137,7 @@ function readHash() {
   const h = location.hash.replace(/^#\/?/, '');
   if (!h) return null;
   const [page, arg] = h.split('/');
+  if (page === 'console' && Site.PUBLIC) { history.replaceState(null, '', '#/choose'); return { kind: 'choose' }; }
   if (page === 'signin' || page === 'console') {
     return { kind: page, arg: arg ? decodeURIComponent(arg) : null };
   }
@@ -152,6 +154,9 @@ function toGate(kind, arg = null) {
 
 async function openGate(kind, arg = null, note = false) {
   closeMenu(); closeSheet(); Chooser.hide();
+  if (kind === 'choose') { Gate.hide(); openChooser(); return; }
+  /* the public copy on the Elevate website has no staff console (site.js) */
+  if (kind === 'console' && Site.PUBLIC) { Gate.hide(); openChooser(); return; }
   const inds = app.cfg.industries.industries;
   if (kind === 'console') {
     /* one client's own Hub has no other clients to show */
@@ -246,6 +251,18 @@ function go(page, arg = null) {
 
 /* ------------------------------------------------------------------ render */
 
+/* A demo takes no data entry outside Brand & identity (site.js). Searches and
+   filters still work, because finding something is reading, not entering. */
+function readOnly(host) {
+  const brand = app.page === 'settings' && (app.subtab || 'brand') === 'brand';
+  if (brand) return;
+  host.querySelectorAll('input, textarea, select').forEach(el => {
+    if (el.type === 'search' || el.dataset.filter || el.closest('.hx-search')) return;
+    el.disabled = true;
+    el.title = 'Read only in the demo. Every figure comes from connected software.';
+  });
+}
+
 function render() {
   const s = app.s, q = app.q;
   F.setMoneyLevel(s.role.money);
@@ -275,11 +292,13 @@ function render() {
       <b>That page could not be drawn.</b><br>${esc(err.message)}</div></section>`;
     console.error(err);
   }
+  html = withSource(html);
   host.innerHTML = (s.data.showDemoNote && app.q.data.meta.notice ? demoNote() : '') + html;
   C.wire(host);
   U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
   hrWire(host, render);
   World.arm(host);
+  if (Site.locked(s)) readOnly(host);
   /* After the markup is in and the charts are wired, so the measurement sees
      real geometry. Again on resize, because a row that fits at 1440 can be
      wildly mismatched at 900 once the columns reflow. */
@@ -302,6 +321,39 @@ const NEEDS = {
   'docs-home': ['docs', 'documents', 'docs'],
   'fin-close': ['closedThrough', 'a close record', 'finance'],
 };
+
+/* Where this page's figures come from, said under its title (Matt, 2026-11-10:
+   *"we need to really think hard about where all this information is coming
+   from. we need to be able to derive everything from outside softwares with
+   no manual entry"*). Finance, operations and pipeline are read from the
+   company's own software. Documents and HR are hosted inside the Hub, so
+   they say that instead. A page that already names its sources keeps its own. */
+const SOURCE_CATS = { start: ['finance', 'systems'], finance: ['finance'], ops: ['systems', 'projects', 'inventory'],
+  pipeline: ['crm'] };
+
+function sourceLine(page) {
+  const mod = (app.cfg.product.pages[page] || {}).module;
+  if (mod === 'people') {
+    return `Hosted in the ${esc(app.s.data.productName)}: employee records, time, payroll runs and reviews are kept here, not imported.`;
+  }
+  if (mod === 'docs') {
+    return `Hosted in the ${esc(app.s.data.productName)}: documents are stored and filed here.`;
+  }
+  const cats = SOURCE_CATS[mod];
+  if (!cats) return '';
+  const names = [...new Set(cats.flatMap(c => app.s.connectedIn(c).map(k => k.name)))];
+  if (!names.length) return '';
+  return `Read from ${esc(names.join(' · '))}. Nothing on this page is typed in.`;
+}
+
+function withSource(html) {
+  if (html.includes('class="src-line"')) return html;
+  const line = sourceLine(app.page);
+  const at = html.indexOf('</header>');
+  if (!line || at < 0) return html;
+  const cut = at + '</header>'.length;
+  return html.slice(0, cut) + `<div class="src-line">${icon('link', 14)}<span>${line}</span></div>` + html.slice(cut);
+}
 
 function unconnected(page) {
   const d = app.q.data;
@@ -844,7 +896,7 @@ async function onClick(ev) {
       openChooser(); break;
     case 'ec-ind': Gate.only(arg); break;
     case 'ec-sort': Gate.sort(arg); break;
-    case 'console': closeMenu(); closeSheet(); toGate('console'); break;
+    case 'console': closeMenu(); closeSheet(); if (Site.PUBLIC) { Gate.hide(); openChooser(); } else toGate('console'); break;
     case 'signin': closeMenu(); closeSheet(); toGate('signin', arg || app.s.data.industry); break;
     case 'ms-signin': openGate('signin', app.s.data.industry, true); break;
     case 'signin-as': {
@@ -964,13 +1016,13 @@ async function onClick(ev) {
     case 'settab': app.subtab = arg; render(); break;
     /* The HR screens' own view state (a picked inbox item, a payroll step, an org-chart move). */
     case 'hr': hrAct(arg); render(); break;
-    case 'connect': {
+    case 'connect': if (Site.locked(app.s)) break; {
       const c = app.s.connector(arg);
       if (c) openSheet(connectSheet(c, app.s));
       break;
     }
     case 'connect-go': app.s.setConnector(arg, true); closeSheet(); render(); break;
-    case 'disconnect': app.s.setConnector(arg, false); render(); break;
+    case 'disconnect': if (Site.locked(app.s)) break; app.s.setConnector(arg, false); render(); break;
     case 'sheet-close': closeSheet(); break;
     case 'module':
       app.s.data.modules[arg] = !app.s.data.modules[arg];

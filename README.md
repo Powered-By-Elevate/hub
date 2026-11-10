@@ -13,12 +13,20 @@ thing that sells; everything else is there when a company wants it.
 
 ## What it does
 
-- **Seven industries ship as working demos**, each with its own sample company,
-  brand and connected software, in this order: construction, retail,
-  restaurants, manufacturing, freight, software and schools. Construction and
-  retail lead and carry a "Where we lead" mark on the front door, because that
-  is the market Elevate sells to first, and schools come last. The financial engine is
-  identical in all seven. What changes is the **unit of work** the money is
+- **Every demo is read only outside Brand & identity** (`src/js/site.js`).
+  Name, logo, colours and type change in the viewer's browser and nowhere
+  else. Connectors cannot be switched, and no page takes data entry, because
+  every figure is read from outside software (finance, CRM, marketing,
+  pipeline) and documents and HR are hosted in the Hub. Each page says where
+  its figures come from under its title. The copy the Elevate website serves at
+  `/demo/` has no staff console at all: the picker and the demos only.
+- **Eight industries ship as working demos**, each with its own sample company,
+  brand and connected software, in this order (`product.order`): construction,
+  schools, retail, restaurants, manufacturing, freight, software and healthcare.
+  Construction and schools lead and carry a "Where we lead" mark on the front
+  door (Matt, 2026-11-10), because that is where most of the companies Elevate
+  serves do their work. The financial engine is
+  identical in all eight. What changes is the **unit of work** the money is
   divided by (a contract, a store, a restaurant, a production line, a truck, a
   product, a campus), and that single decision is what makes a dashboard read
   as *theirs*.
