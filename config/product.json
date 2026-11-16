@@ -135,39 +135,21 @@
       "rank": 70,
       "icon": "compass"
     },
-    "hr-inbox": {
+    "hr-people": {
       "module": "people",
-      "name": "Inbox",
+      "name": "People",
       "rank": 70,
-      "icon": "check"
-    },
-    "hr-directory": {
-      "module": "people",
-      "name": "Directory",
-      "rank": 70,
-      "icon": "list"
-    },
-    "hr-org": {
-      "module": "people",
-      "rank": 70,
-      "name": "Org chart",
       "icon": "people"
-    },
-    "hr-attendance": {
-      "module": "people",
-      "name": "Timecards",
-      "rank": 70,
-      "icon": "clock"
     },
     "hr-payroll": {
       "module": "people",
-      "name": "Run payroll",
+      "name": "Payroll & labor",
       "rank": 70,
       "icon": "wallet"
     },
     "hr-time": {
       "module": "people",
-      "name": "Time off",
+      "name": "Time & attendance",
       "rank": 70,
       "icon": "clock"
     },
@@ -177,41 +159,11 @@
       "rank": 70,
       "icon": "funnel"
     },
-    "hr-onboarding": {
-      "module": "people",
-      "rank": 70,
-      "name": "Onboarding",
-      "icon": "check"
-    },
-    "hr-talent": {
-      "module": "people",
-      "rank": 70,
-      "name": "Talent review",
-      "icon": "grid"
-    },
     "hr-compliance": {
       "module": "people",
-      "name": "Compliance & training",
+      "name": "Compliance",
       "rank": 70,
       "icon": "shield"
-    },
-    "hr-reviews": {
-      "module": "people",
-      "name": "Reviews & benefits",
-      "rank": 70,
-      "icon": "target"
-    },
-    "hr-reports": {
-      "module": "people",
-      "rank": 70,
-      "name": "Reports",
-      "icon": "bars"
-    },
-    "people-home": {
-      "module": "people",
-      "name": "People & labor",
-      "rank": 70,
-      "icon": "people"
     },
     "hr-person": {
       "module": "people",

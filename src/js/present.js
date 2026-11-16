@@ -46,7 +46,7 @@ export function exit() {
 export function collect() {
   const page = document.getElementById('page');
   if (!page) { state.slides = []; return; }
-  const found = [...page.querySelectorAll(':scope > .verdict, :scope > .page-head, :scope > .strip, :scope > .grid > .panel, :scope > .panel')];
+  const found = [...page.querySelectorAll(':scope > .verdict, :scope > .page-head, :scope > .strip, :scope > .grid > .panel, :scope > .panel, :scope > .cm > .cm-head, :scope > .cm > .cm-figs, :scope > .cm > .cm-strip, :scope > .cm > .cm-card, :scope > .cm > .cm-ops-grid > .cm-card')];
   state.slides = found;
   found.forEach((el, i) => el.setAttribute('data-slide', String(i)));
   if (state.at >= found.length) state.at = Math.max(0, found.length - 1);

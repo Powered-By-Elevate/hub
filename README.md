@@ -17,7 +17,7 @@ thing that sells; everything else is there when a company wants it.
   The copy the Elevate website serves at `/demo/` lets a visitor change name,
   logo, colours and type in their own browser and nothing else: connectors
   cannot be switched and no page takes data entry, because every figure is read
-  from outside software (finance, CRM, marketing, pipeline) and documents and HR
+  from outside software (finance, CRM, marketing, pipeline, HR) and documents
   are hosted in the Hub. It has no staff console at all, only the picker and the
   demos. The Hub's own site is the team's demo and stays fully adjustable. Every
   page says where its figures come from under its title.
@@ -44,13 +44,17 @@ thing that sells; everything else is there when a company wants it.
   the three are independent: a supervisor can see every operational page for
   their own crew with no money on any of them, and People & HR sees the people
   page and no finance page.
-- **An HR tab that copies the best screen in each HR platform** (Matt, 2026-11-04 and 11-05). HR home
-  laid out like BambooHR's, the Inbox like Workday's, the employee record like Rippling's, Timecards like ADP's,
-  Run payroll like Gusto's, the org chart and nine-box like Workday's (drawn with the open-source d3-org-chart and
-  SortableJS, pinned in `src/js/vendor/` with their licences), Onboarding and Reports like BambooHR's (`src/js/pages/hrmash.js`), beside Directory, Time off, Hiring, Compliance and Reviews
-  (`src/js/pages/hr.js`). One generated roster feeds every page (`build_hr` in `data/gen.py`). No vendor name or
-  logo ships. Payroll tax and money movement stay with the payroll provider. The spec and the side by side are in
-  `os-vault/wiki/research/hr-mashup-spec.md`.
+- **HR is a read-only display of the HR system the company already runs** (Matt, 2026-11-16: *"we need
+  to change the HR section to not host it's own platform, but instead be an integrated display of whatever
+  software that company uses"*). Six pages in `src/js/pages/hr.js`: HR home, People (the directory with the
+  org chart as a toggle, and the employee record as a hidden drill page), Payroll & labor (last and next pay
+  run, labor by the industry's unit of work, overtime), Time & attendance, Hiring and Compliance. Each names
+  its system under the title ("From ADP Workforce Now, read only. Changes are made in ADP.") with an Open in
+  button, and a request that needs action links to where it is done ("Approve in Gusto"). Nothing in the Hub
+  changes HR data. Hiring draws figures only where the system holds hiring (`ats` in `connectors.json`), and
+  with the HR connector off every page says so and names the one to connect. One generated roster feeds every
+  page (`build_hr` in `data/gen.py`), presented as the extract the HR system sends. No vendor logo ships and
+  no third-party library is loaded.
 - **It exports its own configuration.** The settings console produces the JSON
   file a real deployment is built from. No per-client code, no branch, no fork.
 
@@ -107,7 +111,7 @@ node tests/probe.js --shots  # also write screenshots to tests/shots
 node tests/probe.js --dist <path>   # any other build, a client's included
 ```
 
-**21,067 checks on the demo.** Every page of every view level of every industry is
+**29,211 checks on the demo.** Every page of every view level of every industry is
 opened, and the probe asserts that it drew without throwing, that the console is
 clean, that nothing reads `NaN` or `undefined`, that there is no sideways scroll
 at 1440 or 390, that the statements tie, that every KPI resolves to a real

@@ -668,7 +668,7 @@ async function main() {
   const world = await page.evaluate(() => {
     const deco = document.getElementById('deco');
     const cs = n => getComputedStyle(n);
-    const panel = document.querySelector('#page .panel');
+    const panel = document.querySelector('#page .panel, #page .cm-card');
     return {
       deco: !!deco,
       dots: !!deco && !!deco.querySelector('.dots') && !!deco.querySelector('.dots-lit'),
@@ -728,7 +728,7 @@ async function main() {
   await page.evaluate("location.hash = '#/ops-watch'");
   await page.waitForTimeout(700);
   const split = await page.evaluate(() => {
-    const h = document.querySelector('#page .verdict h2, #page .page-title');
+    const h = document.querySelector('#page .verdict h2, #page .page-title, #page .cm-h1');
     if (!h) return { none: true };
     return {
       words: h.querySelectorAll('.w').length,
@@ -747,11 +747,14 @@ async function main() {
      caller names one, so this check is what proves the derivation reaches the
      whole build rather than the handful of panels that pass `ico`. */
   const tiles = await page.evaluate(() => {
-    const heads = [...document.querySelectorAll('#page .panel-head')];
-    return { heads: heads.length, withTile: heads.filter(h => h.querySelector('.p-tile svg')).length };
+    /* a calm section carries its number instead of a tile (2026-11-16) */
+    const heads = [...document.querySelectorAll('#page .panel-head, #page .cm-sec-head')];
+    const marked = h => !!h.querySelector('.p-tile svg')
+      || (h.classList.contains('cm-sec-head') && /counter\(|\d/.test(getComputedStyle(h.querySelector('.cm-h2'), '::before').content));
+    return { heads: heads.length, withTile: heads.filter(marked).length };
   });
   ok(tiles.heads > 0 && tiles.withTile === tiles.heads,
-    'every panel head on the page wears an icon tile',
+    'every section head on the page wears its mark (an icon tile or its number)',
     `${tiles.withTile} of ${tiles.heads}`);
 
   /* ⛔ The axis must let the data fill the plot. The ladder used to jump 5 to
@@ -977,7 +980,7 @@ async function main() {
          industries out of six and passed on four, which is exactly what a
          race looks like. */
       const found = await page.evaluate(() => {
-        const svg = document.querySelector('#page svg[data-hover]');
+        const svg = [...document.querySelectorAll('#page svg[data-hover]')].find(e => !e.closest('details:not([open])') && e.getBoundingClientRect().width > 120);
         if (!svg) return false;
         svg.scrollIntoView({ block: 'center' });
         return true;
@@ -985,7 +988,7 @@ async function main() {
       if (!found) return { skipped: true };
       await page.waitForTimeout(320);
       const box = await page.evaluate(() => {
-        const svg = document.querySelector('#page svg[data-hover]');
+        const svg = [...document.querySelectorAll('#page svg[data-hover]')].find(e => !e.closest('details:not([open])') && e.getBoundingClientRect().width > 120);
         if (!svg) return null;
         const r = svg.getBoundingClientRect();
         return { x: r.left + r.width * 0.55, y: r.top + r.height * 0.5,
@@ -1034,6 +1037,67 @@ async function main() {
       ok(!!k.label && k.label !== k.id, `${ind}: kpi ${k.id} has a label`, k.label);
     }
 
+    /* ⛔ HR IS A READ-ONLY DISPLAY OF THE COMPANY'S OWN HR SYSTEM (Matt, 2026-11-16: "we need to
+       change the HR section to not host it's own platform, but instead be an integrated display of
+       whatever software that company uses"). Six pages, each naming the system under its title with
+       a way into it, and not one control that would change HR data. Hiring draws figures only where
+       the system holds hiring, and with the system switched off every page says so and names the one
+       to connect, with no figure from nowhere. */
+    {
+      const hrCfg = await page.evaluate(async () => {
+        const base = document.body.dataset.base || '';
+        const con = (await (await fetch(`${base}config/connectors.json`)).json()).connectors;
+        const ind = window.__hub.settings().industry;
+        const inds = (await (await fetch(`${base}config/industries.json`)).json()).industries;
+        const id = inds.find(i => i.id === ind).connected.people[0];
+        return con.find(c => c.id === id);
+      });
+      const HR6 = ['hr-home', 'hr-people', 'hr-payroll', 'hr-time', 'hr-hiring', 'hr-compliance'];
+      await page.evaluate(`window.__hub.pick('role', 'hr')`);
+      await page.waitForTimeout(90);
+      const hrPages = (await page.evaluate('window.__hub.pages()')).filter(p => p.startsWith('hr-'));
+      ok(JSON.stringify(hrPages) === JSON.stringify(HR6), `${ind}: HR is six pages`, hrPages.join(', '));
+      for (const p of [...HR6, 'hr-person']) {
+        await page.evaluate(`window.__hub.go('${p}')`);
+        await page.waitForTimeout(110);
+        const seen = await page.evaluate(() => {
+          const host = document.getElementById('page');
+          const src = host.querySelector('.src-line');
+          const open = host.querySelector('.src-line a.src-open');
+          const writes = [...host.querySelectorAll('button[data-act]')].filter(b => !b.closest('#demo-note'))
+            .map(b => b.dataset.act).filter(a => !['settab', 'go'].includes(a));
+          const fields = [...host.querySelectorAll('input, select, textarea')].filter(el => el.type !== 'search').length;
+          return { src: src ? src.innerText.replace(/\s+/g, ' ') : '', href: open ? open.getAttribute('href') : '',
+            target: open ? open.target : '', openText: open ? open.innerText.trim() : '',
+            writes, fields, text: host.innerText, strip: !!host.querySelector('.strip') };
+        });
+        const want = `From ${hrCfg.name}, read only. Changes are made in ${hrCfg.short || hrCfg.name}.`;
+        ok(seen.src.includes(want), `${ind}/${p}: names ${hrCfg.name} under the title`, seen.src.slice(0, 120));
+        ok(/^https:\/\//.test(seen.href) && seen.target === '_blank' && seen.openText.startsWith(`Open in ${hrCfg.short || hrCfg.name}`),
+          `${ind}/${p}: opens ${hrCfg.short || hrCfg.name} in a new tab`, `${seen.href} ${seen.target} ${seen.openText}`);
+        ok(seen.writes.length === 0, `${ind}/${p}: no control that writes HR data`, seen.writes.join(', '));
+        ok(seen.fields === 0, `${ind}/${p}: no field to type into`, String(seen.fields));
+        if (p === 'hr-hiring') {
+          ok(hrCfg.ats ? seen.strip && /applicants/i.test(seen.text) : !seen.strip && /does not hold hiring/.test(seen.text),
+            `${ind}/hr-hiring: figures only where ${hrCfg.name} holds hiring`, hrCfg.ats ? 'ats' : 'no ats');
+        }
+      }
+      await page.evaluate(`window.__hub.connector('${hrCfg.id}', false)`);
+      for (const p of HR6) {
+        await page.evaluate(`window.__hub.go('${p}')`);
+        await page.waitForTimeout(90);
+        const off = await page.evaluate(() => {
+          const host = document.getElementById('page');
+          return { text: host.innerText, strip: !!host.querySelector('.strip'), tables: host.querySelectorAll('table').length,
+            charts: host.querySelectorAll('svg.chart').length };
+        });
+        ok(/No HR or payroll system is connected/.test(off.text) && off.text.includes(hrCfg.name),
+          `${ind}/${p}: with ${hrCfg.name} off it says so and names it`, off.text.slice(0, 120));
+        ok(!off.strip && !off.tables && !off.charts, `${ind}/${p}: with ${hrCfg.name} off no figure is drawn`);
+      }
+      await page.evaluate(`window.__hub.connector('${hrCfg.id}', true)`);
+    }
+
     for (const role of roles) {
       await page.evaluate(`window.__hub.pick('role', '${role}')`);
       await page.waitForTimeout(90);
@@ -1053,7 +1117,7 @@ async function main() {
             len: text.length,
             broken: text.includes('could not be drawn'),
             empties: host.querySelectorAll('.empty').length,
-            panels: host.querySelectorAll('.panel').length,
+            panels: host.querySelectorAll('.panel, .cm-card').length,
             dollars: (text.match(/\$/g) || []).length,
             charts: host.querySelectorAll('svg.chart').length,
             overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -1791,7 +1855,10 @@ async function main() {
            A rule that reads well at 1440 can collide at 1100, so this runs at
            whatever width the gate is using and the sweep covers both. */
         const collisions = await page.evaluate(() => {
+          /* a chart behind a closed fold is laid out but not seen (Chrome keeps
+             closed <details> content in layout), so it is not measured */
           const els = [...document.querySelectorAll('#page svg text')]
+            .filter(e => !e.closest('details:not([open])'))
             .map(e => ({ t: e.textContent.trim(), r: e.getBoundingClientRect() }))
             .filter(o => o.r.width && o.r.height);
           const out = [];
@@ -1942,7 +2009,7 @@ async function main() {
         return {
           page: window.__hub.page(),
           len: text.length,
-          panels: host.querySelectorAll('.panel').length,
+          panels: host.querySelectorAll('.panel, .cm-card, .cm-figs').length,
           charts: host.querySelectorAll('svg.chart').length,
           nan: /NaN|undefined|Infinity/.test(text),
           notInScope: text.includes('not in this view level'),

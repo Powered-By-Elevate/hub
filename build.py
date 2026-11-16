@@ -66,6 +66,7 @@ def build(no_data: bool = False, dist: Path = DIST,
     shutil.copy2(HERE / "src" / "index.html", DIST / "index.html")
     shutil.copy2(HERE / "src" / "hub.css", DIST / "hub.css")
     shutil.copy2(HERE / "src" / "world.css", DIST / "world.css")
+    shutil.copy2(HERE / "src" / "calm.css", DIST / "calm.css")
     shutil.copytree(HERE / "src" / "js", DIST / "js")
     shutil.copytree(HERE / "src" / "img", DIST / "img")
 
