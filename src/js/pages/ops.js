@@ -73,7 +73,7 @@ const COLUMNS = {
     { name: 'Seats', n: true, get: r => F.num(r.f.capacity) },
     { name: 'Filled', n: true, get: r => bar(r.f.enrolled, r.f.capacity, F.pct(r.f.capacity ? r.f.enrolled / r.f.capacity * 100 : 0, 0)) },
     { name: 'Staff', n: true, get: r => F.num(r.f.staff, 1) },
-    { name: 'Per student', n: true, get: r => F.exact(r.f.funding) },
+    { name: 'Funding per student', n: true, get: r => F.exact(r.f.funding) },
     { name: 'Cost per student', n: true, get: r => F.exact(r.f.costPer) },
   ],
   econdev: [
@@ -165,6 +165,7 @@ function bar(v, max, label) {
 export function home(ctx) {
   const { q, s } = ctx;
   const ind = s.industry;
+  if (ind.id === 'econdev' && q.data.tourism) return edOverview(ctx);
   const rows = q.unitRows();
   const w = q.window();
   const port = ind.portfolio || {};
@@ -212,7 +213,7 @@ export function home(ctx) {
           <span class="pf-n">${n + 1}</span>
           <span class="pf-name">
             <b>${esc(x.r.short || x.r.name)}</b>
-            <span>${esc([x.r.id, x.r.status, x.r.owner].filter(Boolean).join(' \u00b7 '))}</span>
+            <span>${esc((ind.unitList ? [x.r.owner] : [x.r.id, x.r.status, x.r.owner]).filter(Boolean).join(' \u00b7 '))}</span>
           </span>
           <span class="pf-bar" title="${esc(port.barLabel || '')}: ${pct}%">
             <i style="width:${fill}%" class="${x.flag ? 'bad' : ''}"></i>
@@ -253,7 +254,7 @@ export function home(ctx) {
         { k: (port.barLabel || 'Progress'), v: `${pctDone}%`, sub: 'weighted by size' },
         { k: 'Flagged', v: String(flagged.length), sub: flagged.length ? 'outside their band' : 'everything in band' },
       ]),
-      body: `<div class="book-top">
+      body: s.data.brand.look === 'bright' ? bookTiles(book, ind, port, fmtSize, q) : `<div class="book-top">
           <div class="book-bar" role="img" aria-label="${Math.round(done / (total || 1) * 100)}% of the book">
             ${book.map(x => `<span style="flex:${Math.max(x.size, total * 0.004)} 0 0"
               class="${x.flag ? 'bad' : ''}" title="${esc(x.r.short || x.r.name)}: ${fmtSize(x.size)}">
@@ -321,6 +322,23 @@ function headlineOf(q, r, ind, w) {
   let t = 0;
   for (const m of w) t += q.fact(r.id, 'rev', m) || 0;
   return Math.round(t * 100) / 100;
+}
+
+/* The bright look draws the book as labelled tiles, one per unit, so nothing is
+   a nameless segment and the panel has no empty floor under a thin bar (Matt,
+   on Belton's: "this chart is laid out bad"). A school's grades keep their own
+   order, K5 to 8th; anything else stays largest first. */
+function bookTiles(book, ind, port, fmtSize, q) {
+  const order = ind.unitList ? q.units.map(u => u.id) : null;
+  const list = order ? book.slice().sort((a, b) => order.indexOf(a.r.id) - order.indexOf(b.r.id)) : book;
+  return `<div class="book-tiles">${list.map(x => {
+    const pct = Math.round((x.bar || 0) * 100), fill = Math.round((x.fill || 0) * 100);
+    return `<div class="bt${x.flag ? ` ${x.flag.kind}` : ''}" data-click="unit:${esc(x.r.id)}" tabindex="0">
+      <span class="bt-n">${esc(x.r.short || x.r.name)}</span>
+      <b class="bt-v">${pct}%</b>
+      <span class="bt-bar"><i style="width:${fill}%"></i></span>
+      <span class="bt-s">${fmtSize(x.size)} <em>${esc((port.sizeLabel || '').toLowerCase())}</em></span>
+    </div>`; }).join('')}</div>`;
 }
 
 function unitWords(ind) {
@@ -534,12 +552,17 @@ export function units(ctx) {
       col: 12,
       right: U.btn('Download', { act: 'export-units', ico: 'download', sm: true }),
       title: hasWip ? 'The schedule' : `${rows.length} ${esc(ind.unit.many)}`,
-      note: `Owner is the ${esc((ind.unit.owner || 'manager').toLowerCase())} responsible. Open any row for its arithmetic.`,
+      /* A school read by grade has no owner, no status worth a column and no
+         grade column to repeat the row's own name (Matt: "im confused by the
+         named under grades? what does that even mean"). */
+      note: ind.unitList ? 'Open any row for its arithmetic.'
+        : `Owner is the ${esc((ind.unit.owner || 'manager').toLowerCase())} responsible. Open any row for its arithmetic.`,
       body: U.table({
-        cols: [{ name: ind.unit.key, w: '22%' }, { name: 'Status' }, ...cols],
+        cols: ind.unitList ? [{ name: ind.unit.key, w: '22%' }, ...cols.filter(c => c.name !== 'Grades')]
+          : [{ name: ind.unit.key, w: '22%' }, { name: 'Status' }, ...cols],
         rows: rows.map(r => ({
           click: `unit:${r.id}`,
-          cells: [
+          cells: ind.unitList ? [`<b>${esc(r.name)}</b>`, ...cols.filter(c => c.name !== 'Grades').map(c => c.get(r, ctx))] : [
             `<b>${esc(r.name)}</b><div class="sub">${esc(r.owner)}</div>`,
             U.statusTag(r.status, statusKind(r.status)),
             ...cols.map(c => c.get(r, ctx)),
@@ -568,7 +591,7 @@ export function second(ctx) {
   const fn = {
     construction: backlog, education: enrolment, retail: category, restaurants: primeCost,
     industrial: throughput, logistics: lanes, tech: retention, healthcare: revenueCycle,
-    econdev: tourism,
+    econdev: tourismSales,
   }[ind.id] || backlog;
   return pageHead({ eyebrow: 'Operations', title: name, answer: fn.answer(ctx),
     motif: motif(ind.id, s.data.brand.palette) })
@@ -726,8 +749,21 @@ function enrolment(ctx) {
     foot: `The tick on each bar is that ${W.one}’s capacity.`,
   }) + panel({
     col: 5, title: 'Cost against funding, per student',
-    note: `A ${W.one} below the line costs more to run than it is funded for.`,
-    body: C.scatter({
+    note: ctx.s.industry.unitList
+      ? `Cost per student in each ${W.one}. The tick is what each student is funded, so a red bar costs more than it brings in.`
+      : `A ${W.one} below the line costs more to run than it is funded for.`,
+    /* One school's grades share one funding rate, so a scatter stacks every
+       grade in one column (Matt: "you literally cannot even read it"). Bars
+       against the rate say the same thing and can be read. */
+    body: ctx.s.industry.unitList ? C.hbars({
+      rows: ctx.s.industry.unitList.map(u => rows.find(r => r.id === u.id)).filter(Boolean).map(r => {
+        const gap = (r.f.costPer || 0) - (r.f.funding || 0);
+        return { name: r.short, value: r.f.costPer || 0, mark: r.f.funding || 0,
+          note: `${gap >= 0 ? '+' : '−'}${F.exact(Math.abs(gap))}`,
+          color: gap > 0 ? 'var(--bad)' : 'var(--accent)' };
+      }),
+      fmt: v => F.exact(v), max: Math.max(...rows.map(r => Math.max(r.f.costPer || 0, r.f.funding || 0))) * 1.08,
+    }) : C.scatter({
       points: rows.map(r => ({ name: r.name, x: r.f.funding || 0, y: r.f.costPer || 0 })),
       xFmt: v => F.exact(v), yFmt: v => F.exact(v),
       xLabel: 'Funding per student', yLabel: 'Cost per student', height: 300,
@@ -1142,7 +1178,7 @@ export function detail(ctx) {
       <button class="cm-ops-backbtn" data-act="go" data-arg="${esc(backTo)}">
         ${icon('arrow', 14)}Back to ${esc(backName)}</button>
     </nav>` + M.head({ eyebrow: `${ind.unit.one} · ${entity}`, title: u.name,
-      line: verdictText.title, stamp: `${esc(u.status)} · ${esc(u.owner)}<br>${STAMP}` }) +
+      line: verdictText.title, stamp: `${esc((ind.unitList ? [u.owner] : [u.status, u.owner]).filter(Boolean).join(' · '))}${ind.unitList && !u.owner ? '' : '<br>'}${STAMP}` }) +
     M.figures(measures.slice(0, 4).map(m => ({ label: m.name, value: fmtOf(m)(f[m.id]) }))) +
     `<div class="cm-ops-grid">` +
 
@@ -1887,7 +1923,151 @@ export function season(ctx) {
     }) + `</div>`;
 }
 
+/* --- economic development & tourism: the operations section
+
+   Matt, on Roswell: *"they are mostly interested in tourism and marketing"* and
+   *"i dont want overwhelming information on a page. i want high level analytics
+   and the ability to click in to view the details"*. So Operations opens on an
+   overview: four figures, then one card per area with one picture and a way in.
+   Each area's detail is its own page. */
+function tz(q) {
+  const t = q.data.tourism;
+  return { t, last: t.monthly.slice(-12), prev: t.monthly.slice(-24, -12) };
+}
+const tsum = (rows, k) => rows.reduce((a, r) => a + (r[k] || 0), 0);
+const tavg = (rows, k) => rows.length ? tsum(rows, k) / rows.length : 0;
+function chip(now, was, unit = '%') {
+  if (!was) return '';
+  const d = unit === 'pp' ? now - was : (now - was) / Math.abs(was) * 100;
+  return `<span class="ed-d ${d >= 0 ? 'up' : 'down'}">${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}${unit === 'pp' ? ' pts' : '%'} on the year before</span>`;
+}
+function edFig(value, label, delta = '') {
+  return `<div class="ed-fig"><b>${value}</b><span>${esc(label)}</span>${delta}</div>`;
+}
+
+function edOverview(ctx) {
+  const { q, s } = ctx;
+  const { t, last, prev } = tz(q);
+  const labels = last.map(r => mN(r.m));
+  const nights = tsum(last, 'groupNights') + tsum(last, 'corpNights');
+  const nightsWas = tsum(prev, 'groupNights') + tsum(prev, 'corpNights');
+  const occ = tavg(last, 'occupancy'), occWas = tavg(prev, 'occupancy');
+  const imp = tsum(last, 'impressions'), impWas = tsum(prev, 'impressions');
+  const live = q.unitRows().filter(r => r.status !== 'Prospect');
+  const capex = live.reduce((a, r) => a + (r.f.capex || 0), 0);
+  const jobs = live.reduce((a, r) => a + (r.f.jobs || 0), 0);
+  const go = (arg) => U.btn('View details', { act: 'go', arg, sm: true, ico: 'arrow' });
+  const top = live.slice().sort((a, b) => (b.f.capex || 0) - (a.f.capex || 0)).slice(0, 4);
+  return pageHead({ eyebrow: 'Operations', title: pageName(s.industry, 'ops-home', 'Overview'),
+    answer: `<b>${F.num(nights)}</b> room nights booked in twelve months, ${nights >= nightsWas ? 'up' : 'down'}
+      <b>${F.pct(Math.abs((nights - nightsWas) / (nightsWas || 1) * 100), 0)}</b> on the year before, with hotels
+      <b>${F.pct(occ, 1)}</b> full.` }) + `<div class="cm-ops-grid">` +
+    panel({ col: 6, title: 'Tourism sales', src: srcNames(ctx.cfg, t.sources.sales), right: go('ops-second'),
+      body: edFig(F.num(nights), 'room nights booked', chip(nights, nightsWas))
+        + C.bars({ values: last.map(r => r.groupNights + r.corpNights), labels, fmt: v => F.num(v), height: 150 }) }) +
+    panel({ col: 6, title: 'Hotels & stays', src: srcNames(ctx.cfg, t.sources.hotels), right: go('ops-hotels'),
+      body: edFig(F.pct(occ, 1), 'average hotel occupancy', chip(occ, occWas, 'pp'))
+        + C.line({ series: [{ name: 'Hotels', values: last.map(r => r.occupancy) }], labels, fmt: v => F.pct(v, 0), height: 150, legend: false }) }) +
+    panel({ col: 6, title: 'Marketing', src: srcNames(ctx.cfg, t.sources.reach), right: go('ops-marketing'),
+      body: edFig(F.num(imp), 'ad impressions', chip(imp, impWas))
+        + C.bars({ values: last.map(r => r.pageViews), labels, fmt: v => F.num(v), height: 150 }) }) +
+    panel({ col: 6, title: 'Development projects', src: SRC, right: go('ops-units'),
+      body: edFig(F.money(capex), `invested across ${live.length} announced and active projects, ${F.num(jobs)} jobs`)
+        + `<div class="ed-list">${top.map(r => `<div class="ed-row" data-click="unit:${esc(r.id)}" tabindex="0">
+            <span><b>${esc(r.name)}</b><em>${esc(r.status)}</em></span><span>${F.money(r.f.capex)}</span></div>`).join('')}</div>` }) +
+    `</div>`;
+}
+
+function tourismSales(ctx) {
+  const { q, cfg } = ctx;
+  if (!q.data.tourism) return tourism(ctx);
+  const { t, last } = tz(q);
+  const labels = last.map(r => mN(r.m));
+  const gc = tsum(last, 'groupContracts'), cc = tsum(last, 'corpContracts');
+  const gn = tsum(last, 'groupNights'), cn = tsum(last, 'corpNights');
+  const gr = tsum(last, 'groupRevenue'), cr = tsum(last, 'corpRevenue');
+  return panel({
+    col: 12, title: 'Room nights booked, month by month', src: srcNames(cfg, t.sources.sales),
+    note: 'Group and corporate contracts the sales team closed, by the month they were signed.',
+    aside: M.facts([
+      { k: 'Contracts booked', v: F.num(gc + cc), hl: true, sub: `${F.num(gc)} group, ${F.num(cc)} corporate` },
+      { k: 'Room nights', v: F.num(gn + cn), sub: `${F.num((gn + cn) / Math.max(1, gc + cc), 0)} a contract` },
+      { k: 'Rooms revenue', v: F.money(gr + cr), sub: `${F.exact((gr + cr) / Math.max(1, gn + cn), 2)} a night` },
+    ]),
+    body: C.stack({ rows: last.map(r => ({ group: r.groupNights, corp: r.corpNights })), keys: ['group', 'corp'],
+      names: { group: 'Group', corp: 'Corporate' }, labels, fmt: v => F.num(v), height: 260 }),
+  }) + panel({
+    col: 12, title: 'Rooms revenue booked', src: srcNames(cfg, t.sources.sales),
+    note: 'What the contracts are worth to the hotels, by the month they were signed.',
+    body: C.bars({ values: last.map(r => r.groupRevenue + r.corpRevenue), labels, fmt: v => F.money(v), height: 220 }),
+  });
+}
+tourismSales.answer = ctx => tourism.answer(ctx);
+
+export function hotels(ctx) {
+  const { q, s, cfg } = ctx;
+  const { t, last } = tz(q);
+  const labels = last.map(r => mN(r.m));
+  const a = t.anchor;
+  return pageHead({ eyebrow: 'Operations', title: pageName(s.industry, 'ops-hotels', 'Hotels & stays'),
+    answer: `Hotels ran <b>${F.pct(tavg(last, 'occupancy'), 1)}</b> full over twelve months at about
+      <b>${F.exact(tavg(last, 'adr'), 0)}</b> a night, and short-term rentals <b>${F.pct(tavg(last, 'strOccupancy'), 0)}</b>.` }) +
+    `<div class="cm-ops-grid">` + panel({
+      col: 12, title: 'Occupancy, month by month', src: srcNames(cfg, [...t.sources.hotels, ...t.sources.rentals]),
+      note: 'Hotels from STR, short-term rentals from AirDNA.',
+      aside: M.facts([
+        { k: 'Hotels', v: F.num(a.hotels), hl: true, sub: `${F.num(a.rooms)} rooms` },
+        { k: 'Hotel room revenue', v: F.money(a.hotelRevenue), sub: `${esc(a.year)}, STR` },
+        { k: 'Short-term rentals', v: F.num(a.strListings), sub: `active listings at ${F.exact(a.strAdr, 2)} a night` },
+      ]),
+      body: C.line({ series: [{ name: 'Hotels', values: last.map(r => r.occupancy) },
+        { name: 'Short-term rentals', values: last.map(r => r.strOccupancy) }], labels, fmt: v => F.pct(v, 0), height: 260 }),
+    }) + panel({
+      col: 12, title: 'Average daily rate', src: srcNames(cfg, t.sources.hotels), note: 'What a hotel room sold for, on average.',
+      body: C.line({ series: [{ name: 'Average daily rate', values: last.map(r => r.adr) }], labels, fmt: v => F.exact(v, 0), height: 200, legend: false }),
+    }) + `</div>`;
+}
+
+export function marketingPage(ctx) {
+  const { q, s, cfg } = ctx;
+  const { t, last } = tz(q);
+  const labels = last.map(r => mN(r.m));
+  const ms = new Set(last.map(r => r.m));
+  const rows = (t.channels || []).filter(c => ms.has(c.m));
+  const names = [...new Set(rows.map(c => c.channel))];
+  const by = names.map(n => {
+    const r = rows.filter(c => c.channel === n);
+    const imp = tsum(r, 'impressions'), clk = tsum(r, 'clicks'), sp = tsum(r, 'spend');
+    return { n, imp, clk, sp, ctr: imp && clk ? clk / imp * 100 : null, cpm: imp ? sp / imp * 1000 : null };
+  });
+  const v = t.visitors || {};
+  const vis = Object.keys(v).length ? panel({
+    col: 12, title: 'Who visits', src: v.source || 'Placer.ai',
+    note: 'The visitor profile from location data, which is what the creative and the targeting are aimed at.',
+    body: `<div class="ed-facts">${(v.facts || []).map(f => `<div><b>${esc(f.v)}</b><span>${esc(f.k)}</span></div>`).join('')}</div>`,
+  }) : '';
+  return pageHead({ eyebrow: 'Operations', title: pageName(s.industry, 'ops-marketing', 'Marketing'),
+    answer: `<b>${F.num(tsum(last, 'impressions'))}</b> ad impressions in twelve months brought
+      <b>${F.num(tsum(last, 'pageViews'))}</b> page views and <b>${F.num(tsum(last, 'newUsers'))}</b> new visitors to the site.` }) +
+    `<div class="cm-ops-grid">` + panel({
+      col: 12, title: 'What each channel delivered', src: srcNames(cfg, t.sources.reach),
+      note: 'Last twelve months. Print counts circulation, not clicks.',
+      body: U.table({ cols: [{ name: 'Channel', w: '26%' }, { name: 'Impressions', n: true }, { name: 'Clicks', n: true },
+        { name: 'Click rate', n: true }, { name: 'Spend', n: true }, { name: 'Per thousand', n: true }],
+        rows: by.map(x => ({ cells: [`<b>${esc(x.n)}</b>`, F.num(x.imp), x.clk ? F.num(x.clk) : '<span class="muted">n/a</span>',
+          x.ctr ? F.pct(x.ctr, 2) : (x.n === 'YouTube' && t.videoCompletion ? `${F.pct(t.videoCompletion, 1)} watched` : '<span class="muted">n/a</span>'),
+          F.money(x.sp), x.cpm ? F.exact(x.cpm, 2) : '<span class="muted">n/a</span>'] })) }),
+    }) + panel({
+      col: 7, title: 'Visits to the site', src: srcNames(cfg, ['google-analytics']), note: 'Page views, month by month.',
+      body: C.bars({ values: last.map(r => r.pageViews), labels, fmt: v => F.num(v), height: 220 }),
+    }) + panel({
+      col: 5, title: 'What visitors read', src: srcNames(cfg, ['google-analytics']), note: 'Share of page views by section.',
+      body: C.hbars({ rows: (t.topPages || []).map(p => ({ name: p.name, value: p.share * 100 })), fmt: v => F.pct(v, 0), max: 40 }),
+    }) + vis + `</div>`;
+}
+
 export const opsPages = {
+  'ops-hotels': calm(hotels), 'ops-marketing': calm(marketingPage),
   'ops-home': calm(home), 'ops-watch': calm(watch), 'ops-units': calm(units), 'ops-grid': calm(grid),
   'ops-season': calm(season), 'ops-people': calm(people), 'ops-second': calm(second), 'ops-detail': calm(detail),
 };

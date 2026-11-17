@@ -95,7 +95,7 @@ export function start(ctx) {
   const row = f => `<div class="cm-task" data-click="unit:${esc(f.id)}" tabindex="0">
       ${U.statusTag(f.tag, f.kind)}
       <span class="t"><b>${esc(f.name)}</b><span>${f.why}</span></span>
-      <span class="o">${bright && f.owner ? `<i class="av">${esc(f.owner.split(' ').map(w => w[0]).join('').slice(0, 2))}</i>` : ''}${esc(f.owner || 'Unassigned')}</span><span class="go">${icon('arrow', 14)}</span></div>`;
+      <span class="o">${bright && f.owner ? `<i class="av">${esc(f.owner.split(' ').map(w => w[0]).join('').slice(0, 2))}</i>` : ''}${esc(f.owner || (s.industry.unitList ? '' : 'Unassigned'))}</span><span class="go">${icon('arrow', 14)}</span></div>`;
   const needs = M.section({
     title: 'What needs a look',
     note: found.length

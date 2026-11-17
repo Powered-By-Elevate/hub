@@ -522,7 +522,9 @@ export function statements(ctx) {
   /* The calm pass: what can go out, and what it covers. */
   const { q, s } = ctx;
   const closed = q.closed, months = q.months;
-  const packs = [
+  /* An industry may name its own packs (a school reports to its board, its
+     authorizer and its auditors, not to a bank and an owner). */
+  const packs = (s.industry.packs || [
     { id: 'monthly', name: 'Monthly reporting pack', icon: 'doc', what: 'What the finance team issues after a close.',
       holds: ['Profit & loss, by company and consolidated', 'Balance sheet with the prior year beside it', 'Cash and working capital', 'A one-page summary'] },
     { id: 'owner', name: 'Owner report', icon: 'people', what: 'The quarterly pack an owner reads end to end.',
@@ -531,7 +533,7 @@ export function statements(ctx) {
       holds: ['Statements for the covered period', 'Covenant deliveries and their dates', 'A certificate page', 'Nothing tentative'] },
     { id: 'board', name: 'Board summary', icon: 'bars', what: 'Eight quarters and the bridge, on as few pages as it takes.',
       holds: ['Eight quarters of revenue, margin and net income', 'The bridge from revenue to net income', 'Cash and the ratios'] },
-  ];
+  ]).map(p => ({ ...p, holds: p.holds.map(h => h.replace('{units}', s.industry.unit.many)) }));
   const signed = months.filter(m => m <= closed).length;
   const tentative = months.length - signed;
   const cover = M.section({

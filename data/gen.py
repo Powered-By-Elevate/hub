@@ -229,7 +229,8 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
         for i, spec in enumerate(ind["unitList"]):
             units.append({
                 "id": spec.get("id") or f"C{i + 1}", "name": spec["name"], "short": spec.get("short", spec["name"]),
-                "entity": ents[0], "status": "Open", "owner": crew[i % len(crew)],
+                # a grade has no single owner, so none is invented for it
+                "entity": ents[0], "status": "Open", "owner": spec.get("owner", ""),
                 "grades": spec.get("grades", ""), "capacity": spec["capacity"],
             })
     elif kind == "education":
@@ -527,7 +528,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
     if ind["id"] == "education":
         data["marketing"] = build_marketing(ind, months, units, pl_rows, unit_facts)
     if ind["id"] == "econdev":
-        data["tourism"] = build_tourism(ind, months)
+        data["tourism"] = build_tourism(ind, months, pl_rows)
     check(data, ind)
     return data
 
@@ -1255,7 +1256,7 @@ def build_marketing(ind: dict, months: list[str], units: list[dict], pl_rows: li
     }
 
 
-def build_tourism(ind: dict, months: list[str]) -> dict:
+def build_tourism(ind: dict, months: list[str], pl_rows: list[dict] | None = None) -> dict:
     """Destination marketing and sales, read from the systems that hold it.
 
     Group and corporate contracts and their room nights come from the sales CRM,
@@ -1287,19 +1288,54 @@ def build_tourism(ind: dict, months: list[str]) -> dict:
     for year in sorted({m[:4] for m in months}):
         ms = [m for m in months if m[:4] == year]
         w = [season[int(m[5:]) - 1] for m in ms]
-        k = len(ms) / 12 * (1.0 if year == a["year"] else 0.93 if year < a["year"] else 1.07)
-        cols = {key: spread(a[key] * k, w, integer=key.endswith(("Contracts", "Nights", "Views", "Users", "impressions")))
+        # each figure moves at its own pace from the anchored year
+        pace = {"groupNights": 1.06, "corpNights": 1.03, "groupContracts": 1.05, "corpContracts": 1.02,
+                "groupRevenue": 1.09, "corpRevenue": 1.05, "impressions": 1.14, "pageViews": 1.08,
+                "newUsers": 1.06, "videoViews": 1.21, "strRevenue": 1.04}
+        def k_of(key):
+            g = pace.get(key, 1.05)
+            return len(ms) / 12 * (1.0 if year == a["year"] else 1 / g if year < a["year"] else g)
+        cols = {key: spread(a[key] * k_of(key), w, integer=key.endswith(("Contracts", "Nights", "Views", "Users", "impressions")))
                 for key in ("groupContracts", "corpContracts", "groupNights", "corpNights", "groupRevenue",
                             "corpRevenue", "impressions", "pageViews", "newUsers", "videoViews", "strRevenue")}
         for i, m in enumerate(ms):
-            occ = min(92.0, round2(a["occupancy"] * occ_season[int(m[5:]) - 1] * (k * 12 / len(ms)) ** 0.25 * rnd.around(1.0, 0.03)))
+            occ = min(92.0, round2(a["occupancy"] * occ_season[int(m[5:]) - 1] * (k_of("x") * 12 / len(ms)) ** 0.25 * rnd.around(1.0, 0.03)))
             row = {"m": m, **{key: v[i] for key, v in cols.items()},
                    "occupancy": occ, "adr": round2(a["hotelRevenue"] / (a["rooms"] * 365 * a["occupancy"] / 100) * rnd.around(1.0, 0.04)),
                    "strOccupancy": round2(a["strOccupancy"] * occ_season[int(m[5:]) - 1] * rnd.around(1.0, 0.04))}
             monthly.append(row)
+    # Marketing by channel, read from the ad platforms: impressions are the
+    # month's total split by channel (YouTube carries its own published total),
+    # spend is the ledger's own Sales & marketing line, so the marketing page and
+    # the P&L cannot disagree about what was spent.
+    sales_by_m = {}
+    for r in pl_rows or []:
+        if r["l"] == "sales":
+            sales_by_m[r["m"]] = sales_by_m.get(r["m"], 0.0) + r["v"]
+    chans = [("Paid display", "google-ads", 0.49, 0.0019, 0.32), ("Sponsored social", "meta-ads", 0.31, 0.0094, 0.27),
+             ("Paid search", "google-ads", 0.13, 0.061, 0.22), ("YouTube", "google-ads", 0.0, 0.0, 0.08),
+             ("Print", "", 0.04, 0.0, 0.11)]
+    # a profile may size the year's paid marketing; otherwise it is the ledger's own line
+    yearly = a.get("marketingSpend")
+    channels = []
+    for row in monthly:
+        imp, vid = row["impressions"], row["videoViews"]
+        paid = round2(yearly / 12 * season[int(row["m"][5:]) - 1] if yearly else sales_by_m.get(row["m"], 0.0) * 0.62)
+        rest = imp - vid
+        for name, src, share, ctr, spend_share in chans:
+            n = vid if name == "YouTube" else (int(rest * share * rnd.around(1.0, 0.05)) if share else 0)
+            channels.append({"m": row["m"], "channel": name, "source": src, "impressions": n,
+                             "clicks": int(n * rnd.around(ctr, 0.06)) if ctr else 0,
+                             "spend": round2(paid * spend_share * rnd.around(1.0, 0.05))})
+    pages = cfg.get("topPages") or ["Outdoors", "Eat & Drink", "Events", "History"]
+    top = [{"name": n, "share": w} for n, w in zip(pages, [0.31, 0.27, 0.22, 0.12])]
     return {
         "anchor": a,
         "monthly": monthly,
+        "channels": channels,
+        "topPages": top,
+        "visitors": cfg.get("visitors") or {},
+        "videoCompletion": cfg.get("videoCompletion"),
         "origins": cfg.get("origins") or [],
         "sources": {"sales": ["simpleview"], "hotels": ["str"], "rentals": ["airdna"],
                     "reach": ["google-ads", "meta-ads", "google-analytics"]},

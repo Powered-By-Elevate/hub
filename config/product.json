@@ -133,6 +133,8 @@
       "rank": 30,
       "icon": "pulse"
     },
+    "ops-hotels": { "module": "ops", "name": "Hotels & stays", "rank": 30, "icon": "gauge", "only": ["econdev"] },
+    "ops-marketing": { "module": "ops", "name": "Marketing", "rank": 30, "icon": "target", "only": ["econdev"] },
     "hr-home": {
       "module": "people",
       "name": "HR home",

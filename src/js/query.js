@@ -292,6 +292,14 @@ export class Q {
         const pv = prev.reduce((a, r) => a + r.groupNights + r.corpNights, 0);
         return K('Room nights booked', v, 'num', { delta: pct(v, pv) });
       }
+      case 'impressions': {
+        const t = this.data.tourism;
+        if (!t) return K('Ad impressions', NaN, 'num');
+        const ms = new Set(w), pm = new Set(p);
+        const v = t.monthly.filter(r => ms.has(r.m)).reduce((a, r) => a + r.impressions, 0);
+        const pv = t.monthly.filter(r => pm.has(r.m)).reduce((a, r) => a + r.impressions, 0);
+        return K('Ad impressions', v, 'num', { delta: pct(v, pv) });
+      }
       case 'hotelOcc': {
         const t = this.data.tourism;
         if (!t) return K('Hotel occupancy', NaN, 'pct');

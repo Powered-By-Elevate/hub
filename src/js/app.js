@@ -1201,6 +1201,7 @@ function printPack(id) {
   const titles = {
     monthly: 'Monthly reporting pack', owner: 'Owner report',
     lender: 'Lender package', board: 'Board summary',
+    ...Object.fromEntries((s.industry.packs || []).map(p => [p.id, p.name])),
   };
   const money = v => F.money(v);
   const plRows = cfg.product.statement.pl.map(l => {

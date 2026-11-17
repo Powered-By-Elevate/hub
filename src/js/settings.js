@@ -229,11 +229,20 @@ export class Settings {
       if (id.startsWith('$') || base.hidden) continue;
       if (!this.data.modules[base.module]) continue;
       if (indPages[id] === false) continue;
+      if (base.only && !base.only.includes(this.industry.id)) continue;   /* a page only some industries carry */
       const over = indPages[id] || {};
       if (role.deny && role.deny.includes(id) && !(role.allow || []).includes(id)) continue;
       const allowed = (role.allow || []).includes(id) || base.rank <= role.rank;
       if (!allowed) continue;
       out.push({ id, ...base, ...over, module: base.module });
+    }
+    /* an industry may order its pages (an economic developer's operations
+       open on the overview, then tourism, hotels, marketing, projects) */
+    const order = this.industry.pageOrder;
+    if (order) {
+      const mods = Object.keys(this.cfg.product.modules), ids = Object.keys(cat);
+      const at = p => [mods.indexOf(p.module), order.includes(p.id) ? order.indexOf(p.id) : 999, ids.indexOf(p.id)];
+      out.sort((a, b) => { const x = at(a), y = at(b); return x[0] - y[0] || x[1] - y[1] || x[2] - y[2]; });
     }
     return out;
   }

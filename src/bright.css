@@ -283,3 +283,43 @@
   background: var(--wm) center / contain no-repeat; opacity: .13; transform: rotate(-8deg);
 }
 :root[data-look="bright"] .cm-card.bx-band.has-wm::after { width: 300px; height: 300px; right: -40px; top: -95px; bottom: auto; opacity: .15; }
+
+/* the book as tiles */
+:root[data-look="bright"] .book-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+:root[data-look="bright"] .bt {
+  display: grid; gap: 6px; padding: 12px 12px 11px; border-radius: 12px; cursor: pointer; background: var(--paper);
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent); transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+:root[data-look="bright"] .bt:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 35%, transparent); box-shadow: 0 10px 22px -16px rgba(16, 32, 32, .35); }
+:root[data-look="bright"] .bt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[data-look="bright"] .bt-n { font-size: 12.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:root[data-look="bright"] .bt-v { font: 600 24px/1 var(--font-display); color: var(--accent-deep); font-variant-numeric: tabular-nums; }
+:root[data-look="bright"] .bt-bar { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 7%, transparent); overflow: hidden; }
+:root[data-look="bright"] .bt-bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), var(--accent-lift)); }
+:root[data-look="bright"] .bt-s { font-size: 11.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+:root[data-look="bright"] .bt-s em { font-style: normal; }
+:root[data-look="bright"] .bt.bad { background: color-mix(in srgb, var(--bad) 5%, var(--paper)); border-color: color-mix(in srgb, var(--bad) 28%, transparent); }
+:root[data-look="bright"] .bt.bad .bt-v { color: var(--bad); }
+:root[data-look="bright"] .bt.bad .bt-bar i { background: var(--bad); }
+:root[data-look="bright"] .bt.warn .bt-v { color: var(--warn); }
+:root[data-look="bright"] .bt.warn .bt-bar i { background: var(--warn); }
+:root[data-look="bright"] .bt.warn { border-color: color-mix(in srgb, var(--warn) 30%, transparent); }
+
+/* the economic development overview: one figure, one picture, a way in */
+.ed-fig { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
+.ed-fig b { font: 600 clamp(28px, 2.6vw, 34px)/1 var(--font-display); color: var(--accent-deep); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ed-fig > span { font-size: 13px; color: var(--ink-soft); }
+.ed-d { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+.ed-d.up { color: var(--good); background: color-mix(in srgb, var(--good) 11%, transparent); }
+.ed-d.down { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+.ed-list { display: grid; gap: 6px; margin-top: 6px; }
+.ed-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent); font-variant-numeric: tabular-nums; }
+.ed-row:hover { border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: var(--tint); }
+.ed-row b { font-weight: 600; font-size: 13.5px; color: var(--ink); }
+.ed-row em { font-style: normal; font-size: 11.5px; color: var(--ink-faint); margin-left: 8px; }
+.ed-row > span:last-child { font-weight: 600; color: var(--accent-deep); }
+.ed-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.ed-facts > div { display: grid; gap: 4px; padding: 14px 16px; border-radius: 12px; background: var(--tint); }
+.ed-facts b { font: 600 26px/1 var(--font-display); color: var(--accent-deep); }
+.ed-facts span { font-size: 12.5px; color: var(--ink-soft); }

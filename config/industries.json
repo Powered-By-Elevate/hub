@@ -1133,7 +1133,57 @@
             "Staff"
           ]
         ]
-      }
+      },
+      "packs": [
+        {
+          "id": "monthly",
+          "name": "Board meeting packet",
+          "icon": "doc",
+          "what": "What the governing board reviews at each meeting.",
+          "holds": [
+            "Budget against actual, month and year to date",
+            "Revenue by funding source, spending by function",
+            "Cash on hand and days of cash",
+            "Enrollment and average daily membership against the budget"
+          ]
+        },
+        {
+          "id": "lender",
+          "name": "Authorizer financial report",
+          "icon": "shield",
+          "what": "The quarterly report a charter school owes its authorizer.",
+          "holds": [
+            "Statements for the quarter",
+            "The enrollment counts state funding is paid on",
+            "Days of cash and the measures the charter contract sets",
+            "Signed-off months only"
+          ]
+        },
+        {
+          "id": "owner",
+          "name": "Annual audit packet",
+          "icon": "ledger",
+          "what": "What the auditors ask for at year end.",
+          "holds": [
+            "Trial balance and the year's statements",
+            "Capital assets and depreciation",
+            "Federal funds spent, program by program",
+            "Payroll and benefits reconciliations"
+          ]
+        },
+        {
+          "id": "board",
+          "name": "Grant spending report",
+          "icon": "target",
+          "what": "Federal and state grant dollars, spent and remaining.",
+          "holds": [
+            "Title I, IDEA and other awards",
+            "Spent, committed and remaining by grant",
+            "Spending by allowable cost category",
+            "Reimbursement requests filed"
+          ]
+        }
+      ]
     },
     {
       "id": "healthcare",
@@ -1330,38 +1380,42 @@
       },
       "pages": {
         "ops-home": {
-          "name": "Project portfolio"
-        },
-        "ops-units": {
-          "name": "Projects"
+          "name": "Overview"
         },
         "ops-second": {
-          "name": "Tourism & visitors"
+          "name": "Tourism sales"
+        },
+        "ops-hotels": {
+          "name": "Hotels & stays"
+        },
+        "ops-marketing": {
+          "name": "Marketing"
+        },
+        "ops-units": {
+          "name": "Development projects"
         },
         "ops-detail": {
           "name": "Project"
         },
+        "ops-watch": false,
+        "ops-grid": false,
+        "ops-season": false,
+        "ops-people": false,
         "pipeline-home": {
           "name": "Prospect pipeline"
-        },
-        "ops-grid": {
-          "name": "Jobs grid"
-        },
-        "ops-people": {
-          "name": "Project managers"
         }
       },
       "headline": {
-        "metric": "capex",
-        "label": "Capital investment in the portfolio",
-        "says": "{v} of capital investment in the portfolio"
+        "metric": "roomNights",
+        "label": "Room nights booked",
+        "says": "{v} room nights booked this year"
       },
       "kpis": [
-        "capex",
-        "jobs",
-        "activeProjects",
         "roomNights",
         "hotelOcc",
+        "impressions",
+        "capex",
+        "jobs",
         "cashDays"
       ],
       "measures": [
@@ -1479,7 +1533,64 @@
         "Proposal",
         "Committed"
       ],
-      "unitSource": "executivepulse"
+      "unitSource": "executivepulse",
+      "packs": [
+        {
+          "id": "monthly",
+          "name": "Board report",
+          "icon": "doc",
+          "what": "What the board reviews each month.",
+          "holds": [
+            "Room nights booked and hotel occupancy",
+            "Marketing reach and visits to the site",
+            "Projects announced, jobs and investment",
+            "Budget against actual"
+          ]
+        },
+        {
+          "id": "lender",
+          "name": "Hotel-motel tax report",
+          "icon": "wallet",
+          "what": "Tourism dollars received and how they were spent.",
+          "holds": [
+            "Hotel-motel tax received, month by month",
+            "Spending on tourism promotion",
+            "Room nights and hotel occupancy",
+            "Signed-off months only"
+          ]
+        },
+        {
+          "id": "owner",
+          "name": "Campaign report",
+          "icon": "target",
+          "what": "The month's marketing, channel by channel.",
+          "holds": [
+            "Impressions, clicks and spend by channel",
+            "Visits to the site and what visitors read",
+            "Video views and how much was watched",
+            "Cost per thousand against the year"
+          ]
+        },
+        {
+          "id": "board",
+          "name": "Annual impact report",
+          "icon": "people",
+          "what": "The year in visitors, bookings and investment.",
+          "holds": [
+            "Visitors, their spending and where they came from",
+            "Contracts, room nights and rooms revenue",
+            "Capital investment and jobs, project by project",
+            "Marketing reach for the year"
+          ]
+        }
+      ],
+      "pageOrder": [
+        "ops-home",
+        "ops-second",
+        "ops-hotels",
+        "ops-marketing",
+        "ops-units"
+      ]
     }
   ]
 }
