@@ -45,6 +45,7 @@
       "icon": "bars"
     },
     "fin-margin": {
+      "tabOf": "fin-pl",
       "module": "finance",
       "name": "Margin & drivers",
       "rank": 45,
@@ -63,6 +64,7 @@
       "icon": "wallet"
     },
     "fin-balance": {
+      "tabOf": "fin-cash",
       "module": "finance",
       "name": "Balance sheet",
       "rank": 85,
@@ -75,6 +77,7 @@
       "icon": "doc"
     },
     "fin-close": {
+      "tabOf": "fin-statements",
       "module": "finance",
       "name": "Close & controls",
       "rank": 85,
@@ -105,6 +108,7 @@
       "icon": "pulse"
     },
     "ops-season": {
+      "tabOf": "ops-grid",
       "module": "ops",
       "name": "Pattern by month",
       "rank": 30,

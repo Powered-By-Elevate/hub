@@ -291,7 +291,7 @@ function render() {
       <b>That page could not be drawn.</b><br>${esc(err.message)}</div></section>`;
     console.error(err);
   }
-  html = withSource(html);
+  html = withSource(pageTabs(html));
   host.innerHTML = (s.data.showDemoNote && app.q.data.meta.notice ? demoNote() : '') + html;
   C.wire(host);
   U.wireStrip(host, (slot, id) => { placeKpi(slot, id); render(); });
@@ -404,7 +404,7 @@ function rail(pages) {
         <span>${esc(m.name)}</span>
         ${m.pages.length > 1 ? `<span class="place-count">${m.pages.length}</span>` : ''}
       </button>${m.id === open && (m.pages.length > 1 || openUnit()) ? `<div class="place-sub">${openUnit()}${m.pages.map(p =>
-        `<button class="sub-tab" data-act="go" data-arg="${esc(p.id)}" aria-current="${p.id === app.page}">${esc(p.name)}</button>`).join('')}</div>` : ''}`).join('')}
+        `<button class="sub-tab" data-act="go" data-arg="${esc(p.id)}" aria-current="${p.id === app.page || (pages.find(x => x.id === app.page) || {}).tabOf === p.id}">${esc(p.name)}</button>`).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="rail-foot">
       ${who && who.kind === 'person' ? `<b>${esc(who.name)}</b><br>` : ''}
@@ -422,6 +422,17 @@ function rail(pages) {
    white column is gone. A drill-down (a unit, a person) is a place, so it
    shows as the first item under its module with a close on it. */
 function tabs() { return ''; }
+
+/* The tabs of a page grouped with others (tabOf), set under its header, so
+   Margin is a tab on Profit & loss rather than a page of its own. */
+function pageTabs(html) {
+  const group = app.s.tabsOf(app.page);
+  if (!group.length) return html;
+  const strip = `<nav class="cm-tabs" aria-label="Views of this page">${group.map(p =>
+    `<button class="cm-tab" data-act="go" data-arg="${esc(p.id)}" aria-current="${p.id === app.page}">${esc(p.name)}</button>`).join('')}</nav>`;
+  const at = html.indexOf('</header>');
+  return at < 0 ? strip + html : html.slice(0, at + 9) + strip + html.slice(at + 9);
+}
 
 function openUnit() {
   if (app.page === 'ops-detail' && app.arg && app.q) {

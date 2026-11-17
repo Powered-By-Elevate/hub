@@ -721,6 +721,21 @@ async function main() {
   });
   ok(settled.length === 0, 'the entrance settles every section it moved', settled.join('; '));
 
+  /* Fewer pages (Matt's pick, 2026-11-16): a page with tabOf is a tab on its
+     parent. It keeps its address, the rail lists only the parent, and both
+     pages carry the same strip with the open one marked. */
+  await page.evaluate("location.hash = '#/fin-margin'");
+  await page.waitForTimeout(500);
+  const tabbed = await page.evaluate(() => ({
+    tabs: [...document.querySelectorAll('#page .cm-tabs .cm-tab')].map(b => [b.dataset.arg, b.getAttribute('aria-current')]),
+    rail: [...document.querySelectorAll('#rail .sub-tab')].map(b => b.dataset.arg),
+    railOn: (document.querySelector('#rail .sub-tab[aria-current="true"]') || {}).dataset?.arg,
+  }));
+  ok(JSON.stringify(tabbed.tabs) === JSON.stringify([['fin-pl', 'false'], ['fin-margin', 'true']]),
+    'Margin is a tab on Profit & loss, marked open', JSON.stringify(tabbed.tabs));
+  ok(!tabbed.rail.includes('fin-margin') && tabbed.rail.includes('fin-pl') && tabbed.railOn === 'fin-pl',
+    'the rail lists the parent only and marks it while a tab is open', JSON.stringify(tabbed));
+
   /* The question arrives word by word, and a figure inside it stays whole: the
      splitter walks text nodes so <b>$47.4M</b> is one word, not five.
      ⚠️ Start here opens on a cover, which carries neither a verdict nor a
