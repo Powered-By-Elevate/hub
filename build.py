@@ -67,6 +67,7 @@ def build(no_data: bool = False, dist: Path = DIST,
     shutil.copy2(HERE / "src" / "hub.css", DIST / "hub.css")
     shutil.copy2(HERE / "src" / "world.css", DIST / "world.css")
     shutil.copy2(HERE / "src" / "calm.css", DIST / "calm.css")
+    shutil.copy2(HERE / "src" / "bright.css", DIST / "bright.css")
     shutil.copytree(HERE / "src" / "js", DIST / "js")
     shutil.copytree(HERE / "src" / "img", DIST / "img")
 
@@ -85,11 +86,14 @@ def build(no_data: bool = False, dist: Path = DIST,
     for name in ("product", "brands", "industries", "connectors", "roles"):
         src = HERE / "config" / f"{name}.json"
         doc = strip_notes(json.loads(src.read_text()))   # also refuses invalid JSON
+        if name == "industries":   # engine profiles for prospect builds are never published
+            doc["industries"] = [i for i in doc["industries"] if not i.get("hidden")]
         (DIST / "config" / f"{name}.json").write_text(json.dumps(doc, separators=(",", ":")))
 
     # data
     (DIST / "data").mkdir()
-    industries = json.loads((HERE / "config" / "industries.json").read_text())["industries"]
+    industries = [i for i in json.loads((HERE / "config" / "industries.json").read_text())["industries"]
+                  if not i.get("hidden")]
     for ind in industries:
         src = HERE / "data" / "out" / f"{ind['id']}.json"
         if not src.exists():

@@ -45,8 +45,15 @@ export class Settings {
         shape: brand.shape,
         palette: { ...brand.palette },
         type: { ...brand.type },
-        logo: null,            /* a data URL once a client uploads one */
+        logo: brand.logo || null,   /* a build may ship one; a client upload replaces it */
         logoDark: null,
+        /* the bright look (white rail, photo hero, no dot grid or trail), a full
+           wordmark for the rail, the hero photo, and the brand's own chart colours */
+        look: brand.look || '',
+        logoWide: brand.logoWide || null,
+        hero: brand.hero || null,
+        series: brand.series || null,
+        watermark: brand.watermark || null,   /* a one-colour silhouette of the mark, for the brand band */
       },
       theme: 'light',
       role: 'exec',
@@ -57,7 +64,7 @@ export class Settings {
         .filter(m => !m.startsWith('$')).map(m => [m, true])),
       connectors: on,
       roles: JSON.parse(JSON.stringify(this.cfg.roles.roles)),
-      showDemoNote: !this.tenant,
+      showDemoNote: !this.tenant || !!this.tenant.sample,   /* a prospect's mock build keeps the sample note */
       /* Which figures the strip carries, and in what order. A client swaps any
          slot for any metric their industry resolves, and the choice exports
          with the rest of the configuration. Defaulted from the industry, and
@@ -125,6 +132,7 @@ export class Settings {
     const root = document.documentElement;
     const p = brand.palette;
     root.dataset.theme = d.theme;
+    root.dataset.look = brand.look || '';
     root.style.setProperty('--accent', p.accent);
     root.style.setProperty('--accent-deep', p.accentDeep);
     root.style.setProperty('--accent-lift', p.accentLift);
@@ -158,7 +166,8 @@ export class Settings {
     root.style.setProperty('--font-display', brand.type.display);
     root.style.setProperty('--font-body', brand.type.body);
 
-    const series = (this.cfg.brands.series || SERIES_FALLBACK)[d.theme] || SERIES_FALLBACK.light;
+    const series = (brand.series && brand.series[d.theme])
+      || (this.cfg.brands.series || SERIES_FALLBACK)[d.theme] || SERIES_FALLBACK.light;
     series.forEach((c, i) => root.style.setProperty(`--s${i}`, c));
 
     document.title = `${d.company} · ${d.productName}`;

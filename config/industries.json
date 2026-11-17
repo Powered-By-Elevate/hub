@@ -1003,7 +1003,7 @@
           "name": "Campuses"
         },
         "ops-second": {
-          "name": "Enrolment & attendance"
+          "name": "Enrollment & attendance"
         },
         "ops-detail": {
           "name": "Campus"
@@ -1012,7 +1012,7 @@
           "name": "Marketing & enrollment"
         },
         "ops-grid": {
-          "name": "Enrolment grid"
+          "name": "Enrollment grid"
         },
         "ops-people": {
           "name": "Principals"
@@ -1121,12 +1121,12 @@
           "enrolled",
           "capacity"
         ],
-        "size": "funding",
-        "sizeLabel": "Funding per student",
+        "size": "enrolled",
+        "sizeLabel": "Students enrolled",
         "chips": [
           [
-            "enrolled",
-            "Enrolled"
+            "funding",
+            "Per student"
           ],
           [
             "staff",
@@ -1299,6 +1299,187 @@
           ]
         ]
       }
+    },
+    {
+      "id": "econdev",
+      "hidden": true,
+      "$comment": "An engine profile for prospect builds (tenant/build_prospect.py), never a demo world: hidden keeps it out of data/gen.py's run, the picker and the published config. A prospect's spec overlays its name, entities and projects.",
+      "name": "Economic development & tourism",
+      "short": "Economic development",
+      "tagline": "Every job, every dollar invested and every room night traces back to a project or a campaign",
+      "company": "Riverbend Partnership",
+      "brand": "default",
+      "entities": [
+        {
+          "id": "RED",
+          "name": "Riverbend Economic Development",
+          "kind": "Economic development"
+        },
+        {
+          "id": "RVT",
+          "name": "Visit Riverbend",
+          "kind": "Tourism"
+        }
+      ],
+      "unit": {
+        "one": "project",
+        "many": "projects",
+        "collection": "Projects",
+        "key": "Project",
+        "owner": "Project manager"
+      },
+      "pages": {
+        "ops-home": {
+          "name": "Project portfolio"
+        },
+        "ops-units": {
+          "name": "Projects"
+        },
+        "ops-second": {
+          "name": "Tourism & visitors"
+        },
+        "ops-detail": {
+          "name": "Project"
+        },
+        "pipeline-home": {
+          "name": "Prospect pipeline"
+        },
+        "ops-grid": {
+          "name": "Jobs grid"
+        },
+        "ops-people": {
+          "name": "Project managers"
+        }
+      },
+      "headline": {
+        "metric": "capex",
+        "label": "Capital investment in the portfolio",
+        "says": "{v} of capital investment in the portfolio"
+      },
+      "kpis": [
+        "capex",
+        "jobs",
+        "activeProjects",
+        "roomNights",
+        "hotelOcc",
+        "cashDays"
+      ],
+      "measures": [
+        {
+          "id": "capex",
+          "name": "Capital investment",
+          "unit": "usd"
+        },
+        {
+          "id": "jobs",
+          "name": "Jobs committed",
+          "unit": "num"
+        },
+        {
+          "id": "hired",
+          "name": "Jobs filled",
+          "unit": "num"
+        },
+        {
+          "id": "retained",
+          "name": "Jobs retained",
+          "unit": "num"
+        },
+        {
+          "id": "sqft",
+          "name": "Square feet",
+          "unit": "num"
+        },
+        {
+          "id": "wage",
+          "name": "Average wage",
+          "unit": "usd"
+        }
+      ],
+      "connected": {
+        "finance": "quickbooks",
+        "systems": [
+          "str",
+          "airdna"
+        ],
+        "projects": [],
+        "tasks": [
+          "ms-planner"
+        ],
+        "docs": [
+          "sharepoint"
+        ],
+        "comms": [
+          "ms-teams",
+          "outlook"
+        ],
+        "crm": [
+          "executivepulse",
+          "simpleview",
+          "google-ads",
+          "meta-ads",
+          "google-analytics"
+        ],
+        "people": [
+          "gusto"
+        ],
+        "inventory": []
+      },
+      "model": {
+        "revM0": 215000,
+        "growth": 0.006,
+        "season": [
+          0.86,
+          0.9,
+          1.0,
+          1.04,
+          1.08,
+          1.0,
+          0.94,
+          0.96,
+          1.0,
+          1.08,
+          1.04,
+          1.1
+        ],
+        "gm": 0.46,
+        "ohPct": 0.4,
+        "units": 24,
+        "dso": 38,
+        "dpo": 24,
+        "capex": 0.006,
+        "debt": 0,
+        "crew": 4,
+        "heads": 11,
+        "pipelineScale": 12
+      },
+      "portfolio": {
+        "barLabel": "Jobs filled",
+        "bar": [
+          "hired",
+          "jobs"
+        ],
+        "size": "capex",
+        "sizeLabel": "Capital investment",
+        "chips": [
+          [
+            "jobs",
+            "Jobs"
+          ],
+          [
+            "sqft",
+            "Sq ft"
+          ]
+        ]
+      },
+      "pipelineStages": [
+        "Lead",
+        "Qualified",
+        "Site visit",
+        "Proposal",
+        "Committed"
+      ],
+      "unitSource": "executivepulse"
     }
   ]
 }

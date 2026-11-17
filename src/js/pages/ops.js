@@ -23,6 +23,7 @@ import * as M from '../calm.js';
 const unesc = t => String(t || '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
   .replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 let STAMP = '', SRC = '';
+const srcNames = (cfg, ids) => ids.map(id => ((cfg.connectors.connectors || []).find(c => c.id === id) || { name: id }).name).join(' · ');
 function panel({ title, note = '', right = '', body = '', foot = '', col = 12, aside = '', fold = '', foldLabel, src }) {
   return M.section({ title: unesc(title), note, right, src: src === undefined ? SRC : src, aside, fold, foldLabel,
     body: body + (foot ? `<p class="cm-ops-foot">${foot}</p>` : '') })
@@ -35,7 +36,10 @@ function fresh() { return ''; }
 function calm(fn) {
   return ctx => {
     STAMP = `As of ${esc(F.monthName(ctx.q.view.month, true))}`;
-    SRC = (ctx.s.connectedIn('systems')[0] || {}).name || '';
+    /* where the units are read from: a profile may name it (an economic
+       developer's projects live in its CRM, not in the tourism systems) */
+    const us = ctx.s.industry.unitSource && ctx.s.connector(ctx.s.industry.unitSource);
+    SRC = (us && ctx.s.isOn(us.id) ? us : ctx.s.connectedIn('systems')[0] || {}).name || '';
     return M.page(fn(ctx));
   };
 }
@@ -71,6 +75,15 @@ const COLUMNS = {
     { name: 'Staff', n: true, get: r => F.num(r.f.staff, 1) },
     { name: 'Per student', n: true, get: r => F.exact(r.f.funding) },
     { name: 'Cost per student', n: true, get: r => F.exact(r.f.costPer) },
+  ],
+  econdev: [
+    { name: 'Type', get: r => esc(r.type || '') },
+    { name: 'Stage', get: r => esc(r.status || '') },
+    { name: 'Investment', n: true, get: r => F.money(r.f.capex) },
+    { name: 'Jobs', n: true, get: r => F.num(r.f.jobs) },
+    { name: 'Filled', n: true, get: r => r.f.hired ? bar(r.f.hired, r.f.jobs, F.pct(r.f.jobs ? r.f.hired / r.f.jobs * 100 : 0, 0)) : '<span class="muted">not yet</span>' },
+    { name: 'Sq ft', n: true, get: r => F.num(r.f.sqft) },
+    { name: 'Average wage', n: true, get: r => F.exact(r.f.wage) },
   ],
   healthcare: [
     { name: 'Specialty', get: r => esc(r.specialty || '') },
@@ -187,7 +200,7 @@ export function home(ctx) {
 
   const total = book.reduce((a, x) => a + x.size, 0);
   const done = book.reduce((a, x) => a + x.size * (x.bar || 0), 0);
-  const money = port.size && /contract|arr|sales|linehaul|funding/.test(port.size);
+  const money = port.size && /contract|arr|sales|linehaul|funding|capex/.test(port.size);
   const fmtSize = v => money ? F.money(v) : F.num(v);
 
   /* The finished and in-band units wait in a fold, so the face of the page is
@@ -208,7 +221,7 @@ export function home(ctx) {
             <b>${pct}%</b>
           </span>
           ${(port.chips || []).map(([k, label]) => `<span class="pf-chip">
-            <b>${Number.isFinite(x.r.f[k]) ? (/cost|earned|cpu|arr|margin/i.test(k)
+            <b>${Number.isFinite(x.r.f[k]) ? (/cost|earned|cpu|arr|margin|funding|capex|wage/i.test(k)
               ? F.money(x.r.f[k]) : F.num(x.r.f[k])) : '—'}</b><span>${esc(label)}</span></span>`).join('')}
           <span class="pf-size">${fmtSize(x.size)}<span>${esc(port.sizeLabel || '')}</span></span>
           <span class="pf-flag">${x.flag
@@ -310,15 +323,20 @@ function headlineOf(q, r, ind, w) {
   return Math.round(t * 100) / 100;
 }
 
+function unitWords(ind) {
+  const u = ind.unit || {};
+  return { one: u.one || 'campus', many: u.many || 'campuses' };
+}
+
 function headlineName(ind) {
   return { construction: 'Earned revenue', education: 'Students enrolled', retail: 'Net sales',
     restaurants: 'Net sales', industrial: 'Units produced', logistics: 'Miles', tech: 'ARR',
-    healthcare: 'Patient visits' }[ind.id];
+    healthcare: 'Patient visits', econdev: 'Capital investment' }[ind.id];
 }
 
 function headlineTotal(q, ind, m) {
   const key = { construction: 'rev', education: 'enrolled', retail: 'sales', restaurants: 'sales',
-    industrial: 'produced', logistics: 'miles', tech: 'arr', healthcare: 'visits' }[ind.id];
+    industrial: 'produced', logistics: 'miles', tech: 'arr', healthcare: 'visits', econdev: 'capex' }[ind.id];
   return q.factSum(key, [m]);
 }
 
@@ -356,6 +374,17 @@ export function flags(q, rows, ind) {
            <b>${F.pct(fill * 100, 0)}</b> full, worth
            <b>${F.money((f.capacity - f.enrolled) * (f.funding || 0))}</b> of funding`,
           (f.capacity - f.enrolled) * (f.funding || 0));
+      }
+    } else if (ind.id === 'econdev') {
+      /* An announced project hiring behind its performance agreement, and a
+         prospect that has gone quiet. Jobs filled come from the state's wage
+         filing, so the gap is measured, not reported by the company. */
+      const behind = (f.jobs || 0) - (f.hired || 0);
+      if ((r.status === 'Announced' || r.status === 'Complete') && (f.pct || 0) >= 95 && f.jobs && f.hired / f.jobs < 0.7) {
+        add('Behind on jobs', 'bad', `<b>${F.num(f.hired)}</b> of <b>${F.num(f.jobs)}</b> committed jobs filled,
+          <b>${F.num(behind)}</b> short of the performance agreement`, behind * (f.wage || 0));
+      } else if (r.status === 'Prospect' && (f.touches || 0) <= 1) {
+        add('Gone quiet', 'warn', `one touch in the last month on a <b>${F.money(f.capex)}</b> prospect`, (f.capex || 0) * 0.01);
       }
     } else if (ind.id === 'healthcare') {
       /* money left on the table: what was allowed and not collected */
@@ -539,6 +568,7 @@ export function second(ctx) {
   const fn = {
     construction: backlog, education: enrolment, retail: category, restaurants: primeCost,
     industrial: throughput, logistics: lanes, tech: retention, healthcare: revenueCycle,
+    econdev: tourism,
   }[ind.id] || backlog;
   return pageHead({ eyebrow: 'Operations', title: name, answer: fn.answer(ctx),
     motif: motif(ind.id, s.data.brand.palette) })
@@ -679,10 +709,11 @@ backlog.answer = ctx => {
 /* --- education: enrolment */
 function enrolment(ctx) {
   const { q } = ctx;
+  const W = unitWords(ctx.s.industry);
   const rows = q.unitRows();
   const months = q.months.slice(-24);
   return panel({
-    col: 7, title: 'Enrolment by campus',
+    col: 7, title: `Enrollment by ${W.one}`,
     note: 'Enrolled against seats. The gap is funding not collected.',
     body: C.hbars({
       rows: rows.map(r => ({
@@ -692,17 +723,17 @@ function enrolment(ctx) {
       })),
       fmt: v => F.num(v), max: Math.max(...rows.map(r => r.f.capacity || 0)),
     }),
-    foot: 'The tick on each bar is that campus’s capacity.',
+    foot: `The tick on each bar is that ${W.one}’s capacity.`,
   }) + panel({
     col: 5, title: 'Cost against funding, per student',
-    note: 'A campus below the line costs more to run than it is funded for.',
+    note: `A ${W.one} below the line costs more to run than it is funded for.`,
     body: C.scatter({
       points: rows.map(r => ({ name: r.name, x: r.f.funding || 0, y: r.f.costPer || 0 })),
       xFmt: v => F.exact(v), yFmt: v => F.exact(v),
       xLabel: 'Funding per student', yLabel: 'Cost per student', height: 300,
     }),
   }) + panel({
-    col: 12, title: 'Enrolment over two years',
+    col: 12, title: 'Enrollment over two years',
     body: C.line({
       series: [
         { name: 'Enrolled', values: months.map(m => q.factSum('enrolled', [m])) },
@@ -714,12 +745,71 @@ function enrolment(ctx) {
 }
 enrolment.answer = ctx => {
   const { q } = ctx;
+  const W = unitWords(ctx.s.industry);
   const e = q.factAt('enrolled'), c = q.factAt('capacity');
   const low = q.unitRows().filter(r => r.f.capacity && r.f.enrolled / r.f.capacity < 0.85);
   return `<b>${F.num(e)}</b> of <b>${F.num(c)}</b> seats are filled.
-    ${low.length ? `<b>${low.length}</b> ${low.length === 1 ? 'campus is' : 'campuses are'} under 85%, worth
+    ${low.length ? `<b>${low.length}</b> ${low.length === 1 ? W.one + ' is' : W.many + ' are'} under 85%, worth
       <b>${F.money(low.reduce((a, r) => a + (r.f.capacity - r.f.enrolled) * (r.f.funding || 0), 0))}</b>
-      of funding.` : 'Every campus is above 85% full.'}`;
+      of funding.` : `Every ${W.one} is above 85% full.`}`;
+};
+
+/* --- economic development: tourism and visitors
+
+   A destination's year is read from four systems: the sales CRM (contracts and
+   the room nights on them), STR (hotel occupancy and rate), AirDNA (short-term
+   rentals) and the ad platforms and web analytics (reach). None of it is typed. */
+function tourism(ctx) {
+  const { q, cfg } = ctx;
+  const t = q.data.tourism;
+  if (!t) return panel({ col: 12, title: 'Tourism', body: '<div class="empty">No tourism systems connected.</div>' });
+  const rows = t.monthly.slice(-12);
+  const sum = k => rows.reduce((a, r) => a + (r[k] || 0), 0);
+  const labels = rows.map(r => mN(r.m));
+  const nights = sum('groupNights') + sum('corpNights');
+  const src = ids => srcNames(cfg, ids);
+  return panel({
+    col: 7, title: 'Room nights booked, month by month', src: src(t.sources.sales),
+    note: 'Group and corporate contracts the sales team closed, by the month they were signed.',
+    body: C.stack({
+      rows: rows.map(r => ({ group: r.groupNights, corp: r.corpNights })), keys: ['group', 'corp'],
+      names: { group: 'Group', corp: 'Corporate' }, labels, fmt: v => F.num(v), height: 240,
+    }),
+    foot: `<b>${F.num(sum('groupContracts') + sum('corpContracts'))}</b> contracts and <b>${F.num(nights)}</b> room nights in twelve months, worth <b>${F.money(sum('groupRevenue') + sum('corpRevenue'))}</b> in rooms revenue.`,
+  }) + panel({
+    col: 5, title: 'Hotel occupancy', src: src(t.sources.hotels),
+    note: `${F.num(t.anchor.hotels)} hotels and ${F.num(t.anchor.rooms)} rooms. The line is short-term rentals.`,
+    body: C.line({
+      series: [{ name: 'Hotels', values: rows.map(r => r.occupancy) },
+        { name: 'Short-term rentals', values: rows.map(r => r.strOccupancy) }],
+      labels, fmt: v => F.pct(v, 0), height: 240,
+    }),
+  }) + panel({
+    col: 12, title: 'What the marketing reached', src: src(t.sources.reach),
+    note: 'Paid display, search, social and video, and what it brought to the website.',
+    aside: M.facts([
+      { k: 'Ad impressions', v: F.num(sum('impressions')), hl: true, sub: 'last twelve months' },
+      { k: 'Page views', v: F.num(sum('pageViews')), sub: 'on the visitor site' },
+      { k: 'New users', v: F.num(sum('newUsers')), sub: 'first visit to the site' },
+      { k: 'Video views', v: F.num(sum('videoViews')), sub: 'YouTube' },
+    ]),
+    body: C.bars({ values: rows.map(r => r.pageViews), labels, fmt: v => F.num(v), height: 220 }),
+  }) + (t.origins && t.origins.length ? panel({
+    col: 12, title: 'Where visitors come from', src: 'Placer.ai',
+    note: 'Share of visitors from beyond 50 miles, by origin market.',
+    body: C.hbars({ rows: t.origins.map(o => ({ name: o.name, value: o.share })), fmt: v => F.pct(v, 0) }),
+  }) : '');
+}
+tourism.answer = ctx => {
+  const { q } = ctx;
+  const t = q.data.tourism;
+  if (!t) return 'No tourism systems are connected.';
+  const rows = t.monthly.slice(-12);
+  const sum = k => rows.reduce((a, r) => a + (r[k] || 0), 0);
+  const occ = rows.reduce((a, r) => a + r.occupancy, 0) / Math.max(1, rows.length);
+  return `<b>${F.num(sum('groupContracts') + sum('corpContracts'))}</b> contracts booked
+    <b>${F.num(sum('groupNights') + sum('corpNights'))}</b> room nights in twelve months, and hotels ran
+    <b>${F.pct(occ, 1)}</b> full.`;
 };
 
 /* --- healthcare: visits and the revenue cycle
@@ -1125,6 +1215,15 @@ function chain(u, f, ind) {
         { name: 'Left over', value: rev - cost, total: true },
       ];
     }
+    case 'econdev': {
+      const total = f.capex || 0;
+      const done = total * Math.min(1, (f.pct || 0) / 100);
+      return [
+        { name: 'Committed investment', value: total, total: true },
+        { name: 'Still to be spent', value: -(total - done) },
+        { name: 'Invested to date', value: done, total: true },
+      ];
+    }
     case 'healthcare': {
       const rev = f.rev || 0;
       const allowed = (f.collect || 0) ? rev / (f.collect / 100) : rev;
@@ -1193,6 +1292,9 @@ function chainNote(u, f, ind) {
     case 'education':
       return `An empty seat costs the same to keep as a full one, which is why the gap is
         drawn as money rather than as a count.`;
+    case 'econdev':
+      return `The company's money, not ours: investment to date follows the project's progress against its announced
+        total, and jobs filled come from the state's quarterly wage filing.`;
     case 'healthcare':
       return `Clinical cost is providers, staff and supplies at the group’s rate. Rent and
         the billing office sit in overhead, above this line.`;
@@ -1233,6 +1335,14 @@ function unitVerdict(q, u, f, ind) {
           <b>${F.exact(f.costPer)}</b> of cost, with
           <b>${F.num(f.staff, 1)}</b> staff, or one for every
           <b>${F.num(f.staff ? f.enrolled / f.staff : 0, 1)}</b> students.`,
+      };
+    case 'econdev':
+      return {
+        title: `${name} is a <b>${F.money(f.capex)}</b> ${esc((u.kind || u.type || '').toLowerCase())} project with
+          <b>${F.num(f.jobs)}</b> jobs committed.`,
+        body: `<b>${esc(u.status || '')}</b>, <b>${F.num(f.sqft)}</b> square feet at an average wage of
+          <b>${F.exact(f.wage)}</b>${f.retained ? `, keeping <b>${F.num(f.retained)}</b> jobs already here` : ''}.
+          ${f.hired ? `<b>${F.num(f.hired)}</b> of the new jobs are filled.` : 'Hiring has not started.'}${u.note ? ` ${esc(u.note)}` : ''}`,
       };
     case 'healthcare':
       return {
@@ -1308,12 +1418,15 @@ const GRID = {
     says: 'how each product has grown' },
   healthcare: { key: 'visits', name: 'Patient visits', fmt: v => F.num(v), good: 'high',
     says: 'how busy each clinic has been' },
+  econdev: { key: 'hired', name: 'Jobs filled', fmt: v => F.num(v), good: 'high',
+    says: 'how each project has hired' },
 };
 
 export function grid(ctx) {
   const { q, s } = ctx;
   const ind = s.industry;
-  const g = GRID[ind.id] || GRID.construction;
+  const g0 = GRID[ind.id] || GRID.construction;
+  const g = { ...g0, says: g0.says.replace('campus', unitWords(ind).one) };
   const months = q.months.slice(-12);
   const units = q.units;
   const name = (ind.pages && ind.pages['ops-grid'] && ind.pages['ops-grid'].name) || 'Performance grid';
@@ -1441,6 +1554,8 @@ const RULES = {
   ],
   tech: ['Monthly churn over 1.4% of the product’s ARR'],
   healthcare: ['Days in A/R over 50, or under 92% collected', 'No-shows over 9% of bookings'],
+  econdev: ['A project at or past its hiring date with under 70% of its committed jobs filled',
+    'A prospect with one touch or fewer in the month'],
 };
 
 /* What needs you.
@@ -1537,7 +1652,7 @@ export function watch(ctx) {
       col: 12, title: 'The rules',
       note: `What each ${esc(ind.unit.one)} is tested against. These are the build\u2019s thresholds, and a company sets its own at deployment.`,
       body: '',
-      fold: `<ol class="steps">${(RULES[ind.id] || []).map(r => `<li>${esc(r)}</li>`).join('')}</ol>`,
+      fold: `<ol class="steps">${(RULES[ind.id] || []).map(r => `<li>${esc(r.replace('A campus', 'A ' + unitWords(ind).one))}</li>`).join('')}</ol>`,
       foldLabel: 'Show the rules',
     }) + `</div>`;
 }
@@ -1684,10 +1799,10 @@ export function season(ctx) {
   const ind = s.industry;
   const months = q.months;
   const key = { construction: 'rev', education: 'enrolled', retail: 'sales', restaurants: 'covers',
-    industrial: 'produced', logistics: 'miles', tech: 'arr', healthcare: 'visits' }[ind.id] || 'rev';
+    industrial: 'produced', logistics: 'miles', tech: 'arr', healthcare: 'visits', econdev: 'hired' }[ind.id] || 'rev';
   const label = { construction: 'Earned revenue', education: 'Students enrolled',
     retail: 'Net sales', restaurants: 'Covers', industrial: 'Units produced', logistics: 'Miles',
-    tech: 'ARR', healthcare: 'Patient visits' }[ind.id] || 'Revenue';
+    tech: 'ARR', healthcare: 'Patient visits', econdev: 'Jobs filled' }[ind.id] || 'Revenue';
   const money = ['rev', 'sales', 'arr'].includes(key);
   const fmt = v => money ? F.money(v) : F.num(v, 0);
 

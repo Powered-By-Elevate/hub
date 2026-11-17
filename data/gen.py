@@ -108,9 +108,20 @@ LANES = [
 
 CATEGORIES = ["Apparel", "Home", "Outdoor", "Gift", "Pantry"]
 
+# An economic developer names a prospect by a code until the company announces,
+# which is how a confidential site search is actually run.
+CODE_NAMES = ["Falcon", "Summit", "Cedar", "Lantern", "Harbor", "Atlas", "Keystone", "Meridian",
+              "Copper", "Juniper", "Beacon", "Granite", "Orion", "Willow", "Sterling", "Aspen"]
+ECON_KINDS = {"Attraction": ["Corporate HQ", "Advanced manufacturing", "R&D center", "Regional office"],
+              "Expansion": ["Headquarters expansion", "Plant expansion", "Medical expansion", "Office expansion"],
+              "Redevelopment": ["Mixed-use redevelopment", "Hotel", "Retail center", "Coworking"]}
+
 # What a restaurant group pursues: work that adds covers or a site, never a
 # shop category. Construction pursues its own job kinds, the rest use CATEGORIES.
 PURSUITS = {"construction": JOB_KINDS,
+            "econdev": ["Corporate HQ relocation", "Advanced manufacturing plant", "Medical office expansion",
+                        "Class A office lease", "Mixed-use redevelopment", "Hotel development",
+                        "R&D center", "Dealership expansion"],
             "restaurants": ["Catering contract", "Private events", "New site",
                             "Corporate account", "Wedding season", "Stadium concession"],
             "healthcare": ["Employer clinic contract", "Payer contract renewal", "New clinic site",
@@ -188,9 +199,9 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
     # They used to be "PM A" through "PM F". A demo whose owner column reads
     # like that tells a prospect they are looking at a placeholder, and a
     # workload page is specifically about people.
-    crew = people_pool(rnd, min(n, {"construction": 6, "education": 6, "retail": 8,
+    crew = people_pool(rnd, ind["model"].get("crew") or min(n, {"construction": 6, "education": 6, "retail": 8,
                                     "industrial": 6, "logistics": 12, "tech": 4,
-                                    "restaurants": 4, "healthcare": 4}[kind]))
+                                    "restaurants": 4, "healthcare": 4, "econdev": 4}[kind]))
 
     if kind == "construction":
         for i in range(n):
@@ -212,6 +223,15 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
                 "started": f"20{year}-{rnd.int_between(1, 11):02d}",
                 "start": start, "dur": dur,
             })
+    elif kind == "education" and ind.get("unitList"):
+        # A single school read by grade level (or any named set of rooms): the
+        # profile names each unit and its seats instead of the network's campuses.
+        for i, spec in enumerate(ind["unitList"]):
+            units.append({
+                "id": spec.get("id") or f"C{i + 1}", "name": spec["name"], "short": spec.get("short", spec["name"]),
+                "entity": ents[0], "status": "Open", "owner": crew[i % len(crew)],
+                "grades": spec.get("grades", ""), "capacity": spec["capacity"],
+            })
     elif kind == "education":
         grades = ["K-5", "K-5", "6-8", "6-8", "9-12", "K-8"]
         for i in range(n):
@@ -220,6 +240,29 @@ def build_units(ind: dict, rnd: Rand) -> list[dict]:
                 "id": f"C{i + 1}", "name": f"{place} Academy", "short": place,
                 "entity": ents[0], "status": "Open", "owner": crew[i % len(crew)],
                 "grades": grades[i % len(grades)],
+            })
+    elif kind == "econdev":
+        # Projects: the published ones carry their own name and figures from the
+        # profile, the rest are confidential prospects under a code name.
+        listed = ind.get("unitList") or []
+        types = list(ECON_KINDS)
+        for i in range(max(n, len(listed))):
+            spec = listed[i] if i < len(listed) else {}
+            typ = spec.get("type") or types[i % len(types)]
+            start = spec.get("start", (seed_of(f"ed{i}") % 30) - 8)
+            dur = spec.get("dur", 10 + seed_of(f"ed{i}dur") % 18)
+            pct_now = min(1.0, max(0.01, (MONTHS_BACK - 1 - start) / dur))
+            status = spec.get("status") or ("Complete" if pct_now >= 1.0 else
+                                            "Announced" if pct_now >= 0.6 else
+                                            "Active" if pct_now >= 0.2 else "Prospect")
+            name = spec.get("name") or f"Project {CODE_NAMES[i % len(CODE_NAMES)]}"
+            units.append({
+                "id": spec.get("id") or f"P{i + 1:02d}", "name": name, "short": spec.get("short", name),
+                "entity": ents[0], "status": status, "owner": crew[i % len(crew)],
+                "type": typ, "kind": spec.get("kind") or rnd.pick(ECON_KINDS[typ]),
+                "start": start, "dur": dur,
+                "capex": spec.get("capex"), "sqft": spec.get("sqft"), "jobs": spec.get("jobs"),
+                "note": spec.get("note", ""), "size": spec.get("size", 1.0),
             })
     elif kind == "healthcare":
         # Each clinic has a specialty, which sets its visit fee and how many
@@ -322,6 +365,8 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
     cash_rows: list[dict] = []
 
     unit_weight = {u["id"]: rnd.around(1.0, 0.55) for u in units}
+    if ind["id"] == "education" and ind.get("unitList"):   # grades in one school share one funding rate: weight by seats, not by chance
+        unit_weight = {u["id"]: u["capacity"] * (0.97 + 0.06 * (unit_weight[u["id"]] % 0.1) * 10) for u in units}
     if ind["id"] == "restaurants":   # a flagship carries more than an express counter
         for u in units:
             unit_weight[u["id"]] *= RESTAURANT_FORMATS[u["format"]]["weight"]
@@ -338,7 +383,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
                                   else 0.45 if ind["id"] == "healthcare" else 0.22)
     inv_rate = {"retail": 0.72, "industrial": 0.55, "construction": 0.09,
                 "logistics": 0.04, "education": 0.02, "tech": 0.01,
-                "restaurants": 0.07, "healthcare": 0.03}[ind["id"]]   # about a week of food on the shelf
+                "restaurants": 0.07, "healthcare": 0.03, "econdev": 0.0}[ind["id"]]   # about a week of food on the shelf
 
     ni_cum_prior = 0.0
     fa = fa0
@@ -481,6 +526,8 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
     }
     if ind["id"] == "education":
         data["marketing"] = build_marketing(ind, months, units, pl_rows, unit_facts)
+    if ind["id"] == "econdev":
+        data["tourism"] = build_tourism(ind, months)
     check(data, ind)
     return data
 
@@ -528,18 +575,42 @@ def write_unit_facts(ind, month, mi, rev_total, units, uw, trouble, rnd, out, le
                      "cost": round2(est * pct * (1.12 if bad else 1.0)),
                      "estCost": est, "pct": round2(pct * 100), "rev": rev}
         elif kind == "education":
-            cap = {"K-5": 480, "6-8": 420, "9-12": 620, "K-8": 560}[u["grades"]]
+            cap = u.get("capacity") or {"K-5": 480, "6-8": 420, "9-12": 620, "K-8": 560}[u["grades"]]
             # One campus is genuinely struggling and one is merely soft, so the
             # two bands both have something in them. Moving the threshold to
             # fit the data would have been fitting the rule to the answer.
             fill = (0.66 if trouble.index(uid) == 0 else 0.78) if bad \
                 else rnd.around(0.93, 0.05)
             enrolled = int(cap * min(1.0, fill))
+            # One school's grades share one state funding rate; a network's campuses do not.
+            rate = (rev_total * 12 / max(1, sum(x.get("capacity", 0) for x in units) * 0.9)
+                    if u.get("capacity") else rev * 12 / max(1, enrolled))
             facts = {"enrolled": enrolled, "capacity": cap,
                      "adm": round2(enrolled * rnd.around(0.955, 0.012)),
-                     "funding": round2(rev * 12 / max(1, enrolled)),
+                     "funding": round2(rate),
                      "staff": round2(enrolled / rnd.around(14.5, 0.08)),
                      "costPer": round2(rev * 12 / max(1, enrolled) * rnd.around(0.93, 0.05)),
+                     "rev": rev}
+        elif kind == "econdev":
+            # A project's money is the company's, not ours: capital invested and
+            # jobs committed come from the announcement or the performance
+            # agreement, hires from the state's quarterly wage filing. One
+            # announced project is running behind its job commitment, which is
+            # what an incentive agreement exists to catch.
+            pct = min(1.0, max(0.01, (mi - u["start"]) / u["dur"]))
+            sz = seed_of(uid + "size")
+            capex = u.get("capex") or round2((1.5 + sz % 17) * 1e6 * (1.4 if u["type"] == "Attraction" else 1.0)
+                                             * u.get("size", 1.0))
+            sqft = u.get("sqft") or int(capex / rnd.around(260, 0.0001) / 100) * 100
+            jobs = u.get("jobs") or max(8, int(capex / 1e6 * (4.2 if u["type"] != "Redevelopment" else 2.6)))
+            retained = int(jobs * 1.4) if u["type"] == "Expansion" else 0
+            live = u["status"] in ("Announced", "Complete")
+            hire_pace = 0.55 if (bad and live) else 1.0
+            hired = int(jobs * min(1.0, max(0.0, (pct - 0.55) / 0.45)) * hire_pace) if live else 0
+            facts = {"capex": capex, "sqft": sqft, "jobs": jobs, "retained": retained, "hired": hired,
+                     "wage": round2(rnd.around(84000 if u["type"] == "Attraction" else 71000, 0.0001)),
+                     "pct": round2(pct * 100),
+                     "touches": int(rnd.around(3 if u["status"] == "Prospect" else 1.4, 0.6)),
                      "rev": rev}
         elif kind == "healthcare":
             fee = HEALTH_SPECIALTY[u["specialty"]]
@@ -625,7 +696,8 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
     series and the per-department detail those answers need."""
     heads = {"construction": 148, "education": 412, "retail": 186,
              "industrial": 264, "logistics": 112, "tech": 74,
-             "restaurants": 418, "healthcare": 236}[ind["id"]]
+             "restaurants": 418, "healthcare": 236}.get(ind["id"], 0)
+    heads = ind["model"].get("heads") or heads
     depts = {
         "construction": ["Field", "Project management", "Estimating", "Accounting", "Safety"],
         "education": ["Instruction", "Student support", "Operations", "Administration", "Food service"],
@@ -635,16 +707,17 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
         "tech": ["Engineering", "Product", "Go to market", "Support", "Administration"],
         "restaurants": ["Kitchen", "Front of house", "Bar", "Restaurant management", "Support office"],
         "healthcare": ["Clinical", "Front desk", "Billing", "Practice management", "Support office"],
+        "econdev": ["Business development", "Tourism sales", "Marketing", "Events & programs", "Operations"],
     }[ind["id"]]
     base_turn = {"construction": 18.4, "education": 12.1, "retail": 41.2,
                  "industrial": 22.6, "logistics": 58.3, "tech": 9.4,
-                 "restaurants": 74.0, "healthcare": 19.8}[ind["id"]]
+                 "restaurants": 74.0, "healthcare": 19.8, "econdev": 11.0}[ind["id"]]
     """Average cost of a seat, by industry. It sets the vacancy figure the page
        puts on an open role, so it is a per-industry number rather than one
        average pretending to fit a driver and an engineer alike."""
     base_cost = {"construction": 78000, "education": 54000, "retail": 41000,
                  "industrial": 62000, "logistics": 68000, "tech": 148000,
-                 "restaurants": 36000, "healthcare": 71000}[ind["id"]]
+                 "restaurants": 36000, "healthcare": 71000, "econdev": 74000}[ind["id"]]
 
     # Payroll has TWO homes in the statements: the people who do the work sit
     # inside cost of revenue, and everyone else sits in the overhead line. A
@@ -657,7 +730,7 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
                     "industrial": 0.30, "logistics": 0.45, "tech": 0.55,
                     # a restaurant's cost of sales is food and drink only: every hour
                     # worked sits in the labor line, which is how prime cost is read
-                    "restaurants": 0.0, "healthcare": 0.62}[ind["id"]]
+                    "restaurants": 0.0, "healthcare": 0.62, "econdev": 0.35}[ind["id"]]
     direct = round2(cost_of_revenue * direct_share)
     all_in = round2(direct + overhead_labor)
 
@@ -721,6 +794,9 @@ def build_people(ind: dict, rnd: Rand, months: list[str],
         "healthcare": [["Nurse practitioner", "Medical assistant"], ["Patient coordinator", "Scheduler"],
                        ["Medical biller", "Coding specialist"], ["Practice manager", "Clinic supervisor"],
                        ["Credentialing lead", "Office manager"]],
+        "econdev": [["Business development manager", "Project manager"], ["Tourism sales manager", "Group sales coordinator"],
+                    ["Marketing specialist", "Content producer"], ["Events specialist", "Programs coordinator"],
+                    ["Operations manager", "Finance and grants lead"]],
     }[ind["id"]]
     roles = []
     for i in range(open_n):
@@ -766,6 +842,7 @@ HR_CERTS = {
     "tech": ["Security awareness", "First aid & CPR"],
     "restaurants": ["Food handler", "Alcohol server", "Food protection manager"],
     "healthcare": ["State license", "BLS certification", "DEA registration", "Background check"],
+    "econdev": ["Certified Economic Developer (CEcD)", "Certified Destination Management Executive", "Background check", "Notary"],
 }
 HR_COURSES = {
     "construction": ["Harassment prevention", "Site safety orientation", "Heat illness prevention", "Cyber security basics"],
@@ -776,6 +853,7 @@ HR_COURSES = {
     "tech": ["Harassment prevention", "Secure coding", "Data privacy", "Incident response"],
     "restaurants": ["Harassment prevention", "Allergen awareness", "Food safety", "Workplace safety"],
     "healthcare": ["Harassment prevention", "HIPAA privacy", "Bloodborne pathogens", "Billing compliance"],
+    "econdev": ["Harassment prevention", "Confidential prospect handling", "Public records (open records act)", "Cyber security basics"],
 }
 HR_ONBOARD = ["Offer signed", "I-9 and E-Verify", "Tax forms", "Direct deposit", "Handbook acknowledged",
               "Benefits enrollment", "Equipment and accounts", "Training assigned"]
@@ -801,7 +879,7 @@ def build_hr(ind: dict, people: dict, units: list[dict]) -> dict:
     # Office departments sit at the head office. The ones that do the work sit at a site.
     on_site = {"construction": [0], "education": [0, 1, 2, 4], "retail": [0], "industrial": [0, 1, 2, 3],
                "logistics": [0, 2], "tech": [], "restaurants": [0, 1, 2, 3],
-               "healthcare": [0, 1, 3]}[ind["id"]]
+               "healthcare": [0, 1, 3], "econdev": []}[ind["id"]]
     used: set[str] = set()
 
     def name() -> str:
@@ -1014,9 +1092,16 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
     page says so rather than implying otherwise."""
     stages = [("Identified", 0.10), ("Qualified", 0.25), ("Proposal", 0.50),
               ("Negotiation", 0.75), ("Committed", 1.0)]
+    if ind.get("pipelineStages"):   # a profile may name its own five stages, weights kept
+        stages = [(n, w) for n, (_old, w) in zip(ind["pipelineStages"], stages)]
+    # An economic developer's pipeline is measured in capital investment, not
+    # in its own revenue, so a profile can scale every value and the target.
+    scale = ind["model"].get("pipelineScale", 1.0)
     owners = people_pool(rnd, 4)
-    sources = ["Referral", "Repeat client", "Public bid", "Inbound", "Conference"]
-    lost_why = ["Price", "Lost to incumbent", "Scope changed", "Funding pulled", "No decision"]
+    sources = {"econdev": ["State referral (GDEcD)", "Site selector", "Broker", "Existing business", "Inbound"]}.get(
+        ind["id"], ["Referral", "Repeat client", "Public bid", "Inbound", "Conference"])
+    lost_why = {"econdev": ["Chose another state", "Site not ready", "Incentives", "Project shelved", "Workforce"]}.get(
+        ind["id"], ["Price", "Lost to incumbent", "Scope changed", "Funding pulled", "No decision"])
 
     # A funnel narrows. The first cut dealt pursuits round-robin across the
     # stages and drew each value at random, which produced a Proposal stage
@@ -1031,7 +1116,7 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
     # between them. `check()` refuses to write a file where it does not.
     per_stage = [5, 4, 3, 3, 2]
     share = [1.0, 0.70, 0.50, 0.34, 0.20]
-    pool = ind["model"]["revM0"] * 2.4 * sum(per_stage)
+    pool = ind["model"]["revM0"] * 2.4 * sum(per_stage) * scale
     stage_total = [pool * x / sum(share) for x in share]
 
     rows = []
@@ -1057,7 +1142,7 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
     closed = []
     for m in months[-12:]:
         for _ in range(rnd.int_between(1, 3)):
-            value = round2(rnd.around(ind["model"]["revM0"] * 2.0, 0.7))
+            value = round2(rnd.around(ind["model"]["revM0"] * 2.0, 0.7) * scale)
             won = rnd.next() < 0.42
             closed.append({
                 "m": m, "won": won, "value": value,
@@ -1091,10 +1176,11 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
     # out as a dash and the gap to plan as $0 on a page whose whole purpose is
     # to say whether the pipeline covers the plan. A target has to be derived
     # from where the company is now, not where it started.
-    target = round2(annual_rev * 1.12)
+    target = round2(annual_rev * 1.12 * scale * (2.4 if scale != 1.0 else 1.0))
 
     return {"stages": [s[0] for s in stages], "rows": rows,
             "owners": scoreboard, "closed": closed, "target": target,
+            **({"booked": "won"} if scale != 1.0 else {}),
             "note": "Pipeline is never a fact. It sits beside the statements and enters none of them."}
 
 
@@ -1135,7 +1221,7 @@ def build_marketing(ind: dict, months: list[str], units: list[dict], pl_rows: li
         paid = round2(sales_by_m.get(m, 0.0) * 0.55)
         for name, src, share, cpi, (tour, app, enr) in channels:
             spend = round2(paid * share * rnd.around(1.0, 0.08)) if share else 0.0
-            inq = int(spend / rnd.around(cpi, 0.12)) if share else int(free_inquiries[name] * season[mo] * rnd.around(1.0, 0.15))
+            inq = int(spend / rnd.around(cpi, 0.12)) if share else int(free_inquiries[name] * ind["model"].get("inquiryScale", 1.0) * season[mo] * rnd.around(1.0, 0.15))
             tours = int(inq * rnd.around(tour, 0.08))
             apps = int(tours * rnd.around(app, 0.08))
             enrolled = int(apps * rnd.around(enr, 0.08))
@@ -1169,6 +1255,58 @@ def build_marketing(ind: dict, months: list[str], units: list[dict], pl_rows: li
     }
 
 
+def build_tourism(ind: dict, months: list[str]) -> dict:
+    """Destination marketing and sales, read from the systems that hold it.
+
+    Group and corporate contracts and their room nights come from the sales CRM,
+    hotel occupancy and rate from STR, short-term rentals from AirDNA, reach from
+    the ad platforms and the web analytics. A profile may anchor a year's totals
+    to published figures (`tourism.anchor`); the months are spread by season so
+    the year adds to exactly those totals.
+
+    Its own seeded generator, so adding it changes no other figure in the file."""
+    rnd = Rand(seed_of(ind["id"] + "-tourism"))
+    cfg = ind.get("tourism") or {}
+    a = {"year": "2025", "groupContracts": 120, "corpContracts": 18, "groupNights": 5800, "corpNights": 1360,
+         "groupRevenue": 760000, "corpRevenue": 163000, "impressions": 11500000, "pageViews": 344000,
+         "newUsers": 197000, "videoViews": 310000, "hotels": 12, "rooms": 1365, "hotelRevenue": 22000000,
+         "occupancy": 52.9, "strListings": 155, "strAdr": 198.55, "strRevenue": 5000000, "strOccupancy": 60.0,
+         **(cfg.get("anchor") or {})}
+    season = [0.62, 0.74, 0.98, 1.08, 1.12, 1.04, 0.96, 0.9, 1.06, 1.18, 1.02, 1.30]
+    occ_season = [0.84, 0.92, 1.02, 1.06, 1.08, 1.04, 1.0, 0.96, 1.02, 1.1, 1.0, 0.96]
+
+    def spread(total, weights, integer=False):
+        parts = spread_to_total([w * rnd.around(1.0, 0.07) for w in weights], total)
+        if not integer:
+            return [round2(p) for p in parts]
+        out = [int(p) for p in parts]
+        out[out.index(max(out))] += int(total) - sum(out)
+        return out
+
+    monthly = []
+    for year in sorted({m[:4] for m in months}):
+        ms = [m for m in months if m[:4] == year]
+        w = [season[int(m[5:]) - 1] for m in ms]
+        k = len(ms) / 12 * (1.0 if year == a["year"] else 0.93 if year < a["year"] else 1.07)
+        cols = {key: spread(a[key] * k, w, integer=key.endswith(("Contracts", "Nights", "Views", "Users", "impressions")))
+                for key in ("groupContracts", "corpContracts", "groupNights", "corpNights", "groupRevenue",
+                            "corpRevenue", "impressions", "pageViews", "newUsers", "videoViews", "strRevenue")}
+        for i, m in enumerate(ms):
+            occ = min(92.0, round2(a["occupancy"] * occ_season[int(m[5:]) - 1] * (k * 12 / len(ms)) ** 0.25 * rnd.around(1.0, 0.03)))
+            row = {"m": m, **{key: v[i] for key, v in cols.items()},
+                   "occupancy": occ, "adr": round2(a["hotelRevenue"] / (a["rooms"] * 365 * a["occupancy"] / 100) * rnd.around(1.0, 0.04)),
+                   "strOccupancy": round2(a["strOccupancy"] * occ_season[int(m[5:]) - 1] * rnd.around(1.0, 0.04))}
+            monthly.append(row)
+    return {
+        "anchor": a,
+        "monthly": monthly,
+        "origins": cfg.get("origins") or [],
+        "sources": {"sales": ["simpleview"], "hotels": ["str"], "rentals": ["airdna"],
+                    "reach": ["google-ads", "meta-ads", "google-analytics"]},
+        "note": "Read from the sales CRM, STR, AirDNA, the ad platforms and the web analytics. Nothing on this page is typed in.",
+    }
+
+
 # The filing taxonomy, per industry. ONE scheme for every unit of work, which
 # is the point: a company with a folder scheme per project has no scheme.
 DISCIPLINES = {
@@ -1183,6 +1321,7 @@ DISCIPLINES = {
     "tech": ["Contracts", "Specifications", "Security & compliance", "Support", "Finance"],
     "restaurants": ["Leases", "Health inspections", "Licenses & permits", "Vendors", "Payroll", "Finance"],
     "healthcare": ["Credentialing", "Payer contracts", "Policies", "Facilities", "Payroll", "Finance"],
+    "econdev": ["Prospect files", "Incentive agreements", "Site data", "Marketing", "Board", "Finance"],
 }
 
 # What lives in each of those folders, so a document's name tells you what it is.
@@ -1223,6 +1362,10 @@ DOC_KINDS = {
     "Credentialing": ["Provider credential file", "Malpractice certificate", "License renewal"],
     "Payer contracts": ["Payer agreement", "Fee schedule", "Amendment"],
     "Policies": ["Clinical policy", "HIPAA policy", "Policy acknowledgement"],
+    "Prospect files": ["RFI response", "Site tour notes", "Confidentiality agreement"],
+    "Incentive agreements": ["Performance agreement", "Job certification", "Clawback review"],
+    "Site data": ["Site profile", "Utility letter", "Zoning verification"],
+    "Marketing": ["Campaign brief", "Media plan", "Creative proof"],
 }
 
 
@@ -1426,6 +1569,8 @@ def summarise(data: dict, ind: dict) -> dict:
         fmt = "pct"
     elif kind == "healthcare":
         value, fmt = fact_sum("visits", ytd), "num"
+    elif kind == "econdev":
+        value, fmt = fact_at("capex"), "usd"
     elif kind == "logistics":
         miles = fact_sum("miles", ytd)
         value = round2(fact_sum("rev", ytd) / miles) if miles else 0.0
@@ -1470,6 +1615,8 @@ def main() -> None:
 
     for ind in inds:
         if args.only and ind["id"] != args.only:
+            continue
+        if ind.get("hidden"):   # an engine profile for prospect builds, never a demo world
             continue
         lift = 0.0
         for _attempt in range(6):

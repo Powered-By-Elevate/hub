@@ -74,20 +74,28 @@ export function start(ctx) {
     stamp: `Books as of ${month}<br>${status}`,
   });
 
-  const figs = `<div class="cm-strip">` + U.strip(kpis.map((id, slot) => {
+  /* The bright look opens on the client's own photograph, the way their
+     website does, with the figures as cards over its foot. */
+  const bright = s.data.brand.look === 'bright';
+  const hero = bright && s.data.brand.hero;
+  const KICO = { revenue: 'wallet', grossMargin: 'scale', cashDays: 'clock', capex: 'wallet', jobs: 'people',
+    activeProjects: 'target', roomNights: 'compass', hotelOcc: 'gauge', perStudent: 'scale', enrolled: 'school',
+    fillRate: 'gauge', staffRatio: 'people' };
+  const figs = `<div class="cm-strip${hero ? ' bx-over' : ''}">` + U.strip(kpis.map((id, slot) => {
     const k = q.kpi(id);
     const options = q.kpiIds().map(oid => {
       const ok = q.kpi(oid);
       return { id: oid, label: ok.label, value: U.display(ok), note: ok.note || '' };
     });
-    return { id, slot, options, label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '', spark: k.spark };
+    return { id, slot, options, label: k.label, value: U.display(k), note: k.note ? esc(k.note) : '', spark: k.spark,
+      ico: bright ? (KICO[id] || 'bars') : '' };
   })) + `</div>`;
 
   const found = flags(q, q.unitRows(), ind).sort((x, y) => (y.value || 0) - (x.value || 0));
   const row = f => `<div class="cm-task" data-click="unit:${esc(f.id)}" tabindex="0">
       ${U.statusTag(f.tag, f.kind)}
       <span class="t"><b>${esc(f.name)}</b><span>${f.why}</span></span>
-      <span class="o">${esc(f.owner || 'Unassigned')}</span><span class="go">${icon('arrow', 14)}</span></div>`;
+      <span class="o">${bright && f.owner ? `<i class="av">${esc(f.owner.split(' ').map(w => w[0]).join('').slice(0, 2))}</i>` : ''}${esc(f.owner || 'Unassigned')}</span><span class="go">${icon('arrow', 14)}</span></div>`;
   const needs = M.section({
     title: 'What needs a look',
     note: found.length
@@ -109,6 +117,9 @@ export function start(ctx) {
         <span class="i">${icon(p.icon || 'grid', 16)}</span><b>${esc(p.name)}</b><span>${esc(doorWhy(p.id, ind))}</span></button>`).join('')}</div>`,
   });
 
+  const wm = s.data.brand.watermark;
+  const goBand = bright ? go.replace('<section class="cm-card"',
+    `<section class="cm-card bx-band${wm ? ' has-wm' : ''}"${wm ? ` style="--wm:url('${esc(wm)}')"` : ''}`) : go;
   const connected = Object.keys(s.data.connectors).map(id => s.connector(id)).filter(Boolean);
   const reads = connected.length
     ? `<p class="cm-reads">Every figure is read from ${connected.slice(0, 4).map(c => `<b>${esc(c.name)}</b>`).join(', ')}${connected.length > 4 ? ` and ${connected.length - 4} more` : ''}. <button class="cm-link" data-act="go" data-arg="settings">See every connection</button></p>`
@@ -116,7 +127,8 @@ export function start(ctx) {
 
   /* the demo's way back to the other industries (the probe reopens the chooser from here) */
   const other = s.tenant ? '' : `<p class="cm-reads">The same build runs ${F.countWord(ctx.cfg.industries.industries.length)} industries. <button class="cm-link" data-act="chooser">${icon('grid', 13)} See the other industries</button></p>`;
-  return M.page(head + figs + needs + go + reads + other);
+  const top = hero ? `<section class="bx-hero" style="background-image:url('${esc(hero)}')">${head}</section>` : head;
+  return M.page(top + figs + needs + goBand + reads + other);
 }
 
 /* One sentence that reads the twelve months, so the band has a verdict rather
@@ -174,7 +186,7 @@ function srcNames(cfg, ids) {
 }
 
 function marketing(ctx) {
-  const { q, cfg } = ctx;
+  const { q, cfg, s } = ctx;
   const mk = q.data.marketing;
   const rows = mk.monthly;
   const months = [...new Set(rows.map(r => r.m))].sort();
@@ -230,10 +242,12 @@ function marketing(ctx) {
     fold: C.bars({ values: months.map(m => sum('inquiries', rows.filter(r => r.m === m))), labels: months.map(m => F.monthName(m)), fmt: v => F.num(v), height: 200 }),
     foldLabel: 'Inquiries by month',
   });
+  const U1 = (s.industry.unit && s.industry.unit.one) || 'campus', UN = (s.industry.unit && s.industry.unit.many) || 'campuses',
+    UK = (s.industry.unit && s.industry.unit.key) || 'Campus';
   const campuses = M.section({
-    title: 'Will each campus open full', src: srcNames(cfg, ['powerschool']),
-    note: 'Open seats are seats less returning students. Accepted offers against them is how full each campus will open.',
-    body: U.table({ cols: [{ name: 'Campus', w: '24%' }, { name: 'Seats', n: true }, { name: 'Returning', n: true }, { name: 'Open', n: true },
+    title: `Will each ${U1} open full`, src: srcNames(cfg, ['powerschool']),
+    note: `Open seats are seats less returning students. Accepted offers against them is how full each ${U1} will open.`,
+    body: U.table({ cols: [{ name: UK, w: '24%' }, { name: 'Seats', n: true }, { name: 'Returning', n: true }, { name: 'Open', n: true },
       { name: 'Accepted', n: true }, { name: 'Filled', n: true }, { name: 'Waitlist', n: true }],
       rows: camp.map(c => { const f = c.open ? c.accepted / c.open * 100 : 100;
         return { cells: [`<b>${esc(c.name)}</b>`, F.num(c.seats), F.num(c.returning), F.num(c.open), F.num(c.accepted),
@@ -249,7 +263,7 @@ function marketing(ctx) {
         F.pct(x.conv, 1), x.cpe ? F.money(x.cpe) : '<span class="muted">n/a</span>'] })) }),
   });
   return M.page(M.head({ eyebrow: 'Marketing & enrollment', title: 'Marketing & enrollment',
-    line: `<b>${F.pct(fillNext, 0)}</b> of next year's open seats are filled${behind.length ? `, and ${behind.length === 1 ? esc(behind[0].name) + ' is' : behind.length + ' campuses are'} behind` : ''}.`,
+    line: `<b>${F.pct(fillNext, 0)}</b> of next year's open seats are filled${behind.length ? `, and ${behind.length === 1 ? esc(behind[0].name) + ' is' : behind.length + ' ' + UN + ' are'} behind` : ''}.`,
     stamp: `Spend ties to ${esc(srcNames(cfg, ['sage-intacct']))}` }) + figs + funnel + campuses + channels);
 }
 
@@ -269,7 +283,12 @@ export function pipeline(ctx) {
      judging by rather than colouring a number and leaving the reader to
      guess. */
   const w = q.window();
-  const booked = q.sum('rev', w);
+  /* A pipeline measured in something other than the company's own revenue
+     (an economic developer's capital investment) books what it won. */
+  const inW = new Set(w);
+  const booked = p.booked === 'won'
+    ? (p.closed || []).filter(c => c.won && inW.has(c.m)).reduce((a, c) => a + c.value, 0)
+    : q.sum('rev', w);
   const gap = Math.max(0, target - booked);
   const coverage = gap > 0 ? total / gap : null;
   const thin = coverage !== null && coverage < 3;

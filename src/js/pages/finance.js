@@ -149,6 +149,11 @@ function verdictLine(ctx, m) {
       return `<b>${F.num(e.value)}</b> students fill <b>${F.pct(fr.value, 0)}</b> of the seats,
         at <b>${F.exact(ps.value)}</b> of revenue each.`;
     },
+    econdev: () => {
+      const c = q.kpi('capex'), j = q.kpi('jobs'), r = q.kpi('roomNights');
+      return `The portfolio carries <b>${F.money(c.value)}</b> of capital investment and <b>${F.num(j.value)}</b>
+        committed jobs, and tourism sales booked <b>${F.num(r.value)}</b> room nights.`;
+    },
     healthcare: () => {
       const v = q.kpi('visits'), pv = q.kpi('perVisit'), cr = q.kpi('collectRate');
       return `<b>${F.num(v.value)}</b> patient visits at <b>${F.exact(pv.value, 2)}</b> each,

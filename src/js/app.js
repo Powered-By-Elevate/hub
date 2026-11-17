@@ -391,12 +391,14 @@ function rail(pages) {
   const open = (PAGES[app.page] && app.cfg.product.pages[app.page])
     ? app.cfg.product.pages[app.page].module
     : (app.page === 'ops-detail' ? 'ops' : app.page === 'hr-person' ? 'people' : 'start');
-  return `<div class="rail-head">
+  const wide = s.data.brand.look === 'bright' && s.data.brand.logoWide;
+  return `${wide ? `<div class="rail-head is-wide"><img class="rail-logo" src="${esc(s.data.brand.logoWide)}"
+      alt="${esc(s.data.company)}"><div class="rail-sub">${esc(s.data.productName)}</div></div>` : `<div class="rail-head">
       <span class="rail-mark">${s.data.brand.logo
       ? `<img src="${esc(s.data.brand.logo)}" alt="">` : brandMark(s.data.brand, 34)}</span>
       <div><div class="rail-name">${esc(s.data.company)}</div>
         <div class="rail-sub">${esc(s.data.productName)}</div></div>
-    </div>
+    </div>`}
     <div class="rail-places">
       ${mods.map(m => `<button class="place" data-act="go" data-arg="${esc(m.pages[0].id)}"
         aria-current="${m.id === open}" aria-expanded="${m.id === open && m.pages.length > 1}">
