@@ -325,7 +325,8 @@ function render() {
      wildly mismatched at 900 once the columns reflow. */
   balanceRows();
   if (Present.isOn()) Present.collect();
-  host.scrollIntoView({ block: 'start' });
+  /* framed, scrollIntoView would scroll the page around the frame as well */
+  if (!Site.EMBED) host.scrollIntoView({ block: 'start' });
   window.scrollTo({ top: 0 });
 }
 
