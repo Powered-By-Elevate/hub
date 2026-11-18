@@ -529,6 +529,7 @@ def build(ind: dict, product: dict, lift: float = 0.0) -> dict:
         data["marketing"] = build_marketing(ind, months, units, pl_rows, unit_facts)
     if ind["id"] == "econdev":
         data["tourism"] = build_tourism(ind, months, pl_rows)
+        data["programs"] = build_programs(ind, months)
     check(data, ind)
     return data
 
@@ -1099,9 +1100,9 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
     # in its own revenue, so a profile can scale every value and the target.
     scale = ind["model"].get("pipelineScale", 1.0)
     owners = people_pool(rnd, 4)
-    sources = {"econdev": ["State referral (GDEcD)", "Site selector", "Broker", "Existing business", "Inbound"]}.get(
+    sources = ind.get("pursuitSources") or {"econdev": ["State referral (GDEcD)", "Site selector", "Broker", "Existing business", "Inbound"]}.get(
         ind["id"], ["Referral", "Repeat client", "Public bid", "Inbound", "Conference"])
-    lost_why = {"econdev": ["Chose another state", "Site not ready", "Incentives", "Project shelved", "Workforce"]}.get(
+    lost_why = ind.get("pursuitLost") or {"econdev": ["Chose another state", "Site not ready", "Incentives", "Project shelved", "Workforce"]}.get(
         ind["id"], ["Price", "Lost to incumbent", "Scope changed", "Funding pulled", "No decision"])
 
     # A funnel narrows. The first cut dealt pursuits round-robin across the
@@ -1128,7 +1129,7 @@ def build_pipeline(ind: dict, rnd: Rand, months: list[str], annual_rev: float) -
             st = stages[si]
             value = round2(v)
             rows.append({
-                "name": f"{rnd.pick(PLACES)} {rnd.pick(PURSUITS.get(ind['id'], CATEGORIES))}",
+                "name": f"{rnd.pick(PLACES)} {rnd.pick(ind.get('pursuits') or PURSUITS.get(ind['id'], CATEGORIES))}",
                 "stage": st[0], "weight": st[1], "value": value,
                 "weighted": round2(value * st[1]),
                 "owner": owners[i % len(owners)],
@@ -1341,6 +1342,44 @@ def build_tourism(ind: dict, months: list[str], pl_rows: list[dict] | None = Non
                     "reach": ["google-ads", "meta-ads", "google-analytics"]},
         "note": "Read from the sales CRM, STR, AirDNA, the ad platforms and the web analytics. Nothing on this page is typed in.",
     }
+
+
+def build_programs(ind: dict, months: list[str]) -> dict:
+    """Business development programs: the events an economic developer runs and the
+    projects it opens in a year, read from its CRM and its event platform. A profile
+    may anchor a year to published totals (`programs.anchor`); the months are spread
+    so that year adds to exactly those totals, and the named events carry the year's
+    attendance between them. Its own seed, so it moves no other figure."""
+    rnd = Rand(seed_of(ind["id"] + "-programs"))
+    cfg = ind.get("programs") or {}
+    a = {"year": "2025", "events": 36, "attendees": 4000, "businesses": 340,
+         "attraction": 60, "attractionDone": 25, "retention": 45, "retentionDone": 14, **(cfg.get("anchor") or {})}
+    # an event named with a month ({"name": ..., "month": 2}) happens once a year, in that month
+    annual = {e["month"]: e["name"] for e in cfg.get("events") or [] if isinstance(e, dict)}
+    names = [e for e in cfg.get("events") or [] if isinstance(e, str)] or ["Annual economic forecast", "Business breakfast", "Ribbon cutting", "Career expo",
+                                  "Small business workshop", "Networking social"]
+    season = [0.7, 0.9, 1.1, 1.1, 1.2, 1.0, 0.8, 0.9, 1.1, 1.2, 1.1, 0.9]
+    monthly, events = [], []
+    for year in sorted({m[:4] for m in months}):
+        ms = [m for m in months if m[:4] == year]
+        k = len(ms) / 12 * (1.0 if year == a["year"] else 0.92 if year < a["year"] else 1.08)
+        def spread(total):
+            parts = spread_to_total([season[int(m[5:]) - 1] * rnd.around(1.0, 0.18) for m in ms], total)
+            out = [max(0, int(round(p))) for p in parts]
+            out[out.index(max(out))] += int(round(total)) - sum(out)
+            return out
+        ev, at, att, ret = spread(a["events"] * k), spread(a["attendees"] * k), spread(a["attraction"] * k), spread(a["retention"] * k)
+        for i, m in enumerate(ms):
+            monthly.append({"m": m, "events": ev[i], "attendees": at[i], "attraction": att[i], "retention": ret[i]})
+            if ev[i]:
+                big = int(m[5:]) in annual
+                shares = spread_to_total([(4.0 if big and j == 0 else 1.0) * rnd.around(1.0, 0.5) for j in range(ev[i])], at[i])
+                for j in range(ev[i]):
+                    nm = annual[int(m[5:])] if big and j == 0 else names[len(events) % len(names)]
+                    events.append({"m": m, "day": rnd.int_between(3, 27), "name": nm,
+                                   "attendees": max(12, int(shares[j])), "businesses": max(3, int(shares[j] * rnd.around(0.32, 0.3)))})
+    return {"anchor": a, "monthly": monthly, "events": events, "sources": {"events": ["hubspot"], "projects": ["executivepulse"]},
+            "note": "Read from the CRM and the event platform. Nothing on this page is typed in."}
 
 
 # The filing taxonomy, per industry. ONE scheme for every unit of work, which

@@ -91,15 +91,17 @@ export function start(ctx) {
       ico: bright ? (KICO[id] || 'bars') : '' };
   })) + `</div>`;
 
-  const found = flags(q, q.unitRows(), ind).sort((x, y) => (y.value || 0) - (x.value || 0));
-  const row = f => `<div class="cm-task" data-click="unit:${esc(f.id)}" tabindex="0">
+  const found = (ind.focus === 'tourism' && q.data.tourism ? tourismFlags(q) : flags(q, q.unitRows(), ind))
+    .sort((x, y) => (y.value || 0) - (x.value || 0));
+  const row = f => `<div class="cm-task" ${f.go ? `data-act="go" data-arg="${esc(f.go)}"` : `data-click="unit:${esc(f.id)}"`} tabindex="0">
       ${U.statusTag(f.tag, f.kind)}
       <span class="t"><b>${esc(f.name)}</b><span>${f.why}</span></span>
-      <span class="o">${bright && f.owner ? `<i class="av">${esc(f.owner.split(' ').map(w => w[0]).join('').slice(0, 2))}</i>` : ''}${esc(f.owner || (s.industry.unitList ? '' : 'Unassigned'))}</span><span class="go">${icon('arrow', 14)}</span></div>`;
+      <span class="o">${bright && f.owner ? `<i class="av">${esc(f.owner.split(' ').map(w => w[0]).join('').slice(0, 2))}</i>` : ''}${esc(f.owner || (s.industry.unitList || f.go ? '' : 'Unassigned'))}</span><span class="go">${icon('arrow', 14)}</span></div>`;
   const needs = M.section({
     title: 'What needs a look',
     note: found.length
-      ? `${F.countWord(found.length, true)} of your ${esc(ind.unit.many)}, the most at stake first.`
+      ? (ind.focus === 'tourism' ? `${F.countWord(found.length, true)} things across tourism, the most at stake first.`
+        : `${F.countWord(found.length, true)} of your ${esc(ind.unit.many)}, the most at stake first.`)
       : `Nothing on your ${esc(ind.unit.many)} needs attention this month.`,
     right: found.length ? U.btn('See them all', { act: 'go', arg: 'ops-watch', sm: true, ico: 'arrow' }) : '',
     body: found.length ? `<div class="cm-tasks">${found.slice(0, 5).map(row).join('')}</div>` : '',
@@ -156,12 +158,34 @@ function doorWhy(id, ind) {
     'fin-balance': 'The position as of the month',
     'fin-statements': 'The packs, generated from the same facts',
     'fin-close': 'What is signed off and what is waiting',
-    'ops-home': `How the ${ind.unit.many} are running`,
+    'ops-home': ind.focus === 'tourism' ? 'How tourism is running, at a glance'
+      : ind.focus === 'bizdev' ? 'Projects, recruitment, retention and events, at a glance' : `How the ${ind.unit.many} are running`,
     'ops-units': `Every ${ind.unit.one}, with the money on it`,
     'ops-second': 'The operational read behind the revenue',
     'pipeline-home': 'What is coming, and what it is worth weighted',
     'docs-home': 'The paperwork behind the figures',
   }[id] || '';
+}
+
+/* A tourism office's attention list comes from its own systems: the soft month
+   in the hotels, the channel that costs the most to reach a thousand people,
+   group business sitting too long without a decision. */
+function tourismFlags(q) {
+  const t = q.data.tourism, last = t.monthly.slice(-12), out = [];
+  const avg = last.reduce((a, r) => a + r.occupancy, 0) / last.length;
+  const low = last.slice().sort((a, b) => a.occupancy - b.occupancy)[0];
+  if (low && low.occupancy < avg - 4) out.push({ id: 'occ', go: 'ops-hotels', name: `Hotel occupancy in ${F.monthName(low.m, true)}`, tag: 'Soft month', kind: 'warn',
+    why: `<b>${F.pct(low.occupancy, 1)}</b> full against <b>${F.pct(avg, 1)}</b> for the year, a month worth a campaign`, value: (avg - low.occupancy) * 1000 });
+  const ms = new Set(last.map(r => r.m)), ch = {};
+  for (const c of t.channels || []) if (ms.has(c.m) && c.impressions) { const o = (ch[c.channel] ||= { imp: 0, sp: 0 }); o.imp += c.impressions; o.sp += c.spend; }
+  const cpm = Object.entries(ch).map(([n, o]) => ({ n, v: o.sp / o.imp * 1000 })).sort((a, b) => b.v - a.v);
+  const mean = cpm.reduce((a, x) => a + x.v, 0) / (cpm.length || 1);
+  if (cpm[0] && cpm[0].v > mean * 1.5) out.push({ id: 'cpm', go: 'ops-marketing', name: `${cpm[0].n} costs the most to reach people`, tag: 'Spend', kind: 'warn',
+    why: `<b>${F.exact(cpm[0].v, 2)}</b> per thousand impressions against <b>${F.exact(mean, 2)}</b> across channels`, value: cpm[0].v * 100 });
+  const stale = (q.data.pipeline.rows || []).filter(r => r.age > 120 && r.weight < 1).sort((a, b) => b.value - a.value)[0];
+  if (stale) out.push({ id: 'pipe', go: 'pipeline-home', name: stale.name, tag: 'Stalled lead', kind: 'bad',
+    why: `<b>${F.money(stale.value)}</b> of group business at ${esc(stale.stage.toLowerCase())} for <b>${stale.age}</b> days`, value: stale.value });
+  return out;
 }
 
 function greeting() {
@@ -321,7 +345,10 @@ export function pipeline(ctx) {
       : 'That is at or above the 3× a pipeline usually needs to land a plan.'}`;
 
   const ageRows = p.rows.slice().sort((a, b) => b.age - a.age).slice(0, 5);
-  const crm = (s.connectedIn('crm')[0] || {}).name || '';
+  /* a profile may name where its pipeline lives (a tourism office's group
+     leads are in its sales CRM, not the first marketing tool in the list) */
+  const ps = s.industry.pipelineSource && s.connector(s.industry.pipelineSource);
+  const crm = (ps && s.isOn(ps.id) ? ps : s.connectedIn('crm')[0] || {}).name || '';
   const lostRows = (() => {
     const why = {};
     for (const c of closed.filter(c => !c.won)) why[c.why] = (why[c.why] || 0) + c.value;
