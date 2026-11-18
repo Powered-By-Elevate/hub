@@ -1,0 +1,154 @@
+{
+ "id": "belton",
+ "displayName": "Belton Preparatory Academy",
+ "industry": "education",
+ "notice": "Sample figures for a demonstration. Enrollment, staff and grade levels follow Belton Prep's published numbers. Every financial figure, name and transaction is generated.",
+ "overlay": {
+  "tagline": "Funding follows the student, so every cost belongs to a seat",
+  "entities": [
+   {
+    "id": "BPA",
+    "name": "Belton Preparatory Academy",
+    "kind": "School"
+   }
+  ],
+  "unit": {
+   "one": "grade",
+   "many": "grades",
+   "collection": "Grades",
+   "key": "Grade",
+   "owner": ""
+  },
+  "pages": {
+   "ops-home": {
+    "name": "School overview"
+   },
+   "ops-units": {
+    "name": "Grades"
+   },
+   "ops-second": {
+    "name": "Enrollment & attendance"
+   },
+   "ops-detail": {
+    "name": "Grade"
+   },
+   "ops-grid": {
+    "name": "Enrollment grid"
+   },
+   "ops-people": false
+  },
+  "unitList": [
+   {
+    "id": "K5",
+    "name": "Kindergarten (K5)",
+    "short": "K5",
+    "grades": "K5",
+    "capacity": 56
+   },
+   {
+    "id": "G1",
+    "name": "1st grade",
+    "short": "1st",
+    "grades": "1st",
+    "capacity": 56
+   },
+   {
+    "id": "G2",
+    "name": "2nd grade",
+    "short": "2nd",
+    "grades": "2nd",
+    "capacity": 56
+   },
+   {
+    "id": "G3",
+    "name": "3rd grade",
+    "short": "3rd",
+    "grades": "3rd",
+    "capacity": 56
+   },
+   {
+    "id": "G4",
+    "name": "4th grade",
+    "short": "4th",
+    "grades": "4th",
+    "capacity": 56
+   },
+   {
+    "id": "G5",
+    "name": "5th grade",
+    "short": "5th",
+    "grades": "5th",
+    "capacity": 56
+   },
+   {
+    "id": "G6",
+    "name": "6th grade",
+    "short": "6th",
+    "grades": "6th",
+    "capacity": 56
+   },
+   {
+    "id": "G7",
+    "name": "7th grade",
+    "short": "7th",
+    "grades": "7th",
+    "capacity": 56
+   },
+   {
+    "id": "G8",
+    "name": "8th grade",
+    "short": "8th",
+    "grades": "8th",
+    "capacity": 56
+   }
+  ],
+  "model": {
+   "revM0": 360000,
+   "units": 9,
+   "crew": 9,
+   "heads": 38,
+   "debt": 3600000,
+   "inquiryScale": 0.16
+  }
+ },
+ "brand": {
+  "name": "Belton Preparatory Academy",
+  "mono": "BP",
+  "logo": "logo-icon.png",
+  "palette": {
+   "accent": "#009A50",
+   "accentDeep": "#004D28",
+   "accentLift": "#3DB878",
+   "tint": "#EAF6EF",
+   "navy": "#0F2A1D"
+  },
+  "type": {
+   "display": "\"EB Garamond\", Georgia, serif",
+   "body": "\"Open Sans\", -apple-system, \"Segoe UI\", sans-serif",
+   "google": "EB+Garamond:wght@500;600;700&family=Open+Sans:wght@400;500;600;700"
+  },
+  "shape": "shield",
+  "logoWide": "logo-wide.png",
+  "hero": "hero.jpg",
+  "look": "bright",
+  "series": {
+   "light": [
+    "#009A50",
+    "#2E6F9E",
+    "#B8862B",
+    "#004D28",
+    "#6B7F75",
+    "#7FBF8F"
+   ],
+   "dark": [
+    "#2FBF76",
+    "#5A9BD0",
+    "#D3A44A",
+    "#7FCB9C",
+    "#9AABA2",
+    "#A8D8B4"
+   ]
+  },
+  "watermark": "watermark.png"
+ }
+}

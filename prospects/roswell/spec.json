@@ -1,0 +1,509 @@
+{
+ "id": "roswell",
+ "displayName": "Roswell Inc",
+ "industry": "econdev",
+ "notice": "Sample figures for a demonstration. Project names, the investment and square footage Insight Roswell 2026 publishes for them, and the 2025 totals for events, attendees, businesses supported and projects are real. Everything else, including jobs, wages, prospects and every financial figure, is generated.",
+ "overlay": {
+  "entities": [
+   {
+    "id": "RINC",
+    "name": "Roswell Inc",
+    "kind": "Economic development"
+   }
+  ],
+  "unitList": [
+   {
+    "id": "P01",
+    "name": "PBS Aerospace",
+    "type": "Attraction",
+    "kind": "Advanced manufacturing",
+    "status": "Complete",
+    "capex": 37000000,
+    "sqft": 30000,
+    "note": "North American headquarters opened in Roswell in September 2025, since expanded from 17,000 to 30,000 square feet.",
+    "start": 10,
+    "dur": 14
+   },
+   {
+    "id": "P02",
+    "name": "Rivian Service Center",
+    "type": "Attraction",
+    "kind": "Service center",
+    "status": "Complete",
+    "sqft": 27000,
+    "note": "Opened late 2025, Rivian's largest service center to date, on two acres of inventory.",
+    "start": 12,
+    "dur": 12,
+    "size": 0.45
+   },
+   {
+    "id": "P03",
+    "name": "Project Falcon",
+    "type": "Attraction",
+    "kind": "Corporate HQ",
+    "status": "Prospect",
+    "start": 27,
+    "dur": 18
+   },
+   {
+    "id": "P04",
+    "name": "La Quinta renovation",
+    "type": "Redevelopment",
+    "kind": "Hotel",
+    "status": "Complete",
+    "capex": 4500000,
+    "note": "All 100-plus guestrooms and the lobby, under new Roswell-based ownership.",
+    "start": 14,
+    "dur": 10
+   },
+   {
+    "id": "P05",
+    "name": "QuikTrip, Holcomb Bridge",
+    "type": "Redevelopment",
+    "kind": "Retail",
+    "status": "Announced",
+    "capex": 11000000,
+    "note": "On the former Red Lobster site, opening early 2027.",
+    "start": 17,
+    "dur": 16
+   },
+   {
+    "id": "P06",
+    "name": "Project Meridian",
+    "type": "Expansion",
+    "kind": "Headquarters expansion",
+    "status": "Announced",
+    "start": 10,
+    "dur": 19
+   },
+   {
+    "id": "P07",
+    "name": "Rick Case Hyundai",
+    "type": "Expansion",
+    "kind": "Dealership",
+    "status": "Announced",
+    "capex": 35000000,
+    "sqft": 25000,
+    "note": "3.7 acres at Hwy 9 and Sun Valley Dr, finishing fall 2027. The current site becomes a Genesis dealership.",
+    "start": 19,
+    "dur": 18
+   },
+   {
+    "id": "P08",
+    "name": "The Chambray",
+    "type": "Redevelopment",
+    "kind": "Hotel",
+    "status": "Active",
+    "note": "Hyatt JDV boutique hotel, five stories and 125 rooms, opening summer 2027.",
+    "start": 23,
+    "dur": 15,
+    "size": 0.9
+   },
+   {
+    "id": "P09",
+    "name": "Hillrose Market",
+    "type": "Redevelopment",
+    "kind": "Mixed-use redevelopment",
+    "status": "Active",
+    "sqft": 75000,
+    "note": "75,000 square feet of commercial space with 143 apartments, 16 brownstones and a 500-space deck.",
+    "start": 22,
+    "dur": 20
+   },
+   {
+    "id": "P10",
+    "name": "Project Summit",
+    "type": "Attraction",
+    "kind": "R&D center",
+    "status": "Prospect",
+    "start": 26,
+    "dur": 16
+   },
+   {
+    "id": "P11",
+    "name": "Atlanta Golf & Social",
+    "type": "Attraction",
+    "kind": "Entertainment",
+    "status": "Announced",
+    "note": "Locally owned indoor golf club at Southern Post.",
+    "start": 18,
+    "dur": 12,
+    "size": 0.2
+   },
+   {
+    "id": "P12",
+    "name": "Industrious",
+    "type": "Attraction",
+    "kind": "Coworking",
+    "status": "Announced",
+    "note": "Premium coworking at Southern Post.",
+    "start": 18,
+    "dur": 13,
+    "size": 0.12
+   },
+   {
+    "id": "P13",
+    "name": "Wellstar Women's Health",
+    "type": "Expansion",
+    "kind": "Medical expansion",
+    "status": "Complete",
+    "note": "New on-campus OB-GYN clinic supporting about 1,600 deliveries a year.",
+    "start": 9,
+    "dur": 14,
+    "size": 0.5
+   },
+   {
+    "id": "P14",
+    "name": "Project Cedar",
+    "type": "Expansion",
+    "kind": "Office expansion",
+    "status": "Active",
+    "start": 23,
+    "dur": 15
+   },
+   {
+    "id": "P15",
+    "name": "Project Lantern",
+    "type": "Attraction",
+    "kind": "Regional office",
+    "status": "Prospect",
+    "start": 28,
+    "dur": 14
+   },
+   {
+    "id": "P16",
+    "name": "Project Harbor",
+    "type": "Expansion",
+    "kind": "Plant expansion",
+    "status": "Active",
+    "start": 22,
+    "dur": 16
+   },
+   {
+    "id": "P17",
+    "name": "Project Atlas",
+    "type": "Attraction",
+    "kind": "Corporate HQ",
+    "status": "Prospect",
+    "start": 27,
+    "dur": 20
+   },
+   {
+    "id": "P18",
+    "name": "Project Keystone",
+    "type": "Attraction",
+    "kind": "Advanced manufacturing",
+    "status": "Active",
+    "start": 21,
+    "dur": 18
+   },
+   {
+    "id": "P19",
+    "name": "Project Copper",
+    "type": "Expansion",
+    "kind": "Medical expansion",
+    "status": "Prospect",
+    "start": 27,
+    "dur": 18
+   },
+   {
+    "id": "P20",
+    "name": "Project Juniper",
+    "type": "Redevelopment",
+    "kind": "Retail center",
+    "status": "Active",
+    "start": 24,
+    "dur": 14
+   },
+   {
+    "id": "P21",
+    "name": "Project Beacon",
+    "type": "Attraction",
+    "kind": "Regional office",
+    "status": "Prospect",
+    "start": 28,
+    "dur": 16
+   },
+   {
+    "id": "P22",
+    "name": "Project Orion",
+    "type": "Attraction",
+    "kind": "R&D center",
+    "status": "Active",
+    "start": 23,
+    "dur": 17
+   },
+   {
+    "id": "P23",
+    "name": "Project Willow",
+    "type": "Expansion",
+    "kind": "Office expansion",
+    "status": "Prospect",
+    "start": 26,
+    "dur": 15
+   },
+   {
+    "id": "P24",
+    "name": "Project Granite",
+    "type": "Attraction",
+    "kind": "Advanced manufacturing",
+    "status": "Prospect",
+    "start": 27,
+    "dur": 19
+   }
+  ],
+  "model": {
+   "units": 24,
+   "crew": 4,
+   "heads": 11,
+   "revM0": 150000
+  },
+  "tourism": {
+   "anchor": {
+    "year": "2025",
+    "groupContracts": 121,
+    "corpContracts": 18,
+    "groupNights": 5822,
+    "corpNights": 1365,
+    "groupRevenue": 759978,
+    "corpRevenue": 162885,
+    "impressions": 11500000,
+    "pageViews": 344000,
+    "newUsers": 197000,
+    "videoViews": 310000,
+    "hotels": 12,
+    "rooms": 1365,
+    "hotelRevenue": 22000000,
+    "occupancy": 52.9,
+    "strListings": 155,
+    "strAdr": 198.55,
+    "strRevenue": 5000000,
+    "strOccupancy": 60.0,
+    "marketingSpend": 420000
+   },
+   "videoCompletion": 65.71,
+   "visitors": {
+    "source": "Advantage Travel & Tourism, Placer.ai (Insight Roswell 2026)",
+    "facts": [
+     {
+      "v": "432.5K",
+      "k": "visitors from beyond 50 miles in 2025"
+     },
+     {
+      "v": "$30M+",
+      "k": "spent in Roswell by those visitors"
+     },
+     {
+      "v": "75%",
+      "k": "from outside Georgia, Atlanta market aside"
+     },
+     {
+      "v": "56%",
+      "k": "aged 35 to 54"
+     },
+     {
+      "v": "40%+",
+      "k": "household income over $150,000"
+     },
+     {
+      "v": "55.6%",
+      "k": "of distant visitors went to an outdoor or recreation spot"
+     }
+    ]
+   }
+  },
+  "focus": "bizdev",
+  "pages": {
+   "ops-home": {
+    "name": "Overview"
+   },
+   "ops-units": {
+    "name": "Development projects"
+   },
+   "ops-events": {
+    "name": "Events & programs"
+   },
+   "ops-detail": {
+    "name": "Project"
+   },
+   "ops-second": false,
+   "ops-hotels": false,
+   "ops-marketing": false,
+   "ops-watch": false,
+   "ops-grid": false,
+   "ops-season": false,
+   "ops-people": false,
+   "pipeline-home": {
+    "name": "Prospect pipeline"
+   }
+  },
+  "pageOrder": [
+   "ops-home",
+   "ops-units",
+   "ops-events"
+  ],
+  "headline": {
+   "metric": "capex",
+   "label": "Capital investment in the portfolio",
+   "says": "{v} of capital investment in the portfolio"
+  },
+  "kpis": [
+   "capex",
+   "jobs",
+   "activeProjects",
+   "cashDays"
+  ],
+  "programs": {
+   "anchor": {
+    "year": "2025",
+    "events": 37,
+    "attendees": 4100,
+    "businesses": 350,
+    "attraction": 63,
+    "attractionDone": 27,
+    "retention": 46,
+    "retentionDone": 15
+   },
+   "events": [
+    {
+     "name": "Insight Roswell",
+     "month": 2
+    },
+    {
+     "name": "Restaurant Week",
+     "month": 4
+    },
+    {
+     "name": "Summer Sippin'",
+     "month": 7
+    },
+    {
+     "name": "Veteran Business Expo",
+     "month": 11
+    },
+    "Roswell Inc Connect",
+    "Ribbon cutting",
+    "Business mentoring session",
+    "Career Expo"
+   ]
+  },
+  "packs": [
+   {
+    "id": "monthly",
+    "name": "Board report",
+    "icon": "doc",
+    "what": "What the board reviews each month.",
+    "holds": [
+     "Projects announced, jobs and capital investment",
+     "Attraction and retention projects opened and completed",
+     "Events and businesses supported",
+     "Budget against actual"
+    ]
+   },
+   {
+    "id": "lender",
+    "name": "City contract report",
+    "icon": "shield",
+    "what": "The quarterly report to the city that funds the partnership.",
+    "holds": [
+     "Deliverables and where each stands",
+     "Jobs created and retained, investment",
+     "Spending against the contract budget",
+     "Signed-off months only"
+    ]
+   },
+   {
+    "id": "owner",
+    "name": "Annual impact report",
+    "icon": "people",
+    "what": "The year in projects, jobs, investment and events.",
+    "holds": [
+     "Capital investment and jobs, project by project",
+     "Retention and expansion projects completed",
+     "Events, attendance and businesses supported",
+     "The year against the year before"
+    ]
+   },
+   {
+    "id": "board",
+    "name": "Sponsor report",
+    "icon": "wallet",
+    "what": "What each sponsor's support made possible.",
+    "holds": [
+     "Events sponsored and their attendance",
+     "Audience and reach for each sponsor",
+     "Sponsorship received against the plan",
+     "Signed-off months only"
+    ]
+   }
+  ],
+  "pipelineSource": "executivepulse",
+  "connected": {
+   "finance": "quickbooks",
+   "systems": [],
+   "projects": [],
+   "tasks": [
+    "ms-planner"
+   ],
+   "docs": [
+    "sharepoint"
+   ],
+   "comms": [
+    "ms-teams",
+    "outlook"
+   ],
+   "crm": [
+    "executivepulse",
+    "hubspot",
+    "google-analytics"
+   ],
+   "people": [
+    "gusto"
+   ],
+   "inventory": []
+  }
+ },
+ "brand": {
+  "name": "Roswell Inc",
+  "mono": "RI",
+  "logo": "mark.png",
+  "palette": {
+   "accent": "#007B78",
+   "accentDeep": "#005E5C",
+   "accentLift": "#05A2AA",
+   "tint": "#E8F6F6",
+   "navy": "#1F2B2B"
+  },
+  "type": {
+   "display": "\"Roboto Slab\", Georgia, serif",
+   "body": "\"Inter\", -apple-system, \"Segoe UI\", sans-serif",
+   "google": "Roboto+Slab:wght@500;600;700&family=Inter:wght@400;500;600;700"
+  },
+  "shape": "square",
+  "logoWide": "logo-wide.png",
+  "hero": "hero.jpg",
+  "look": "bright",
+  "series": {
+   "light": [
+    "#007B78",
+    "#4E9A2F",
+    "#05A2AA",
+    "#6B6C70",
+    "#2E6F9E",
+    "#B8862B"
+   ],
+   "dark": [
+    "#2CC1BC",
+    "#7CC85A",
+    "#47C9D0",
+    "#A3A4A8",
+    "#5A9BD0",
+    "#D3A44A"
+   ]
+  },
+  "watermark": "watermark.png"
+ },
+ "modulesOff": [
+  "people"
+ ]
+}

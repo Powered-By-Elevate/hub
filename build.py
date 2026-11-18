@@ -106,7 +106,12 @@ def build(no_data: bool = False, dist: Path = DIST,
         raise SystemExit("no data/out/summary.json: run data/gen.py without --only")
     shutil.copy2(summary, DIST / "data" / "summary.json")
 
-    return _finish(DIST, [i["id"] for i in industries])
+    manifest = _finish(DIST, [i["id"] for i in industries])
+    # the prospects whose demos are public, each at /<id>/ beside the demo
+    sys.path.insert(0, str(HERE / "prospects"))
+    from build_prospect import build_all  # noqa: E402
+    manifest["prospects"] = build_all(DIST)
+    return manifest
 
 
 def _stamp_assets(DIST: Path) -> str:  # noqa: N803
