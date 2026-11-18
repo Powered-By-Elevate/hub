@@ -60,7 +60,15 @@ async function boot() {
      a website can link straight to one company (elevatemanagedservices.com's
      industry chips do). It counts as a choice, so the front door stays shut. */
   const demo = demoHash();
-  if (demo) { app.s.useIndustry(demo); app.s.save(); firstVisit = false; history.replaceState(null, '', '#/home'); }
+  if (demo) { app.s.useIndustry(demo); app.s.save(); firstVisit = false; history.replaceState(null, '', '#/' + demoPage()); }
+  if (Site.EMBED) {
+    firstVisit = false;
+    document.body.classList.add('embedded');
+    addEventListener('message', ev => {
+      const m = ev.data;
+      if (m && m.type === 'bi-show') showFramed(m.industry, m.page);
+    });
+  }
   await useIndustry(app.s.data.industry, true);
 
   World.start();
@@ -77,7 +85,7 @@ async function boot() {
     const demo = demoHash();
     if (demo) {
       if (demo !== app.s.data.industry) { app.s.useIndustry(demo); await useIndustry(demo); } else app.s.save();
-      go('home'); return;
+      go(demoPage()); return;
     }
     const gate = readHash();
     if (gate) { openGate(gate.kind, gate.arg); return; }
@@ -126,6 +134,21 @@ function demoHash() {
   const m = location.hash.match(/^#\/?demo\/([a-z-]+)/);
   if (!m || (app.cfg.product && app.cfg.product.tenant)) return null;
   return app.cfg.industries.industries.some(i => i.id === m[1]) ? m[1] : null;
+}
+
+/* `#/demo/<industry>/<page>` lands on that page rather than Start here. */
+function demoPage() {
+  const m = location.hash.match(/^#\/?demo\/[a-z-]+\/([a-z-]+)/);
+  return m && PAGES[m[1]] ? m[1] : 'home';
+}
+
+/* Framed (site.js EMBED): the owner of the frame picks the industry and the
+   page with a message, so switching never reloads the frame. */
+async function showFramed(industry, page) {
+  if (industry && industry !== app.s.data.industry) { app.s.useIndustry(industry); await useIndustry(industry); }
+  const ids = app.s.pages().map(p => p.id);
+  go(ids.includes(page) ? page : 'home');
+  scrollTo(0, 0);
 }
 
 /* A page route sets the page. `#/signin`, `#/signin/<industry>` and
