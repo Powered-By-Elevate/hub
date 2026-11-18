@@ -148,7 +148,7 @@ export function signin({ cfg, s, q, ind, tenant, note }) {
         <div class="sg-or"><span>Demo sign-in</span></div>
         ${who.length ? `<div class="sg-people">
           ${who.map((p, i) => person(cfg, ind, p, i)).join('')}
-        </div>` : `<p class="sg-small">No sample people are set up for this Hub.</p>`}
+        </div>` : `<p class="sg-small">No sample people are set up for this BI.</p>`}
         <p class="sg-foot">This is a demo sign-in. Every name here is invented, and picking one sets the view level and nothing more.</p>
         ${tenant ? '' : `<button class="sg-back" data-act="chooser">${icon('back', 16)}Back to industry picker</button>`}
       </section>

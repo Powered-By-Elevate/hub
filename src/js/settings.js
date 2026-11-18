@@ -277,7 +277,7 @@ export class Settings {
   exportJSON() {
     const d = this.data;
     return JSON.stringify({
-      $comment: 'A Hub client configuration. Hand this to the build and the dashboard comes out branded, connected and role-scoped.',
+      $comment: 'A BI client configuration. Hand this to the build and the dashboard comes out branded, connected and role-scoped.',
       product: d.productName,
       client: { name: d.company, industry: d.industry },
       brand: d.brand,

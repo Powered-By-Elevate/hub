@@ -335,7 +335,7 @@ function sourceLine(page) {
     return on.length ? `From ${esc(on.join(' · '))}, read only.` : '';
   }
   if (mod === 'docs') {
-    return `Hosted in the ${esc(app.s.data.productName)}: documents are stored and filed here.`;
+    return `Hosted in ${esc(app.s.data.productName)}: documents are stored and filed here.`;
   }
   const cats = SOURCE_CATS[mod];
   if (!cats) return '';
@@ -1357,7 +1357,7 @@ function ties() {
 
 boot().catch(err => {
   document.getElementById('page').innerHTML =
-    `<section class="panel"><div class="empty"><b>The Hub could not start.</b><br>
+    `<section class="panel"><div class="empty"><b>BI could not start.</b><br>
      ${esc(err.message)}<br><br><span class="muted">Serve this folder over http rather than
      opening the file directly: the configuration and the data are fetched.</span></div></section>`;
   console.error(err);
