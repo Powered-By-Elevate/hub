@@ -24,6 +24,11 @@ import * as World from './world.js';
 import * as Gate from './gate.js';
 import * as Site from './site.js';
 
+/* Every tab opens at the top, also when you come back to it with Back (Matt's standing rule,
+   2026-11-18). The page scrolls to the top on every route, and the browser may not put an old
+   position back afterwards. */
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 const BASIS = [
   { id: 'month', name: 'Month' }, { id: 'ytd', name: 'YTD' },
   { id: 'ttm', name: 'TTM' }, { id: 'fy', name: 'FY' },
